@@ -17,6 +17,8 @@ export interface Task {
   baseCommit: string;
   slug: string;
   createdAt: string;
+  /** Próximo índice de faixa; execuções removidas não liberam o índice. */
+  nextBandIndex?: number;
 }
 
 export type ExecutionStatus =
