@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "agents": [
+    {
+      "id": "claude",
+      "displayName": "Claude Code",
+      "kind": "agent",
+      "verifiedWith": "2.1.305",
+      "executable": {
+        "command": "claude",
+        "windows": { "npmShim": { "package": "@anthropic-ai/claude-code", "bin": "claude" } }
+      },
+      "args": [],
+      "prompt": { "delivery": "argument", "args": ["{prompt}"] },
+      "model": {
+        "options": [
+          { "id": "opus", "label": "Opus" },
+          { "id": "sonnet", "label": "Sonnet" },
+          { "id": "fable", "label": "Fable" },
+          { "id": "haiku", "label": "Haiku" }
+        ],
+        "default": "opus",
+        "allowCustom": true,
+        "args": ["--model", "{model}"],
+        "switch": { "strategy": "pty-command", "template": "/model {model}\r" }
+      },
+      "permission": {
+        "options": [
+          { "id": "manual", "label": "Perguntar", "args": ["--permission-mode", "manual"] },
+          { "id": "acceptEdits", "label": "Aceitar edições", "args": ["--permission-mode", "acceptEdits"] },
+          { "id": "plan", "label": "Planejar", "args": ["--permission-mode", "plan"] },
+          { "id": "auto", "label": "Automático", "args": ["--permission-mode", "auto"] },
+          {
+            "id": "bypassPermissions",
+            "label": "Sem confirmações",
+            "args": ["--permission-mode", "bypassPermissions"],
+            "dangerous": true
+          }
+        ],
+        "default": "manual",
+        "switch": { "strategy": "restart-resume" }
+      },
+      "resume": { "args": ["--continue"] },
+      "detect": { "strategy": "path" }
+    },
+    {
+      "id": "codex",
+      "displayName": "Codex CLI",
+      "kind": "agent",
+      "verifiedWith": "0.163.0",
+      "executable": {
+        "command": "codex",
+        "windows": { "npmShim": { "package": "@openai/codex", "bin": "codex" } }
+      },
+      "args": [],
+      "prompt": { "delivery": "argument", "args": ["{prompt}"] },
+      "model": {
+        "options": [
+          { "id": "gpt-6-sol", "label": "GPT-6 Sol" },
+          { "id": "gpt-6-luna", "label": "GPT-6 Luna" },
+          { "id": "gpt-5.5", "label": "GPT-5.5" }
+        ],
+        "default": "gpt-6-sol",
+        "allowCustom": true,
+        "args": ["--model", "{model}"],
+        "switch": { "strategy": "restart-resume" }
+      },
+      "permission": {
+        "options": [
+          {
+            "id": "read-only",
+            "label": "Somente leitura",
+            "args": ["--sandbox", "read-only", "--ask-for-approval", "on-request"]
+          },
+          {
+            "id": "workspace-write",
+            "label": "Editar o worktree",
+            "args": ["--sandbox", "workspace-write", "--ask-for-approval", "on-request"]
+          },
+          {
+            "id": "workspace-write-never",
+            "label": "Editar sem perguntar",
+            "args": ["--sandbox", "workspace-write", "--ask-for-approval", "never"]
+          },
+          {
+            "id": "full-access",
+            "label": "Sem sandbox e sem confirmações",
+            "args": ["--dangerously-bypass-approvals-and-sandbox"],
+            "dangerous": true
+          }
+        ],
+        "default": "workspace-write",
+        "switch": { "strategy": "restart-resume" }
+      },
+      "resume": { "args": ["resume", "--last"] },
+      "detect": { "strategy": "path" }
+    },
+    {
+      "id": "gemini",
+      "displayName": "Gemini CLI",
+      "kind": "agent",
+      "verifiedWith": "0.64.0",
+      "executable": {
+        "command": "gemini",
+        "windows": { "npmShim": { "package": "@google/gemini-cli", "bin": "gemini" } }
+      },
+      "args": [],
+      "prompt": { "delivery": "argument", "args": ["--prompt-interactive", "{prompt}"] },
+      "model": {
+        "options": [
+          { "id": "gemini-2.5-pro", "label": "Gemini 2.5 Pro" },
+          { "id": "gemini-3-pro-preview", "label": "Gemini 3 Pro (preview)" },
+          { "id": "gemini-2.5-flash", "label": "Gemini 2.5 Flash" },
+          { "id": "gemini-3-flash-preview", "label": "Gemini 3 Flash (preview)" }
+        ],
+        "default": "gemini-2.5-pro",
+        "allowCustom": true,
+        "args": ["--model", "{model}"],
+        "switch": { "strategy": "restart-resume" }
+      },
+      "permission": {
+        "options": [
+          { "id": "default", "label": "Perguntar", "args": ["--approval-mode", "default"] },
+          { "id": "auto_edit", "label": "Aceitar edições", "args": ["--approval-mode", "auto_edit"] },
+          { "id": "plan", "label": "Planejar (somente leitura)", "args": ["--approval-mode", "plan"] },
+          {
+            "id": "yolo",
+            "label": "Sem confirmações",
+            "args": ["--approval-mode", "yolo"],
+            "dangerous": true
+          }
+        ],
+        "default": "default",
+        "switch": { "strategy": "restart-resume" }
+      },
+      "resume": { "args": ["--resume", "latest"] },
+      "detect": { "strategy": "path" }
+    },
+    {
+      "id": "pwsh",
+      "displayName": "PowerShell 7",
+      "kind": "shell",
+      "platforms": ["win32"],
+      "executable": { "command": "pwsh" },
+      "args": ["-NoLogo"],
+      "prompt": { "delivery": "none" },
+      "detect": { "strategy": "path" }
+    },
+    {
+      "id": "powershell",
+      "displayName": "Windows PowerShell",
+      "kind": "shell",
+      "platforms": ["win32"],
+      "executable": { "command": "powershell" },
+      "args": ["-NoLogo"],
+      "prompt": { "delivery": "none" },
+      "detect": { "strategy": "path" }
+    },
+    {
+      "id": "cmd",
+      "displayName": "Prompt de Comando",
+      "kind": "shell",
+      "platforms": ["win32"],
+      "executable": { "command": "cmd" },
+      "args": [],
+      "prompt": { "delivery": "none" },
+      "detect": { "strategy": "path" }
+    },
+    {
+      "id": "git-bash",
+      "displayName": "Git Bash",
+      "kind": "shell",
+      "platforms": ["win32"],
+      "executable": { "command": "C:\\Program Files\\Git\\bin\\bash.exe" },
+      "args": ["--login", "-i"],
+      "prompt": { "delivery": "none" },
+      "detect": { "strategy": "path" }
+    },
+    {
+      "id": "bash",
+      "displayName": "Bash",
+      "kind": "shell",
+      "platforms": ["darwin", "linux"],
+      "executable": { "command": "bash" },
+      "args": ["-l"],
+      "prompt": { "delivery": "none" },
+      "detect": { "strategy": "path" }
+    },
+    {
+      "id": "zsh",
+      "displayName": "Zsh",
+      "kind": "shell",
+      "platforms": ["darwin", "linux"],
+      "executable": { "command": "zsh" },
+      "args": ["-l"],
+      "prompt": { "delivery": "none" },
+      "detect": { "strategy": "path" }
+    }
+  ]
+}

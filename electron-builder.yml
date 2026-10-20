@@ -1,0 +1,31 @@
+appId: io.github.davii-code.melinna
+productName: Melinna
+executableName: melinna-desk
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**
+  - catalog/**
+  - package.json
+asarUnpack:
+  - node_modules/node-pty/**
+  - out/host/**
+extraResources:
+  - from: catalog
+    to: catalog
+electronFuses:
+  runAsNode: true
+icon: build/icons/icon-256.png
+win:
+  target: nsis
+  icon: build/icons/icon-256.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target: dmg
+  icon: build/icons/icon.png
+linux:
+  target: AppImage
+  icon: build/icons/icon.png
