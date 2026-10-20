@@ -41,7 +41,7 @@ export interface WorkspaceSnapshot {
   maxLive: number;
   readOnly: boolean;
   /** Execuções cuja gravação de histórico está suspensa (disco cheio ou erro de E/S). */
-  scrollbackPaused: readonly string[];
+  scrollbackPaused: readonly { execId: string; reason: 'DISK_FULL' | 'IO_ERROR' }[];
   /** Execuções com saída nos últimos 1,5 s. */
   busy: readonly string[];
 }

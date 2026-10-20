@@ -80,6 +80,9 @@ export interface FakeCore {
   executions: ExecutionService;
   catalog: CatalogService;
   store: StateStore;
+  git: GitRunner;
+  mutex: KeyedMutex;
+  paths: ReturnType<typeof makePaths>;
 }
 
 /** Núcleo completo sobre fakes em memória (git programável, hospedeiro falso). */
@@ -155,7 +158,7 @@ export function createFakeCore(state: StateFile = emptyState()): FakeCore {
     hosts: { get: async () => host, existing: async () => host },
     baseEnv: { PATH: '/bin' },
   });
-  return { fs, clock, log, runner, host, model, workspace, executions, catalog, store };
+  return { fs, clock, log, runner, host, model, workspace, executions, catalog, store, git, mutex, paths };
 }
 
 /** Coleta os handlers registrados num `Handle`. */

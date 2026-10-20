@@ -143,29 +143,29 @@
 - [X] T091 [P] [US2] `SegmentStore`: nome por deslocamento; fechamento a 2 MB; com 4 segmentos, apaga o mais antigo antes de abrir o próximo e nunca há 5 arquivos; `meta.json` atômico; leitura a partir de deslocamento disponível e descartado (marca `discarded` + `ESC[0m`); separador; continuação a partir de `totalBytes` — `tests/unit/core/scrollback/segment-store.test.ts`
 - [X] T092 [P] [US2] `ScrollbackWriter`: não bloqueia o produtor; fila acima de 4 MB descarta o mais antigo e registra `gap`; `ENOSPC` para a gravação, emite `persisting: false`, tenta a cada 30 s e grava marca de lacuna ao voltar; `flush` antes de leitura — `tests/unit/core/scrollback/scrollback-writer.test.ts`
 - [X] T093 [P] [US2] `registry.json` do hospedeiro: gravação atômica em spawn e exit, leitura tolerante a arquivo ausente ou corrompido — `tests/unit/host/registry.test.ts`
-- [ ] T094 [P] [US2] Integração de reanexação: `attach` do zero recebe `replay-start`, histórico, `replay-end` e ao vivo com deslocamentos contíguos; consulta `query-cursor` feita durante a reprodução é respondida pelo hospedeiro; derrubar e reconectar o cliente e anexar do último deslocamento sem duplicar; processo que sai sem cliente fica no registro com código e horário; `list` reflete — `tests/integration/host/reattach.test.ts`
-- [ ] T095 [P] [US2] Integração de encerramento: `kill` envia Ctrl+C e o agente falso sai; com `ignore-sigint` e `spawn-child`, agente e neto encerrados à força após `graceMs`; `kill` de execução que não é do hospedeiro atual → `EXECUTION_NOT_RUNNING` sem tocar em pid algum; `shutdown` encerra todos, grava scrollback e sai — `tests/integration/host/kill.test.ts`
-- [ ] T096 [P] [US2] Integração de hospedeiro novo: após derrubar o hospedeiro, o novo não adota pids do registro anterior; relançar a execução continua os deslocamentos de `meta.json` sem sobrepor o histórico — `tests/integration/host/host-restart.test.ts`
-- [ ] T097 [P] [US2] Recuperação no núcleo: vivas no hospedeiro continuam `running`; com código → `exited`; ausentes sem saída → `lost`; `disconnected` marca vivas como `lost`; próximo lançamento pede hospedeiro novo — `tests/unit/core/execution/recovery.test.ts`
-- [ ] T098 [P] [US2] Fluxo de fechamento e IPC `app`: sem vivas fecha direto; com vivas emite `onCloseRequested`; `keep-running` mantém o hospedeiro; `stop-all` chama `stopAll(5000)`; `cancel` não fecha; validação de `answerClose` — `tests/unit/main/close-flow.test.ts`, `tests/unit/main/ipc/register-app.test.ts`
-- [ ] T099 [P] [US2] `CloseDialog` (padrão "Manter rodando", três opções) e `ScrollbackBanner` (disco cheio) — `tests/unit/renderer/CloseDialog.test.tsx`, `tests/unit/renderer/ScrollbackBanner.test.tsx`
-- [ ] T100 [P] [US2] `layout-store`: painéis abertos persistidos e reabertos com `terminal.open` na inicialização — `tests/unit/renderer/layout-store.test.ts`
-- [ ] T101 [P] [US2] Desempenho SC-004: reanexar 6 execuções com 8 MB de histórico cada em ≤ 2 s — `tests/perf/reattach.perf.test.ts`
-- [ ] T102 [P] [US2] E2E: lançar 2 execuções falsas, fechar com "Manter rodando", encerrar uma pelo pid, reabrir, ver histórico nos dois, eco na viva e código de saída na outra — `tests/e2e/close-and-reopen.spec.ts`
+- [X] T094 [P] [US2] Integração de reanexação: `attach` do zero recebe `replay-start`, histórico, `replay-end` e ao vivo com deslocamentos contíguos; consulta `query-cursor` feita durante a reprodução é respondida pelo hospedeiro; derrubar e reconectar o cliente e anexar do último deslocamento sem duplicar; processo que sai sem cliente fica no registro com código e horário; `list` reflete — `tests/integration/host/reattach.test.ts`
+- [X] T095 [P] [US2] Integração de encerramento: `kill` envia Ctrl+C e o agente falso sai; com `ignore-sigint` e `spawn-child`, agente e neto encerrados à força após `graceMs`; `kill` de execução que não é do hospedeiro atual → `EXECUTION_NOT_RUNNING` sem tocar em pid algum; `shutdown` encerra todos, grava scrollback e sai — `tests/integration/host/kill.test.ts`
+- [X] T096 [P] [US2] Integração de hospedeiro novo: após derrubar o hospedeiro, o novo não adota pids do registro anterior; relançar a execução continua os deslocamentos de `meta.json` sem sobrepor o histórico — `tests/integration/host/host-restart.test.ts`
+- [X] T097 [P] [US2] Recuperação no núcleo: vivas no hospedeiro continuam `running`; com código → `exited`; ausentes sem saída → `lost`; `disconnected` marca vivas como `lost`; próximo lançamento pede hospedeiro novo — `tests/unit/core/execution/recovery.test.ts`
+- [X] T098 [P] [US2] Fluxo de fechamento e IPC `app`: sem vivas fecha direto; com vivas emite `onCloseRequested`; `keep-running` mantém o hospedeiro; `stop-all` chama `stopAll(5000)`; `cancel` não fecha; validação de `answerClose` — `tests/unit/main/close-flow.test.ts`, `tests/unit/main/ipc/register-app.test.ts`
+- [X] T099 [P] [US2] `CloseDialog` (padrão "Manter rodando", três opções) e `ScrollbackBanner` (disco cheio) — `tests/unit/renderer/CloseDialog.test.tsx`, `tests/unit/renderer/ScrollbackBanner.test.tsx`
+- [X] T100 [P] [US2] `layout-store`: painéis abertos persistidos e reabertos com `terminal.open` na inicialização — `tests/unit/renderer/layout-store.test.ts`
+- [X] T101 [P] [US2] Desempenho SC-004: reanexar 6 execuções com 8 MB de histórico cada em ≤ 2 s — `tests/perf/reattach.perf.test.ts`
+- [X] T102 [P] [US2] E2E: lançar 2 execuções falsas, fechar com "Manter rodando", encerrar uma pelo pid, reabrir, ver histórico nos dois, eco na viva e código de saída na outra — `tests/e2e/close-and-reopen.spec.ts`
 
 ### Implementação da US2
 
 - [X] T103 [US2] `SegmentStore` e `ScrollbackReader` (passa T091) — `src/core/scrollback/segment-store.ts`, `src/core/scrollback/scrollback-reader.ts`
 - [X] T104 [US2] `ScrollbackWriter` (passa T092) — `src/core/scrollback/scrollback-writer.ts`
 - [X] T105 [US2] Registro do hospedeiro (passa T093) — `src/host/registry.ts`
-- [ ] T106 [US2] Reprodução e anexação serializadas com `flush`, marcas `replay-start`/`replay-end`, responder ativo durante a reprodução, `detach`, `scrollback-status`, `list` (passa T094) — `src/host/attach.ts`, `src/host/server.ts`
-- [ ] T107 [US2] Encerramento: Ctrl+C, espera, `taskkill /T /F` ou sinais ao grupo; só processos do supervisor; `shutdown` (passa T095) — `src/host/kill-tree.ts`, `src/host/pty-supervisor.ts`
-- [ ] T108 [US2] Continuação de deslocamentos a partir de `meta.json` no spawn e não adoção de pids antigos (passa T096) — `src/host/pty-supervisor.ts`
-- [ ] T109 [US2] `reconcileWithHost`, `stopAll` e `disconnected` no núcleo, com ligação na fachada (passa T097) — `src/core/execution/recovery.ts`, `src/core/execution/execution-service.ts`
-- [ ] T110 [US2] Reinício do hospedeiro sob demanda após queda — `src/main/host-launcher.ts`
-- [ ] T111 [US2] Fluxo de fechamento, canais `app.onCloseRequested`/`answerClose` e `reconcileWithHost` na abertura (passa T098) — `src/main/close-flow.ts`, `src/main/ipc/register-app.ts`, `src/main/ipc/validate-app.ts`, `src/main/main.ts`
-- [ ] T112 [US2] `CloseDialog` e `ScrollbackBanner` (passa T099) — `src/renderer/components/CloseDialog.tsx`, `src/renderer/components/Panel/ScrollbackBanner.tsx`
-- [ ] T113 [US2] Persistir e reabrir painéis (passa T100; com o restante da US2, passa T101 e T102) — `src/renderer/store/layout-store.ts`, `src/renderer/App.tsx`
+- [X] T106 [US2] Reprodução e anexação serializadas com `flush`, marcas `replay-start`/`replay-end`, responder ativo durante a reprodução, `detach`, `scrollback-status`, `list` (passa T094) — `src/host/attach.ts`, `src/host/server.ts`
+- [X] T107 [US2] Encerramento: Ctrl+C, espera, `taskkill /T /F` ou sinais ao grupo; só processos do supervisor; `shutdown` (passa T095) — `src/host/kill-tree.ts`, `src/host/pty-supervisor.ts`
+- [X] T108 [US2] Continuação de deslocamentos a partir de `meta.json` no spawn e não adoção de pids antigos (passa T096) — `src/host/pty-supervisor.ts`
+- [X] T109 [US2] `reconcileWithHost`, `stopAll` e `disconnected` no núcleo, com ligação na fachada (passa T097) — `src/core/execution/recovery.ts`, `src/core/execution/execution-service.ts`
+- [X] T110 [US2] Reinício do hospedeiro sob demanda após queda — `src/main/host-launcher.ts`
+- [X] T111 [US2] Fluxo de fechamento, canais `app.onCloseRequested`/`answerClose` e `reconcileWithHost` na abertura (passa T098) — `src/main/close-flow.ts`, `src/main/ipc/register-app.ts`, `src/main/ipc/validate-app.ts`, `src/main/main.ts`
+- [X] T112 [US2] `CloseDialog` e `ScrollbackBanner` (passa T099) — `src/renderer/components/CloseDialog.tsx`, `src/renderer/components/Panel/ScrollbackBanner.tsx`
+- [X] T113 [US2] Persistir e reabrir painéis (passa T100; com o restante da US2, passa T101 e T102) — `src/renderer/store/layout-store.ts`, `src/renderer/App.tsx`
 
 **Checkpoint**: US1 e US2 completas.
 

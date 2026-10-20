@@ -175,7 +175,9 @@ export class ExecutionService {
         if (exec && (exec.status === 'running' || exec.status === 'idle'))
           this.ctx.busy.activity(e.execId, new Date(e.lastOutputAt));
       }),
-      host.on('scrollback-status', (e) => this.ctx.model.setScrollbackPaused(e.execId, !e.persisting)),
+      host.on('scrollback-status', (e) =>
+        this.ctx.model.setScrollbackPaused(e.execId, e.persisting ? null : (e.reason ?? 'IO_ERROR')),
+      ),
       host.on('disconnected', () => {
         if (this.wiredHost !== host) return;
         this.wiredHost = null;

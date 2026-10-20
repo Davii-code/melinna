@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   AgentDefinition,
+  CloseChoice,
   CatalogIssue,
   DetectResult,
   Execution,
@@ -10,8 +11,10 @@ import type {
 } from '../shared/ipc-contract';
 import { ApiContext } from './api';
 import { Grid } from './components/Grid/Grid';
+import { CloseDialog } from './components/CloseDialog';
 import { NewTaskDialog } from './components/NewTaskDialog';
 import { Panel } from './components/Panel/Panel';
+import { ScrollbackBanner } from './components/Panel/ScrollbackBanner';
 import { TerminalDepsContext, type TerminalDeps } from './components/TerminalView';
 import { TopBar } from './components/TopBar';
 import { useLayout, type LayoutStore } from './store/layout-store';
@@ -63,6 +66,16 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const layout = useLayout(layoutStore);
   const [catalog, reloadCatalog] = useCatalog(api);
   const [showNewTask, setShowNewTask] = useState(false);
+  const [closeAsk, setCloseAsk] = useState<{ liveCount: number } | null>(null);
+
+  useEffect(() => api.app.onCloseRequested((info) => setCloseAsk(info)), [api]);
+  const answerClose = useCallback(
+    (choice: CloseChoice) => {
+      setCloseAsk(null);
+      void layoutStore.flush().then(() => api.app.answerClose(choice));
+    },
+    [api, layoutStore],
+  );
 
   useEffect(() => {
     void workspaceStore.start();
@@ -94,7 +107,14 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
         focused={layout.focusedExecutionId === id}
         onClose={() => layoutStore.close(id)}
         onFocus={() => layoutStore.focus(id)}
-        banner={<FailureBanner execution={exec} />}
+        banner={
+          <>
+            <FailureBanner execution={exec} />
+            <ScrollbackBanner
+              reason={snapshot?.scrollbackPaused.find((p) => p.execId === id)?.reason ?? null}
+            />
+          </>
+        }
       />
     );
   };
@@ -117,6 +137,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
               <div className="loading">Carregando…</div>
             )}
           </main>
+          {closeAsk && <CloseDialog liveCount={closeAsk.liveCount} onAnswer={answerClose} />}
           {showNewTask && snapshot && (
             <NewTaskDialog
               snapshot={snapshot as WorkspaceSnapshot}

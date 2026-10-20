@@ -6,6 +6,7 @@ import type { ReplayItem, SegmentStore } from './segment-store';
 
 export const MAX_PENDING_BYTES = 4 * 1024 * 1024;
 export const RETRY_MS = 30_000;
+const BATCH_BYTES = 1024 * 1024;
 
 export interface PendingChunk {
   offset: number;
@@ -104,19 +105,44 @@ export class ScrollbackWriter {
 
   private async drain(): Promise<void> {
     while (this.queue.length > 0 && this.persisting && this.holds === 0) {
-      const head = this.queue[0];
-      if (!head) break;
+      const batch = this.takeBatch();
+      if (!batch) break;
       try {
         const reason = this.dropped ? 'fila cheia ou disco cheio' : 'perdido';
-        await this.store.append(head.offset, head.bytes, reason);
+        await this.store.append(batch.offset, batch.bytes, reason);
         this.dropped = false;
-        this.queue.shift();
-        this.queued -= head.bytes.length;
+        this.queue.splice(0, batch.count);
+        this.queued -= batch.bytes.length;
       } catch (err) {
         this.fail(errorCode(err) === 'ENOSPC' ? 'DISK_FULL' : 'IO_ERROR', err);
         return;
       }
     }
+  }
+
+  /** Junta pedaços contíguos do início da fila numa só gravação (até 1 MB). */
+  private takeBatch(): { offset: number; bytes: Uint8Array; count: number } | null {
+    const head = this.queue[0];
+    if (!head) return null;
+    let count = 1;
+    let size = head.bytes.length;
+    let end = head.offset + head.bytes.length;
+    while (count < this.queue.length) {
+      const next = this.queue[count];
+      if (!next || next.offset !== end || size + next.bytes.length > BATCH_BYTES) break;
+      size += next.bytes.length;
+      end += next.bytes.length;
+      count++;
+    }
+    if (count === 1) return { offset: head.offset, bytes: head.bytes, count };
+    const bytes = new Uint8Array(size);
+    let pos = 0;
+    for (let i = 0; i < count; i++) {
+      const c = this.queue[i] as PendingChunk;
+      bytes.set(c.bytes, pos);
+      pos += c.bytes.length;
+    }
+    return { offset: head.offset, bytes, count };
   }
 
   private fail(reason: 'DISK_FULL' | 'IO_ERROR', err: unknown): void {

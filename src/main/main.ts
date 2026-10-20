@@ -87,7 +87,7 @@ async function boot(): Promise<void> {
     builtinPath: builtinCatalogPath({
       isPackaged: app.isPackaged,
       resourcesPath: process.resourcesPath,
-      appPath: app.getAppPath(),
+      mainDir: __dirname,
     }),
     userPath: paths.userCatalog,
   });

@@ -6,14 +6,15 @@ export function userDataOverride(env: NodeJS.ProcessEnv): string | null {
   return v && v.length > 0 ? v : null;
 }
 
+/** Empacotado: `resources/catalog`. Em desenvolvimento: `catalog/` na raiz do projeto (dois níveis acima de `out/main`). */
 export function builtinCatalogPath(opts: {
   isPackaged: boolean;
   resourcesPath: string;
-  appPath: string;
+  mainDir: string;
 }): string {
   return opts.isPackaged
     ? join(opts.resourcesPath, 'catalog', 'agents.json')
-    : join(opts.appPath, 'catalog', 'agents.json');
+    : join(opts.mainDir, '..', '..', 'catalog', 'agents.json');
 }
 
 /** O hospedeiro roda fora do asar (asarUnpack), com o Node do Electron. */

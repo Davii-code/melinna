@@ -20,7 +20,7 @@ export class WorkspaceModel {
   private version = 0;
   private cached: WorkspaceSnapshot | undefined;
   private readonly listeners = new Set<(s: WorkspaceSnapshot) => void>();
-  private readonly paused = new Set<string>();
+  private readonly paused = new Map<string, 'DISK_FULL' | 'IO_ERROR'>();
 
   private busyIds: () => readonly string[] = () => [];
 
@@ -75,10 +75,9 @@ export class WorkspaceModel {
     this.notify();
   }
 
-  setScrollbackPaused(execId: string, paused: boolean): void {
-    const had = this.paused.has(execId);
-    if (paused === had) return;
-    if (paused) this.paused.add(execId);
+  setScrollbackPaused(execId: string, reason: 'DISK_FULL' | 'IO_ERROR' | null): void {
+    if ((this.paused.get(execId) ?? null) === reason) return;
+    if (reason) this.paused.set(execId, reason);
     else this.paused.delete(execId);
     this.version++;
     this.cached = undefined;
@@ -95,7 +94,7 @@ export class WorkspaceModel {
       liveCount: this.liveCount(),
       maxLive: MAX_LIVE_EXECUTIONS,
       readOnly: this.readOnly,
-      scrollbackPaused: [...this.paused],
+      scrollbackPaused: [...this.paused].map(([execId, reason]) => ({ execId, reason })),
       busy: [...this.busyIds()],
     });
     return this.cached;
