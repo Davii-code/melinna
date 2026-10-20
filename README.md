@@ -1,15 +1,20 @@
 <div align="center">
 
-<img src="docs/brand/logo.svg" alt="Melinna" width="160" />
+<img src="docs/brand/logo-wordmark.svg" alt="melinna" width="480" />
+
+<br />
+<br />
+
+**Um feixe entra. Seis saem.**<br />
+Workspace desktop local-first para rodar vários agentes de código de CLI em paralelo,
+cada um num terminal PTY vivo e isolado no seu próprio git worktree.
 
 <br />
 
-<img src="docs/brand/logo-wordmark.svg" alt="melinna" width="420" />
+<img src="docs/brand/avatar.jpg" alt="Melinna" width="290" />
 
-### Um feixe entra. Seis saem.
-
-Workspace desktop local-first para rodar vários agentes de código de CLI em paralelo,<br />
-cada um num terminal PTY vivo e isolado no seu próprio git worktree.
+<br />
+<br />
 
 ![status](https://img.shields.io/badge/status-especifica%C3%A7%C3%A3o-4f8cff?style=flat-square&labelColor=07080b)
 ![plataforma](https://img.shields.io/badge/Windows-primeiro-34c759?style=flat-square&labelColor=07080b)
@@ -86,12 +91,4 @@ Assets em [`docs/brand/`](docs/brand/).
 
 ## Autor
 
-<table>
-  <tr>
-    <td><img src="docs/brand/avatar.jpg" alt="Davi" width="96" /></td>
-    <td>
-      <strong>Davi</strong><br />
-      <a href="https://github.com/Davii-code">@Davii-code</a>
-    </td>
-  </tr>
-</table>
+Feito por [@Davii-code](https://github.com/Davii-code).
