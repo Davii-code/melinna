@@ -152,7 +152,11 @@ async function boot(): Promise<void> {
   });
 
   const devUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined;
-  const trustedOrigin = devUrl ? new URL(devUrl).origin : APP_ORIGIN;
+  const originOf = (url: string) => {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}`;
+  };
+  const trustedOrigin = devUrl ? originOf(devUrl) : APP_ORIGIN;
   const win = createMainWindow({
     create: (opts) => new BrowserWindow(opts),
     preloadPath: preloadPath(__dirname),
@@ -198,7 +202,7 @@ async function boot(): Promise<void> {
     const url = event.senderFrame?.url;
     if (!url) return false;
     try {
-      return new URL(url).origin === trustedOrigin;
+      return originOf(url) === trustedOrigin;
     } catch {
       return false;
     }

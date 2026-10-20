@@ -32,6 +32,7 @@ export default defineConfig({
     plugins: [react()],
     build: {
       outDir: 'out/renderer',
+      assetsInlineLimit: 0,
       rollupOptions: { input: resolve(__dirname, 'src/renderer/index.html') },
     },
   },

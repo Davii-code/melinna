@@ -58,75 +58,75 @@
 
 ### Testes da US1 (escrever antes)
 
-- [ ] T025 [P] [US1] Validação do catálogo: obrigatórios, id inválido, placeholder parcial, `restart-resume` sem `resume`, shell com `model`, padrão fora da lista, `platforms`, inválida não derruba as válidas — `tests/unit/core/catalog/validate.test.ts`
-- [ ] T026 [P] [US1] Carga e mesclagem (embutido + usuário por `id`, usuário ausente, JSON inválido do usuário vira `invalid`) — `tests/unit/core/catalog/load.test.ts`
-- [ ] T027 [P] [US1] Montagem do lançamento: ordem dos argumentos, placeholder só em elemento inteiro, modelo personalizado pelo regex (`INPUT_INVALID`), enunciado com `\0` → `PROMPT_INVALID`, enunciado acima de 30.000 caracteres no Windows vai para `promptViaPty`, `delivery: pty` e `none` — `tests/unit/core/catalog/launch-plan.test.ts`
-- [ ] T028 [P] [US1] Resolução e detecção: PATH + PATHEXT, caminho absoluto, ausente → não instalado com nome procurado, `.cmd` com `npmShim` → `node <script>` ou `.exe`, `.cmd` sem resolução → `UNSAFE_LAUNCHER`, `.cmd`/`.bat` nunca devolvido como `file` — `tests/unit/core/catalog/resolve-executable.test.ts`
-- [ ] T029 [P] [US1] Catálogo embutido: `catalog/agents.json` inteiro passa na validação; agentes têm `verifiedWith`; shells declaram `platforms`; modos que desligam confirmações estão `dangerous` — `tests/unit/core/catalog/builtin-catalog.test.ts`
-- [ ] T030 [P] [US1] Slug (acentos, símbolos, 40 caracteres, vazio → `tarefa`), branch `melinna/<slug>/<agente>`, sufixos `-2`, `-3` — `tests/unit/core/git/branch-name.test.ts`
-- [ ] T031 [P] [US1] Máquina de estados (todas as transições do data-model, incluindo `starting`, e rejeição das inválidas) e limite (12 vivas, `LIMIT_REACHED`, vagas) — `tests/unit/core/execution/state-machine.test.ts`, `tests/unit/core/execution/limits.test.ts`
-- [ ] T032 [P] [US1] Integração de repositório, lease e worktree com git real: não-git → `REPO_INVALID`; ref inexistente → `BASE_REF_NOT_FOUND`; contagem de não commitadas; worktree no commit base dentro de `userData`; lease adquirido antes do worktree e `WORKTREE_IN_USE` para outra execução; lease mantido para a mesma execução; falha na criação desfaz worktree e libera lease; diretório solto, worktree registrado sem execução e lease órfão → `WORKTREE_RESIDUE` com `residuePath`; limpeza recusa caminho fora da pasta de worktrees; 6 preparos simultâneos no mesmo repositório terminam sem erro de lock; colisão de branch gera sufixo; `expectMainTreeUnchanged` em todos — `tests/integration/core/git/worktree.test.ts`
-- [ ] T033 [P] [US1] Integração básica do hospedeiro: handshake; token errado → `HOST_AUTH` e fechamento; versão diferente → `HOST_VERSION`; sem `hello` em 2 s → fechamento; `file` relativo e `file` `.cmd`/`.bat` recusados; spawn, eco e cores; `resize` reflete em `size=`; `resize` fora dos limites ignorado; `exit` com código; `activity` no máximo a cada 250 ms — `tests/integration/host/host-basic.test.ts`
-- [ ] T034 [P] [US1] Unidade do `TerminalQueryResponder`: reconhece DA1, DA2, DSR 5, CPR e OSC 10/11 com terminador BEL e ST, inclusive divididos entre pedaços de saída; respostas conforme a tabela do contrato; não responde com conexão anexada fora de reprodução — `tests/unit/host/query-responder.test.ts`
-- [ ] T035 [P] [US1] Integração das consultas: `query-cursor` sem conexão anexada recebe resposta do hospedeiro (`cpr=` com a última linha); com conexão anexada o hospedeiro não responde e a resposta enviada pelo cliente chega ao agente — `tests/integration/host/query-responder.test.ts`
-- [ ] T036 [P] [US1] Integração do controle de fluxo: `flood 20` anexado sem `ack` para de entregar após 1 MB sem confirmação; `ack` retoma; ao final todos os bytes chegam em ordem; sem conexão anexada o PTY nunca é pausado; desanexar retoma — `tests/integration/host/flow-control.test.ts`
-- [ ] T037 [P] [US1] Integração do `ExecutionService.launch` com hospedeiro e git reais: 3 picks geram 3 worktrees e 3 processos, cada worktree existe antes do seu `spawn`; enunciado por argumento chega no JSON; enunciados adversariais (aspas, `\"`, barra invertida no fim, `%PATH%`, `&`, `|`, `^`, `<`, `>`, quebra de linha, tabulação, emoji, CJK) chegam íntegros; enunciado por PTY chega após a primeira saída; executável sumido → só aquela execução em `failed_to_start` com worktree mantido; logs do teste não contêm o enunciado nem a entrada digitada; árvore principal inalterada — `tests/integration/core/execution/launch.test.ts`
-- [ ] T038 [P] [US1] `WorkspaceService`: criar grupo e tarefa, snapshot imutável, `subscribe`, persistência por `state-store`, `inspectRepo` encaminhado — `tests/unit/core/workspace/workspace-service.test.ts`
-- [ ] T039 [P] [US1] IPC dos domínios `catalog`, `workspace` (sem `cleanResidue`) e `tasks`: validação de tipos e tamanhos de `contracts/ipc.md` (`INPUT_INVALID`), ids inexistentes, mapeamento de `MelinnaError` e `INTERNAL` para `Result` — `tests/unit/main/ipc/validate-common.test.ts`, `tests/unit/main/ipc/register-catalog.test.ts`, `tests/unit/main/ipc/register-workspace.test.ts`, `tests/unit/main/ipc/register-tasks.test.ts`
-- [ ] T040 [P] [US1] Ponte de terminal no principal: `terminal:open` cria canal, envia `port2` por `webContents.postMessage('terminal:port', { execId, channelId }, [port2])` e resolve `{ channelId }`; encaminha `data`, `marker` (incluindo `replay-start`/`replay-end`) e `exit`; aceita `input` ≤ 64 KB e `resize` nos limites; repassa `ack`; `terminal:close` desanexa sem matar — `tests/unit/main/ipc/terminal-ports.test.ts`
-- [ ] T041 [P] [US1] Preload: `window.melinna` expõe exatamente as chaves de `contracts/ipc.md`; ao receber `terminal:port`, repassa com `window.postMessage({ source: 'melinna-terminal', execId, channelId }, location.origin, [port])` — `tests/unit/preload/preload.test.ts`
-- [ ] T042 [P] [US1] Receptor de port na página: aceita só `event.source === window`, origem igual, `source: 'melinna-terminal'` e `channelId` pendente; ignora o resto; resolve a espera do `terminal.open` — `tests/unit/renderer/terminal/port-receiver.test.ts`
-- [ ] T043 [P] [US1] Janela e instância única (APIs do Electron simuladas): opções `sandbox`, `contextIsolation`, `nodeIntegration: false`; CSP `default-src 'self'; style-src 'self' 'unsafe-inline'`; `will-navigate` bloqueado; `setWindowOpenHandler` nega; segunda instância foca a janela existente e a nova sai — `tests/unit/main/window.test.ts`, `tests/unit/main/single-instance.test.ts`
-- [ ] T044 [P] [US1] `host-launcher` com fakes: reaproveita hospedeiro do `endpoint` com `welcome`; `endpoint` com pid morto inicia novo; início com `ELECTRON_RUN_AS_NODE=1`, `detached`, `windowsHide`, `unref`; sem `welcome` em 5 s → `HOST_UNAVAILABLE` — `tests/unit/main/host-launcher.test.ts`
-- [ ] T045 [P] [US1] Saída ociosa do hospedeiro com relógio falso: sai após 60 s sem processos e sem conexão; conexão ou `spawn` reinicia a contagem; não sai com processo vivo — `tests/unit/host/idle-exit.test.ts`
-- [ ] T046 [P] [US1] `NewTaskDialog`: agentes "não encontrado" desmarcáveis com nome procurado; vagas impedem excesso; aviso de não commitadas exige "Lançar mesmo assim"; enunciado vazio bloqueado; `picks` com modelo e modo padrão — `tests/unit/renderer/NewTaskDialog.test.tsx`
-- [ ] T047 [P] [US1] `TerminalView` (xterm simulado): escreve bytes; envia entrada; resize com atraso ≤ 100 ms e mínimo 20×5; oculto não envia; perda de WebGL troca para DOM; entre `replay-start` e `replay-end` descarta `onData`; envia `ack` a cada 256 KB processados; marcas `discarded`, `gap` e `separator` viram linhas visíveis com texto pt-BR — `tests/unit/renderer/TerminalView.test.tsx`
-- [ ] T048 [P] [US1] Layout automático: 1 a 12 painéis, mínimo de 40×10 células, transbordo com rolagem — `tests/unit/core/layout/auto.test.ts`
-- [ ] T049 [P] [US1] Casca da interface: `TopBar` com wordmark e botão de nova tarefa; `workspace-store` reflete `workspace.onChange` — `tests/unit/renderer/TopBar.test.tsx`, `tests/unit/renderer/workspace-store.test.ts`
-- [ ] T050 [P] [US1] `Panel`, `PanelHeader` (faixa, número a partir da 7ª, agente, modelo, modo, estado) e `Grid` no modo automático — `tests/unit/renderer/Panel.test.tsx`, `tests/unit/renderer/Grid-auto.test.tsx`
-- [ ] T051 [P] [US1] Desempenho: SC-001 (6 execuções do agente falso, repositório de 1.000 arquivos, ≤ 6 s até o 6º `spawn`) e SC-002 no trecho principal ↔ hospedeiro (p95 do eco de 1.000 teclas ≤ 30 ms) — `tests/perf/launch.perf.test.ts`, `tests/perf/echo-latency.perf.test.ts`
-- [ ] T052 [P] [US1] E2E: catálogo falso no `userData` de teste, repositório temporário, criar grupo, lançar `fake` e `fake-pty`, digitar em cada painel e ver o eco — `tests/e2e/launch-and-converse.spec.ts`
+- [X] T025 [P] [US1] Validação do catálogo: obrigatórios, id inválido, placeholder parcial, `restart-resume` sem `resume`, shell com `model`, padrão fora da lista, `platforms`, inválida não derruba as válidas — `tests/unit/core/catalog/validate.test.ts`
+- [X] T026 [P] [US1] Carga e mesclagem (embutido + usuário por `id`, usuário ausente, JSON inválido do usuário vira `invalid`) — `tests/unit/core/catalog/load.test.ts`
+- [X] T027 [P] [US1] Montagem do lançamento: ordem dos argumentos, placeholder só em elemento inteiro, modelo personalizado pelo regex (`INPUT_INVALID`), enunciado com `\0` → `PROMPT_INVALID`, enunciado acima de 30.000 caracteres no Windows vai para `promptViaPty`, `delivery: pty` e `none` — `tests/unit/core/catalog/launch-plan.test.ts`
+- [X] T028 [P] [US1] Resolução e detecção: PATH + PATHEXT, caminho absoluto, ausente → não instalado com nome procurado, `.cmd` com `npmShim` → `node <script>` ou `.exe`, `.cmd` sem resolução → `UNSAFE_LAUNCHER`, `.cmd`/`.bat` nunca devolvido como `file` — `tests/unit/core/catalog/resolve-executable.test.ts`
+- [X] T029 [P] [US1] Catálogo embutido: `catalog/agents.json` inteiro passa na validação; agentes têm `verifiedWith`; shells declaram `platforms`; modos que desligam confirmações estão `dangerous` — `tests/unit/core/catalog/builtin-catalog.test.ts`
+- [X] T030 [P] [US1] Slug (acentos, símbolos, 40 caracteres, vazio → `tarefa`), branch `melinna/<slug>/<agente>`, sufixos `-2`, `-3` — `tests/unit/core/git/branch-name.test.ts`
+- [X] T031 [P] [US1] Máquina de estados (todas as transições do data-model, incluindo `starting`, e rejeição das inválidas) e limite (12 vivas, `LIMIT_REACHED`, vagas) — `tests/unit/core/execution/state-machine.test.ts`, `tests/unit/core/execution/limits.test.ts`
+- [X] T032 [P] [US1] Integração de repositório, lease e worktree com git real: não-git → `REPO_INVALID`; ref inexistente → `BASE_REF_NOT_FOUND`; contagem de não commitadas; worktree no commit base dentro de `userData`; lease adquirido antes do worktree e `WORKTREE_IN_USE` para outra execução; lease mantido para a mesma execução; falha na criação desfaz worktree e libera lease; diretório solto, worktree registrado sem execução e lease órfão → `WORKTREE_RESIDUE` com `residuePath`; limpeza recusa caminho fora da pasta de worktrees; 6 preparos simultâneos no mesmo repositório terminam sem erro de lock; colisão de branch gera sufixo; `expectMainTreeUnchanged` em todos — `tests/integration/core/git/worktree.test.ts`
+- [X] T033 [P] [US1] Integração básica do hospedeiro: handshake; token errado → `HOST_AUTH` e fechamento; versão diferente → `HOST_VERSION`; sem `hello` em 2 s → fechamento; `file` relativo e `file` `.cmd`/`.bat` recusados; spawn, eco e cores; `resize` reflete em `size=`; `resize` fora dos limites ignorado; `exit` com código; `activity` no máximo a cada 250 ms — `tests/integration/host/host-basic.test.ts`
+- [X] T034 [P] [US1] Unidade do `TerminalQueryResponder`: reconhece DA1, DA2, DSR 5, CPR e OSC 10/11 com terminador BEL e ST, inclusive divididos entre pedaços de saída; respostas conforme a tabela do contrato; não responde com conexão anexada fora de reprodução — `tests/unit/host/query-responder.test.ts`
+- [X] T035 [P] [US1] Integração das consultas: `query-cursor` sem conexão anexada recebe resposta do hospedeiro (`cpr=` com a última linha); com conexão anexada o hospedeiro não responde e a resposta enviada pelo cliente chega ao agente — `tests/integration/host/query-responder.test.ts`
+- [X] T036 [P] [US1] Integração do controle de fluxo: `flood 20` anexado sem `ack` para de entregar após 1 MB sem confirmação; `ack` retoma; ao final todos os bytes chegam em ordem; sem conexão anexada o PTY nunca é pausado; desanexar retoma — `tests/integration/host/flow-control.test.ts`
+- [X] T037 [P] [US1] Integração do `ExecutionService.launch` com hospedeiro e git reais: 3 picks geram 3 worktrees e 3 processos, cada worktree existe antes do seu `spawn`; enunciado por argumento chega no JSON; enunciados adversariais (aspas, `\"`, barra invertida no fim, `%PATH%`, `&`, `|`, `^`, `<`, `>`, quebra de linha, tabulação, emoji, CJK) chegam íntegros; enunciado por PTY chega após a primeira saída; executável sumido → só aquela execução em `failed_to_start` com worktree mantido; logs do teste não contêm o enunciado nem a entrada digitada; árvore principal inalterada — `tests/integration/core/execution/launch.test.ts`
+- [X] T038 [P] [US1] `WorkspaceService`: criar grupo e tarefa, snapshot imutável, `subscribe`, persistência por `state-store`, `inspectRepo` encaminhado — `tests/unit/core/workspace/workspace-service.test.ts`
+- [X] T039 [P] [US1] IPC dos domínios `catalog`, `workspace` (sem `cleanResidue`) e `tasks`: validação de tipos e tamanhos de `contracts/ipc.md` (`INPUT_INVALID`), ids inexistentes, mapeamento de `MelinnaError` e `INTERNAL` para `Result` — `tests/unit/main/ipc/validate-common.test.ts`, `tests/unit/main/ipc/register-catalog.test.ts`, `tests/unit/main/ipc/register-workspace.test.ts`, `tests/unit/main/ipc/register-tasks.test.ts`
+- [X] T040 [P] [US1] Ponte de terminal no principal: `terminal:open` cria canal, envia `port2` por `webContents.postMessage('terminal:port', { execId, channelId }, [port2])` e resolve `{ channelId }`; encaminha `data`, `marker` (incluindo `replay-start`/`replay-end`) e `exit`; aceita `input` ≤ 64 KB e `resize` nos limites; repassa `ack`; `terminal:close` desanexa sem matar — `tests/unit/main/ipc/terminal-ports.test.ts`
+- [X] T041 [P] [US1] Preload: `window.melinna` expõe exatamente as chaves de `contracts/ipc.md`; ao receber `terminal:port`, repassa com `window.postMessage({ source: 'melinna-terminal', execId, channelId }, location.origin, [port])` — `tests/unit/preload/preload.test.ts`
+- [X] T042 [P] [US1] Receptor de port na página: aceita só `event.source === window`, origem igual, `source: 'melinna-terminal'` e `channelId` pendente; ignora o resto; resolve a espera do `terminal.open` — `tests/unit/renderer/terminal/port-receiver.test.ts`
+- [X] T043 [P] [US1] Janela e instância única (APIs do Electron simuladas): opções `sandbox`, `contextIsolation`, `nodeIntegration: false`; CSP `default-src 'self'; style-src 'self' 'unsafe-inline'`; `will-navigate` bloqueado; `setWindowOpenHandler` nega; segunda instância foca a janela existente e a nova sai — `tests/unit/main/window.test.ts`, `tests/unit/main/single-instance.test.ts`
+- [X] T044 [P] [US1] `host-launcher` com fakes: reaproveita hospedeiro do `endpoint` com `welcome`; `endpoint` com pid morto inicia novo; início com `ELECTRON_RUN_AS_NODE=1`, `detached`, `windowsHide`, `unref`; sem `welcome` em 5 s → `HOST_UNAVAILABLE` — `tests/unit/main/host-launcher.test.ts`
+- [X] T045 [P] [US1] Saída ociosa do hospedeiro com relógio falso: sai após 60 s sem processos e sem conexão; conexão ou `spawn` reinicia a contagem; não sai com processo vivo — `tests/unit/host/idle-exit.test.ts`
+- [X] T046 [P] [US1] `NewTaskDialog`: agentes "não encontrado" desmarcáveis com nome procurado; vagas impedem excesso; aviso de não commitadas exige "Lançar mesmo assim"; enunciado vazio bloqueado; `picks` com modelo e modo padrão — `tests/unit/renderer/NewTaskDialog.test.tsx`
+- [X] T047 [P] [US1] `TerminalView` (xterm simulado): escreve bytes; envia entrada; resize com atraso ≤ 100 ms e mínimo 20×5; oculto não envia; perda de WebGL troca para DOM; entre `replay-start` e `replay-end` descarta `onData`; envia `ack` a cada 256 KB processados; marcas `discarded`, `gap` e `separator` viram linhas visíveis com texto pt-BR — `tests/unit/renderer/TerminalView.test.tsx`
+- [X] T048 [P] [US1] Layout automático: 1 a 12 painéis, mínimo de 40×10 células, transbordo com rolagem — `tests/unit/core/layout/auto.test.ts`
+- [X] T049 [P] [US1] Casca da interface: `TopBar` com wordmark e botão de nova tarefa; `workspace-store` reflete `workspace.onChange` — `tests/unit/renderer/TopBar.test.tsx`, `tests/unit/renderer/workspace-store.test.ts`
+- [X] T050 [P] [US1] `Panel`, `PanelHeader` (faixa, número a partir da 7ª, agente, modelo, modo, estado) e `Grid` no modo automático — `tests/unit/renderer/Panel.test.tsx`, `tests/unit/renderer/Grid-auto.test.tsx`
+- [X] T051 [P] [US1] Desempenho: SC-001 (6 execuções do agente falso, repositório de 1.000 arquivos, ≤ 6 s até o 6º `spawn`) e SC-002 no trecho principal ↔ hospedeiro (p95 do eco de 1.000 teclas ≤ 30 ms) — `tests/perf/launch.perf.test.ts`, `tests/perf/echo-latency.perf.test.ts`
+- [X] T052 [P] [US1] E2E: catálogo falso no `userData` de teste, repositório temporário, criar grupo, lançar `fake` e `fake-pty`, digitar em cada painel e ver o eco — `tests/e2e/launch-and-converse.spec.ts`
 
 ### Implementação da US1
 
-- [ ] T053 [US1] Tipos e validação do catálogo (passa T025) — `src/core/catalog/schema.ts`, `src/core/catalog/validate.ts`
-- [ ] T054 [US1] Carga e mesclagem (passa T026) — `src/core/catalog/load.ts`
-- [ ] T055 [US1] Placeholders e `buildLaunch` (passa T027) — `src/core/catalog/placeholders.ts`, `src/core/catalog/launch-plan.ts`
-- [ ] T056 [US1] `resolveExecutable`, `resolveNpmShim`, `detect` (passa T028) — `src/core/catalog/resolve-executable.ts`, `src/core/catalog/npm-shim.ts`, `src/core/catalog/detect.ts`
-- [ ] T057 [US1] Entrada `claude`, conferindo cada flag com `claude --help` e preenchendo `verifiedWith` — `catalog/agents.json`
-- [ ] T058 [US1] Entrada `codex` (conferir `codex --help`; permissão como combinações de `--sandbox` e `--ask-for-approval`; modo sem sandbox e sem aprovação `dangerous`) — `catalog/agents.json`
-- [ ] T059 [US1] Entrada `gemini` (conferir `gemini --help`; sem troca em voo usar `restart-resume` se houver retomada, senão `unsupported`; `yolo` `dangerous`) — `catalog/agents.json`
-- [ ] T060 [US1] [simples] Entradas de shell com `platforms`: `pwsh`, `powershell`, `cmd`, `git-bash` (Windows), `bash`, `zsh` (macOS/Linux) (com T057–T059, passa T029) — `catalog/agents.json`
-- [ ] T061 [US1] Slug e nome de branch com `check-ref-format` e sufixo livre (passa T030) — `src/core/git/branch-name.ts`
-- [ ] T062 [US1] `inspectRepo` (raiz, commit da base, não commitadas por `status --porcelain=v1 -z` sem lock) — `src/core/git/repo.ts`
-- [ ] T063 [US1] Lease: adquirir com `wx`, verificar dono, liberar — `src/core/git/lease.ts`
-- [ ] T064 [US1] `createWorktree` e `removeWorktree` básicos sob o mutex do repositório, desfazendo em falha — `src/core/git/worktree.ts`
-- [ ] T065 [US1] Detecção e limpeza de resíduo (diretório solto, worktree registrado sem execução, lease órfão; só dentro da pasta de worktrees) (com T061–T064, passa T032) — `src/core/git/residue.ts`
-- [ ] T066 [US1] Máquina de estados e limites (passa T031) — `src/core/execution/state-machine.ts`, `src/core/execution/limits.ts`
-- [ ] T067 [US1] Autenticação do hospedeiro (token com permissão restrita, comparação em tempo constante) — `src/host/auth.ts`
-- [ ] T068 [US1] Servidor do hospedeiro: pipe/socket, handshake com prazo de 2 s e versão, despacho, limite de quadro, recusa de `file` relativo e `.cmd`/`.bat` — `src/host/server.ts`
-- [ ] T069 [US1] `NodePtyAdapter` e `PtySupervisor` (spawn com `file` absoluto, `cwd`, `env` com `TERM`, `COLORTERM`, `MELINNA_EXECUTION_ID`; escrita; resize com limites; deslocamentos; `exit`; `activity` limitado) — `src/host/node-pty-adapter.ts`, `src/host/pty-supervisor.ts`
-- [ ] T070 [US1] `TerminalQueryResponder` e ligação ao supervisor (passa T034 e T035) — `src/host/query-responder.ts`, `src/host/pty-supervisor.ts`
-- [ ] T071 [US1] Controle de fluxo com marcas de 1 MB e 256 KB e `ack` (passa T036) — `src/host/flow-control.ts`, `src/host/pty-supervisor.ts`
-- [ ] T072 [US1] Entrada do hospedeiro e saída ociosa (lê `userData`, grava `host/endpoint`, logger em `logs/host.log`) (passa T033 e T045) — `src/host/main.ts`, `src/host/idle-exit.ts`
-- [ ] T073 [US1] `host-launcher` (passa T044) — `src/main/host-launcher.ts`
-- [ ] T074 [US1] `NodeHostClient` implementando `HostClient` sobre o pipe/socket e o `frame-codec` — `src/main/host-client.ts`
-- [ ] T075 [US1] `WorkspaceService` e `workspace-model` (passa T038) — `src/core/workspace/workspace-service.ts`, `src/core/workspace/workspace-model.ts`
-- [ ] T076 [US1] Preparo de execução: limite, lançamento pelo catálogo, branch, lease e worktree em série sob o mutex, `bandIndex`, falha isolada com desfazer — `src/core/execution/prepare.ts`
-- [ ] T077 [US1] Início de execução e entrega do enunciado por PTY após a primeira saída — `src/core/execution/start.ts`, `src/core/execution/prompt-delivery.ts`
-- [ ] T078 [US1] Fachada `ExecutionService` (`launch` iniciando cada execução quando seu preparo termina, `write`, `resize`, `attach`, `ack`, `liveCount`, persistência de estado) (com T076 e T077, passa T037) — `src/core/execution/execution-service.ts`
-- [ ] T079 [US1] [simples] Exportar a API pública do núcleo — `src/core/index.ts`
-- [ ] T080 [US1] Contrato de IPC compartilhado, `Result` e validadores comuns e dos domínios `catalog`, `workspace`, `tasks` — `src/shared/ipc-contract.ts`, `src/main/ipc/result.ts`, `src/main/ipc/validate-common.ts`, `src/main/ipc/validate-catalog.ts`, `src/main/ipc/validate-workspace.ts`, `src/main/ipc/validate-tasks.ts`
-- [ ] T081 [US1] Registro dos canais por domínio e composição (com T080, passa T039) — `src/main/ipc/register-catalog.ts`, `src/main/ipc/register-workspace.ts`, `src/main/ipc/register-tasks.ts`, `src/main/ipc/register.ts`
-- [ ] T082 [US1] Ponte de terminal (passa T040) — `src/main/ipc/terminal-ports.ts`
-- [ ] T083 [US1] Preload (passa T041) — `src/preload/preload.ts`
-- [ ] T084 [US1] Instância única e janela segura (passa T043) — `src/main/single-instance.ts`, `src/main/window.ts`
-- [ ] T085 [US1] `main.ts` e `app-paths.ts`: instância única primeiro, `MELINNA_USER_DATA`, composição do núcleo com adaptadores, hospedeiro e IPC — `src/main/main.ts`, `src/main/app-paths.ts`
-- [ ] T086 [US1] Layout automático (passa T048) — `src/core/layout/types.ts`, `src/core/layout/auto.ts`
-- [ ] T087 [US1] Casca da interface e receptor de port (passa T042 e T049) — `src/renderer/index.html`, `src/renderer/main.tsx`, `src/renderer/App.tsx`, `src/renderer/components/TopBar.tsx`, `src/renderer/store/workspace-store.ts`, `src/renderer/terminal/port-receiver.ts`
-- [ ] T088 [US1] `NewTaskDialog` (passa T046) — `src/renderer/components/NewTaskDialog.tsx`
-- [ ] T089 [US1] `TerminalView` com addons fit, unicode11, webgl (fallback DOM) e web-links, scrollback de 10.000 linhas, descarte de `onData` na reprodução, `ack` e marcas (passa T047) — `src/renderer/components/TerminalView.tsx`
-- [ ] T090 [US1] `Panel`, `PanelHeader` e `Grid` automático (passa T050; com o restante da US1, passa T051 e T052) — `src/renderer/components/Panel/Panel.tsx`, `src/renderer/components/Panel/PanelHeader.tsx`, `src/renderer/components/Grid/Grid.tsx`
+- [X] T053 [US1] Tipos e validação do catálogo (passa T025) — `src/core/catalog/schema.ts`, `src/core/catalog/validate.ts`
+- [X] T054 [US1] Carga e mesclagem (passa T026) — `src/core/catalog/load.ts`
+- [X] T055 [US1] Placeholders e `buildLaunch` (passa T027) — `src/core/catalog/placeholders.ts`, `src/core/catalog/launch-plan.ts`
+- [X] T056 [US1] `resolveExecutable`, `resolveNpmShim`, `detect` (passa T028) — `src/core/catalog/resolve-executable.ts`, `src/core/catalog/npm-shim.ts`, `src/core/catalog/detect.ts`
+- [X] T057 [US1] Entrada `claude`, conferindo cada flag com `claude --help` e preenchendo `verifiedWith` — `catalog/agents.json`
+- [X] T058 [US1] Entrada `codex` (conferir `codex --help`; permissão como combinações de `--sandbox` e `--ask-for-approval`; modo sem sandbox e sem aprovação `dangerous`) — `catalog/agents.json`
+- [X] T059 [US1] Entrada `gemini` (conferir `gemini --help`; sem troca em voo usar `restart-resume` se houver retomada, senão `unsupported`; `yolo` `dangerous`) — `catalog/agents.json`
+- [X] T060 [US1] [simples] Entradas de shell com `platforms`: `pwsh`, `powershell`, `cmd`, `git-bash` (Windows), `bash`, `zsh` (macOS/Linux) (com T057–T059, passa T029) — `catalog/agents.json`
+- [X] T061 [US1] Slug e nome de branch com `check-ref-format` e sufixo livre (passa T030) — `src/core/git/branch-name.ts`
+- [X] T062 [US1] `inspectRepo` (raiz, commit da base, não commitadas por `status --porcelain=v1 -z` sem lock) — `src/core/git/repo.ts`
+- [X] T063 [US1] Lease: adquirir com `wx`, verificar dono, liberar — `src/core/git/lease.ts`
+- [X] T064 [US1] `createWorktree` e `removeWorktree` básicos sob o mutex do repositório, desfazendo em falha — `src/core/git/worktree.ts`
+- [X] T065 [US1] Detecção e limpeza de resíduo (diretório solto, worktree registrado sem execução, lease órfão; só dentro da pasta de worktrees) (com T061–T064, passa T032) — `src/core/git/residue.ts`
+- [X] T066 [US1] Máquina de estados e limites (passa T031) — `src/core/execution/state-machine.ts`, `src/core/execution/limits.ts`
+- [X] T067 [US1] Autenticação do hospedeiro (token com permissão restrita, comparação em tempo constante) — `src/host/auth.ts`
+- [X] T068 [US1] Servidor do hospedeiro: pipe/socket, handshake com prazo de 2 s e versão, despacho, limite de quadro, recusa de `file` relativo e `.cmd`/`.bat` — `src/host/server.ts`
+- [X] T069 [US1] `NodePtyAdapter` e `PtySupervisor` (spawn com `file` absoluto, `cwd`, `env` com `TERM`, `COLORTERM`, `MELINNA_EXECUTION_ID`; escrita; resize com limites; deslocamentos; `exit`; `activity` limitado) — `src/host/node-pty-adapter.ts`, `src/host/pty-supervisor.ts`
+- [X] T070 [US1] `TerminalQueryResponder` e ligação ao supervisor (passa T034 e T035) — `src/host/query-responder.ts`, `src/host/pty-supervisor.ts`
+- [X] T071 [US1] Controle de fluxo com marcas de 1 MB e 256 KB e `ack` (passa T036) — `src/host/flow-control.ts`, `src/host/pty-supervisor.ts`
+- [X] T072 [US1] Entrada do hospedeiro e saída ociosa (lê `userData`, grava `host/endpoint`, logger em `logs/host.log`) (passa T033 e T045) — `src/host/main.ts`, `src/host/idle-exit.ts`
+- [X] T073 [US1] `host-launcher` (passa T044) — `src/main/host-launcher.ts`
+- [X] T074 [US1] `NodeHostClient` implementando `HostClient` sobre o pipe/socket e o `frame-codec` — `src/main/host-client.ts`
+- [X] T075 [US1] `WorkspaceService` e `workspace-model` (passa T038) — `src/core/workspace/workspace-service.ts`, `src/core/workspace/workspace-model.ts`
+- [X] T076 [US1] Preparo de execução: limite, lançamento pelo catálogo, branch, lease e worktree em série sob o mutex, `bandIndex`, falha isolada com desfazer — `src/core/execution/prepare.ts`
+- [X] T077 [US1] Início de execução e entrega do enunciado por PTY após a primeira saída — `src/core/execution/start.ts`, `src/core/execution/prompt-delivery.ts`
+- [X] T078 [US1] Fachada `ExecutionService` (`launch` iniciando cada execução quando seu preparo termina, `write`, `resize`, `attach`, `ack`, `liveCount`, persistência de estado) (com T076 e T077, passa T037) — `src/core/execution/execution-service.ts`
+- [X] T079 [US1] [simples] Exportar a API pública do núcleo — `src/core/index.ts`
+- [X] T080 [US1] Contrato de IPC compartilhado, `Result` e validadores comuns e dos domínios `catalog`, `workspace`, `tasks` — `src/shared/ipc-contract.ts`, `src/main/ipc/result.ts`, `src/main/ipc/validate-common.ts`, `src/main/ipc/validate-catalog.ts`, `src/main/ipc/validate-workspace.ts`, `src/main/ipc/validate-tasks.ts`
+- [X] T081 [US1] Registro dos canais por domínio e composição (com T080, passa T039) — `src/main/ipc/register-catalog.ts`, `src/main/ipc/register-workspace.ts`, `src/main/ipc/register-tasks.ts`, `src/main/ipc/register.ts`
+- [X] T082 [US1] Ponte de terminal (passa T040) — `src/main/ipc/terminal-ports.ts`
+- [X] T083 [US1] Preload (passa T041) — `src/preload/preload.ts`
+- [X] T084 [US1] Instância única e janela segura (passa T043) — `src/main/single-instance.ts`, `src/main/window.ts`
+- [X] T085 [US1] `main.ts` e `app-paths.ts`: instância única primeiro, `MELINNA_USER_DATA`, composição do núcleo com adaptadores, hospedeiro e IPC — `src/main/main.ts`, `src/main/app-paths.ts`
+- [X] T086 [US1] Layout automático (passa T048) — `src/core/layout/types.ts`, `src/core/layout/auto.ts`
+- [X] T087 [US1] Casca da interface e receptor de port (passa T042 e T049) — `src/renderer/index.html`, `src/renderer/main.tsx`, `src/renderer/App.tsx`, `src/renderer/components/TopBar.tsx`, `src/renderer/store/workspace-store.ts`, `src/renderer/terminal/port-receiver.ts`
+- [X] T088 [US1] `NewTaskDialog` (passa T046) — `src/renderer/components/NewTaskDialog.tsx`
+- [X] T089 [US1] `TerminalView` com addons fit, unicode11, webgl (fallback DOM) e web-links, scrollback de 10.000 linhas, descarte de `onData` na reprodução, `ack` e marcas (passa T047) — `src/renderer/components/TerminalView.tsx`
+- [X] T090 [US1] `Panel`, `PanelHeader` e `Grid` automático (passa T050; com o restante da US1, passa T051 e T052) — `src/renderer/components/Panel/Panel.tsx`, `src/renderer/components/Panel/PanelHeader.tsx`, `src/renderer/components/Grid/Grid.tsx`
 
 **Checkpoint**: US1 funcional e testável sozinha.
 
@@ -140,9 +140,9 @@
 
 ### Testes da US2 (escrever antes)
 
-- [ ] T091 [P] [US2] `SegmentStore`: nome por deslocamento; fechamento a 2 MB; com 4 segmentos, apaga o mais antigo antes de abrir o próximo e nunca há 5 arquivos; `meta.json` atômico; leitura a partir de deslocamento disponível e descartado (marca `discarded` + `ESC[0m`); separador; continuação a partir de `totalBytes` — `tests/unit/core/scrollback/segment-store.test.ts`
-- [ ] T092 [P] [US2] `ScrollbackWriter`: não bloqueia o produtor; fila acima de 4 MB descarta o mais antigo e registra `gap`; `ENOSPC` para a gravação, emite `persisting: false`, tenta a cada 30 s e grava marca de lacuna ao voltar; `flush` antes de leitura — `tests/unit/core/scrollback/scrollback-writer.test.ts`
-- [ ] T093 [P] [US2] `registry.json` do hospedeiro: gravação atômica em spawn e exit, leitura tolerante a arquivo ausente ou corrompido — `tests/unit/host/registry.test.ts`
+- [X] T091 [P] [US2] `SegmentStore`: nome por deslocamento; fechamento a 2 MB; com 4 segmentos, apaga o mais antigo antes de abrir o próximo e nunca há 5 arquivos; `meta.json` atômico; leitura a partir de deslocamento disponível e descartado (marca `discarded` + `ESC[0m`); separador; continuação a partir de `totalBytes` — `tests/unit/core/scrollback/segment-store.test.ts`
+- [X] T092 [P] [US2] `ScrollbackWriter`: não bloqueia o produtor; fila acima de 4 MB descarta o mais antigo e registra `gap`; `ENOSPC` para a gravação, emite `persisting: false`, tenta a cada 30 s e grava marca de lacuna ao voltar; `flush` antes de leitura — `tests/unit/core/scrollback/scrollback-writer.test.ts`
+- [X] T093 [P] [US2] `registry.json` do hospedeiro: gravação atômica em spawn e exit, leitura tolerante a arquivo ausente ou corrompido — `tests/unit/host/registry.test.ts`
 - [ ] T094 [P] [US2] Integração de reanexação: `attach` do zero recebe `replay-start`, histórico, `replay-end` e ao vivo com deslocamentos contíguos; consulta `query-cursor` feita durante a reprodução é respondida pelo hospedeiro; derrubar e reconectar o cliente e anexar do último deslocamento sem duplicar; processo que sai sem cliente fica no registro com código e horário; `list` reflete — `tests/integration/host/reattach.test.ts`
 - [ ] T095 [P] [US2] Integração de encerramento: `kill` envia Ctrl+C e o agente falso sai; com `ignore-sigint` e `spawn-child`, agente e neto encerrados à força após `graceMs`; `kill` de execução que não é do hospedeiro atual → `EXECUTION_NOT_RUNNING` sem tocar em pid algum; `shutdown` encerra todos, grava scrollback e sai — `tests/integration/host/kill.test.ts`
 - [ ] T096 [P] [US2] Integração de hospedeiro novo: após derrubar o hospedeiro, o novo não adota pids do registro anterior; relançar a execução continua os deslocamentos de `meta.json` sem sobrepor o histórico — `tests/integration/host/host-restart.test.ts`
@@ -155,9 +155,9 @@
 
 ### Implementação da US2
 
-- [ ] T103 [US2] `SegmentStore` e `ScrollbackReader` (passa T091) — `src/core/scrollback/segment-store.ts`, `src/core/scrollback/scrollback-reader.ts`
-- [ ] T104 [US2] `ScrollbackWriter` (passa T092) — `src/core/scrollback/scrollback-writer.ts`
-- [ ] T105 [US2] Registro do hospedeiro (passa T093) — `src/host/registry.ts`
+- [X] T103 [US2] `SegmentStore` e `ScrollbackReader` (passa T091) — `src/core/scrollback/segment-store.ts`, `src/core/scrollback/scrollback-reader.ts`
+- [X] T104 [US2] `ScrollbackWriter` (passa T092) — `src/core/scrollback/scrollback-writer.ts`
+- [X] T105 [US2] Registro do hospedeiro (passa T093) — `src/host/registry.ts`
 - [ ] T106 [US2] Reprodução e anexação serializadas com `flush`, marcas `replay-start`/`replay-end`, responder ativo durante a reprodução, `detach`, `scrollback-status`, `list` (passa T094) — `src/host/attach.ts`, `src/host/server.ts`
 - [ ] T107 [US2] Encerramento: Ctrl+C, espera, `taskkill /T /F` ou sinais ao grupo; só processos do supervisor; `shutdown` (passa T095) — `src/host/kill-tree.ts`, `src/host/pty-supervisor.ts`
 - [ ] T108 [US2] Continuação de deslocamentos a partir de `meta.json` no spawn e não adoção de pids antigos (passa T096) — `src/host/pty-supervisor.ts`
@@ -235,7 +235,7 @@
 
 - [ ] T136 [P] [US5] `computeSpotlight` (faixa à direita em janela larga, embaixo em janela alta, foco inexistente cai no primeiro) e `computeSidebar` — `tests/unit/core/layout/spotlight.test.ts`, `tests/unit/core/layout/sidebar.test.ts`
 - [ ] T137 [P] [US5] `computeCustom`, `moveDivider` (frações somam 1, mínimo, índice inválido) e `reorder` — `tests/unit/core/layout/custom.test.ts`, `tests/unit/core/layout/reorder.test.ts`
-- [ ] T138 [P] [US5] IPC `layout.get|set` com validação do `LayoutState` e persistência em `state.json` — `tests/unit/main/ipc/register-layout.test.ts`
+- [X] T138 [P] [US5] IPC `layout.get|set` com validação do `LayoutState` e persistência em `state.json` — `tests/unit/main/ipc/register-layout.test.ts`
 - [ ] T139 [P] [US5] `Grid` nos quatro modos: troca reposiciona e reenvia tamanho dos visíveis; persistência via `layout.set` — `tests/unit/renderer/Grid-modes.test.tsx`
 - [ ] T140 [P] [US5] `Divider` (arrasto altera proporções ao vivo e salva ao soltar), reordenação por arrastar o cabeçalho, `LayoutSwitcher` e atalhos `Ctrl+Alt+→`/`←` no Spotlight — `tests/unit/renderer/Divider.test.tsx`, `tests/unit/renderer/LayoutSwitcher.test.tsx`
 
@@ -243,7 +243,7 @@
 
 - [ ] T141 [US5] Spotlight e sidebar (passa T136) — `src/core/layout/spotlight.ts`, `src/core/layout/sidebar.ts`
 - [ ] T142 [US5] Grade personalizada e reordenação (passa T137) — `src/core/layout/custom.ts`, `src/core/layout/reorder.ts`
-- [ ] T143 [US5] Canais de layout (passa T138) — `src/main/ipc/register-layout.ts`, `src/main/ipc/validate-layout.ts`, `src/main/ipc/register.ts`
+- [X] T143 [US5] Canais de layout (passa T138) — `src/main/ipc/register-layout.ts`, `src/main/ipc/validate-layout.ts`, `src/main/ipc/register.ts`
 - [ ] T144 [US5] Modos na `Grid` (passa T139) — `src/renderer/components/Grid/Grid.tsx`, `src/renderer/store/layout-store.ts`
 - [ ] T145 [US5] `Divider`, reordenação no cabeçalho, `LayoutSwitcher` e atalhos (passa T140) — `src/renderer/components/Grid/Divider.tsx`, `src/renderer/components/Grid/useReorderDrag.ts`, `src/renderer/components/LayoutSwitcher.tsx`
 
