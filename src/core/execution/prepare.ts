@@ -1,3 +1,4 @@
+import type { AgentPick } from '../api-types';
 import { resolveModel, resolvePermission } from '../catalog/launch-plan';
 import { MelinnaError, toIpcError } from '../errors';
 import { branchNameFor, freeBranchName } from '../git/branch-name';
@@ -8,11 +9,7 @@ import { newId } from '../ids';
 import type { Execution, Task } from '../persistence/state-schema';
 import type { ExecutionContext } from './context';
 
-export interface AgentPick {
-  agentId: string;
-  model?: string | null;
-  permission?: string | null;
-}
+export type { AgentPick };
 
 /** Cria o registro da execução em `preparing`, com o próximo índice de faixa da tarefa. */
 export function createExecutionRecord(ctx: ExecutionContext, task: Task, pick: AgentPick): Execution {

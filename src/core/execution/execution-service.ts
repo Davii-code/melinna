@@ -1,6 +1,7 @@
-import { MelinnaError, toIpcError, type IpcError } from '../errors';
+import type { LaunchResult } from '../api-types';
+import { MelinnaError, toIpcError } from '../errors';
 import type { Execution } from '../persistence/state-schema';
-import type { Detach, HostClient, OutputSink } from '../ports/host-client';
+import type { Detach, ExitEvent, HostClient, OutputSink } from '../ports/host-client';
 import { BusyTracker } from './busy-tracker';
 import type { ExecutionContext, ExecutionDeps, TermSize } from './context';
 import { assertWithinLimit } from './limits';
@@ -9,18 +10,18 @@ import { markLiveAsLost, reconcileWithHost } from './recovery';
 import { clampSize, startExecution } from './start';
 import { isLive } from './state-machine';
 
-export type LaunchResult =
-  | { execId: string; agentId: string; ok: true }
-  | { execId?: string; agentId: string; ok: false; error: IpcError };
+export type { LaunchResult };
 
 /** Fachada das execuções: lançamento, E/S do terminal e reação aos eventos do hospedeiro. */
 export class ExecutionService {
   private readonly ctx: ExecutionContext;
   private wiredHost: HostClient | null = null;
   private readonly unwire: (() => void)[] = [];
+  private readonly exitListeners = new Set<(e: ExitEvent) => void>();
 
   constructor(deps: ExecutionDeps) {
     const busy = new BusyTracker(deps.clock, (execId, isBusy) => this.onBusyChange(execId, isBusy));
+    deps.model.setBusySource(() => busy.busyIds());
     this.ctx = {
       ...deps,
       busy,
@@ -44,6 +45,12 @@ export class ExecutionService {
   /** Contexto interno, para os módulos de ciclo de vida e troca. */
   context(): ExecutionContext {
     return this.ctx;
+  }
+
+  /** Término de processo, depois de o estado ser atualizado. */
+  onExit(fn: (e: ExitEvent) => void): () => void {
+    this.exitListeners.add(fn);
+    return () => this.exitListeners.delete(fn);
   }
 
   liveCount(): number {
@@ -139,7 +146,8 @@ export class ExecutionService {
     const exec = this.ctx.model.execution(execId);
     if (!exec) return;
     if (isBusy && exec.status === 'idle') this.ctx.update(execId, { status: 'running' });
-    if (!isBusy && exec.status === 'running') this.ctx.update(execId, { status: 'idle' });
+    else if (!isBusy && exec.status === 'running') this.ctx.update(execId, { status: 'idle' });
+    else this.ctx.model.touch();
   }
 
   /** Liga os eventos de um cliente do hospedeiro (uma vez por cliente). */
@@ -160,6 +168,7 @@ export class ExecutionService {
           pid: null,
         });
         this.ctx.log.info('execution.exited', { execId: e.execId, code: e.exitCode, signal: e.signal });
+        for (const fn of this.exitListeners) fn(e);
       }),
       host.on('activity', (e) => {
         const exec = this.ctx.model.execution(e.execId);

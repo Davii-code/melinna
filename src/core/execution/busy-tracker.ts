@@ -12,6 +12,10 @@ export class BusyTracker {
     private readonly quietMs = BUSY_QUIET_MS,
   ) {}
 
+  busyIds(): string[] {
+    return [...this.timers.keys()];
+  }
+
   isBusy(execId: string): boolean {
     return this.timers.has(execId);
   }

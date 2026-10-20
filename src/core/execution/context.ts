@@ -1,3 +1,4 @@
+import type { TermSize } from '../api-types';
 import type { CatalogService } from '../catalog/catalog-service';
 import type { GitRunner } from '../git/git-runner';
 import type { KeyedMutex } from '../git/repo-mutex';
@@ -17,10 +18,7 @@ export interface HostProvider {
   existing(): Promise<HostClient | null>;
 }
 
-export interface TermSize {
-  cols: number;
-  rows: number;
-}
+export type { TermSize };
 
 export interface ExecutionDeps {
   model: WorkspaceModel;

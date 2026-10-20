@@ -1,3 +1,4 @@
+import type { DetectResult } from '../api-types';
 import { MelinnaError } from '../errors';
 import type { FileSystem } from '../ports/file-system';
 import type { Platform } from '../ports/platform';
@@ -5,13 +6,7 @@ import { resolveNpmShim, type ResolvedLauncher } from './npm-shim';
 import { isBatchFile, resolveExecutable } from './resolve-executable';
 import type { AgentDefinition } from './schema';
 
-export interface DetectResult {
-  installed: boolean;
-  /** Nome ou caminho procurado. */
-  searched: string;
-  resolvedPath?: string;
-  reason?: string;
-}
+export type { DetectResult };
 
 export function commandFor(def: AgentDefinition, platform: Platform): string {
   return platform.os === 'win32' && def.executable.windows?.command

@@ -1,21 +1,11 @@
+import type { WorkspaceSnapshot } from '../api-types';
 import type { StateStore } from '../persistence/state-store';
 import type { Execution, Group, LayoutState, StateFile, Task } from '../persistence/state-schema';
 import type { Unsubscribe } from '../ports/host-client';
 import { MAX_LIVE_EXECUTIONS } from '../execution/limits';
 import { isLive } from '../execution/state-machine';
 
-export interface WorkspaceSnapshot {
-  version: number;
-  groups: readonly Group[];
-  tasks: readonly Task[];
-  executions: readonly Execution[];
-  layout: LayoutState;
-  liveCount: number;
-  maxLive: number;
-  readOnly: boolean;
-  /** Execuções cuja gravação de histórico está suspensa (disco cheio ou erro de E/S). */
-  scrollbackPaused: readonly string[];
-}
+export type { WorkspaceSnapshot };
 
 function deepFreeze<T>(value: T): T {
   if (value && typeof value === 'object') {
@@ -32,11 +22,25 @@ export class WorkspaceModel {
   private readonly listeners = new Set<(s: WorkspaceSnapshot) => void>();
   private readonly paused = new Set<string>();
 
+  private busyIds: () => readonly string[] = () => [];
+
   constructor(
     private readonly state: StateFile,
     private readonly store: StateStore,
     private readonly readOnly = false,
   ) {}
+
+  /** Fonte das execuções ocupadas, ligada pelo serviço de execuções. */
+  setBusySource(fn: () => readonly string[]): void {
+    this.busyIds = fn;
+  }
+
+  /** Notifica uma mudança que não altera o estado persistido (ocupação, gravação). */
+  touch(): void {
+    this.version++;
+    this.cached = undefined;
+    this.notify();
+  }
 
   get raw(): Readonly<StateFile> {
     return this.state;
@@ -92,6 +96,7 @@ export class WorkspaceModel {
       maxLive: MAX_LIVE_EXECUTIONS,
       readOnly: this.readOnly,
       scrollbackPaused: [...this.paused],
+      busy: [...this.busyIds()],
     });
     return this.cached;
   }

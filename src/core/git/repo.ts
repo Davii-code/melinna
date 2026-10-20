@@ -1,13 +1,10 @@
+import type { RepoInspection } from '../api-types';
 import { MelinnaError } from '../errors';
 import { pathModule } from '../paths';
 import type { OsName } from '../ports/platform';
 import type { GitRunner } from './git-runner';
 
-export interface RepoInspection {
-  root: string;
-  baseCommit: string;
-  uncommittedCount: number;
-}
+export type { RepoInspection };
 
 /** Conta entradas de `git status --porcelain=v1 -z` (renomeações têm um caminho extra). */
 export function countPorcelainEntries(out: string): number {
