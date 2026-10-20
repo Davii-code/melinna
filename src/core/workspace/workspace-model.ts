@@ -1,6 +1,6 @@
 import type { WorkspaceSnapshot } from '../api-types';
 import type { StateStore } from '../persistence/state-store';
-import type { Execution, Group, LayoutState, StateFile, Task } from '../persistence/state-schema';
+import type { Execution, Group, StateFile, Task } from '../persistence/state-schema';
 import type { Unsubscribe } from '../ports/host-client';
 import { MAX_LIVE_EXECUTIONS } from '../execution/limits';
 import { isLive } from '../execution/state-machine';

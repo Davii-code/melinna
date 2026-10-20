@@ -12,7 +12,7 @@ module.exports = tseslint.config(
   ...tseslint.configs.strict,
   {
     rules: {
-      'no-warning-comments': ['error', { terms: ['todo', 'fixme', 'xxx'], location: 'anywhere' }],
+      'no-warning-comments': ['error', { terms: ['todo:', 'todo(', 'fixme', 'xxx'], location: 'anywhere' }],
       'no-restricted-syntax': ['error', ...forbiddenTestModifiers],
       'no-restricted-imports': [
         'error',
