@@ -16,6 +16,7 @@ if (existsSync(prebuild) || existsSync(built)) {
 
 // Durante `npm install`, o npm informa o node-gyp que ele mesmo traz.
 const nodeGyp =
-  process.env.npm_config_node_gyp ?? join(dirname(require.resolve('node-gyp/package.json')), 'bin', 'node-gyp.js');
+  process.env.npm_config_node_gyp ??
+  join(dirname(require.resolve('node-gyp/package.json')), 'bin', 'node-gyp.js');
 const child = spawn(process.execPath, [nodeGyp, 'rebuild'], { cwd: ptyDir, stdio: 'inherit', shell: false });
 child.on('exit', (code) => process.exit(code ?? 1));

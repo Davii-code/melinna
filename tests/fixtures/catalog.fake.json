@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "agents": [
+    {
+      "id": "fake",
+      "displayName": "Agente falso",
+      "kind": "agent",
+      "executable": { "command": "__NODE__" },
+      "args": ["__FAKE_AGENT__"],
+      "prompt": { "delivery": "argument", "args": ["{prompt}"] },
+      "model": {
+        "options": [
+          { "id": "rapido", "label": "Rápido" },
+          { "id": "esperto", "label": "Esperto" }
+        ],
+        "default": "rapido",
+        "allowCustom": true,
+        "args": ["--model", "{model}"],
+        "switch": { "strategy": "pty-command", "template": "/model {model}\r" }
+      },
+      "permission": {
+        "options": [
+          { "id": "perguntar", "label": "Perguntar", "args": [] },
+          { "id": "livre", "label": "Sem confirmações", "args": ["--yolo"], "dangerous": true }
+        ],
+        "default": "perguntar",
+        "switch": { "strategy": "pty-command", "template": "/permission {permission}\r" }
+      },
+      "resume": { "args": ["--resume"] },
+      "detect": { "strategy": "path" }
+    },
+    {
+      "id": "fake-pty",
+      "displayName": "Agente falso (PTY)",
+      "kind": "agent",
+      "executable": { "command": "__NODE__" },
+      "args": ["__FAKE_AGENT__"],
+      "prompt": { "delivery": "pty" },
+      "detect": { "strategy": "path" }
+    },
+    {
+      "id": "fake-resume",
+      "displayName": "Agente falso (retomada)",
+      "kind": "agent",
+      "executable": { "command": "__NODE__" },
+      "args": ["__FAKE_AGENT__"],
+      "prompt": { "delivery": "argument", "args": ["{prompt}"] },
+      "model": {
+        "options": [
+          { "id": "rapido", "label": "Rápido" },
+          { "id": "esperto", "label": "Esperto" }
+        ],
+        "default": "rapido",
+        "allowCustom": false,
+        "args": ["--model", "{model}"],
+        "switch": { "strategy": "restart-resume" }
+      },
+      "permission": {
+        "options": [
+          { "id": "perguntar", "label": "Perguntar", "args": [] },
+          { "id": "livre", "label": "Sem confirmações", "args": ["--yolo"], "dangerous": true }
+        ],
+        "default": "perguntar",
+        "switch": { "strategy": "restart-resume" }
+      },
+      "resume": { "args": ["--resume"] },
+      "detect": { "strategy": "path" }
+    },
+    {
+      "id": "fake-nosw",
+      "displayName": "Agente falso (sem troca)",
+      "kind": "agent",
+      "executable": { "command": "__NODE__" },
+      "args": ["__FAKE_AGENT__"],
+      "prompt": { "delivery": "argument", "args": ["{prompt}"] },
+      "model": {
+        "options": [
+          { "id": "rapido", "label": "Rápido" },
+          { "id": "esperto", "label": "Esperto" }
+        ],
+        "default": "rapido",
+        "allowCustom": false,
+        "args": ["--model", "{model}"],
+        "switch": { "strategy": "unsupported" }
+      },
+      "permission": {
+        "options": [
+          { "id": "perguntar", "label": "Perguntar", "args": [] },
+          { "id": "livre", "label": "Sem confirmações", "args": ["--yolo"], "dangerous": true }
+        ],
+        "default": "perguntar",
+        "switch": { "strategy": "unsupported" }
+      },
+      "detect": { "strategy": "path" }
+    }
+  ]
+}

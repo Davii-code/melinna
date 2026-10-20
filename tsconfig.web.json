@@ -10,8 +10,6 @@
     "src/renderer/**/*.tsx",
     "src/renderer/**/*.d.ts",
     "src/shared/**/*.ts",
-    "src/core/layout/**/*.ts",
-    "tests/unit/renderer/**/*.ts",
-    "tests/unit/renderer/**/*.tsx"
+    "src/core/layout/**/*.ts"
   ]
 }

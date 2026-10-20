@@ -18,13 +18,25 @@ module.exports = tseslint.config(
         'error',
         {
           paths: [
-            { name: 'child_process', importNames: ['exec', 'execSync'], message: 'Use execFile/spawn sem shell.' },
-            { name: 'node:child_process', importNames: ['exec', 'execSync'], message: 'Use execFile/spawn sem shell.' },
+            {
+              name: 'child_process',
+              importNames: ['exec', 'execSync'],
+              message: 'Use execFile/spawn sem shell.',
+            },
+            {
+              name: 'node:child_process',
+              importNames: ['exec', 'execSync'],
+              message: 'Use execFile/spawn sem shell.',
+            },
           ],
         },
       ],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
+  },
+  {
+    files: ['tests/**'],
+    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
   {
     files: ['**/*.js', '**/*.mjs'],

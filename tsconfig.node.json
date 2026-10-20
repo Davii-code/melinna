@@ -20,10 +20,11 @@
     "tests/perf/**/*.ts",
     "tests/arch/**/*.ts",
     "tests/e2e/**/*.ts",
-    "tests/support/**/*.ts",
     "electron.vite.config.ts",
-    "vitest.config.ts",
-    "playwright.config.ts"
+    "vitest.config.mts",
+    "playwright.config.ts",
+    "tests/support/*.ts",
+    "tests/support/fakes/**/*.ts"
   ],
-  "exclude": ["tests/arch/fixtures/**"]
+  "exclude": ["tests/arch/fixtures/**", "tests/support/renderer-setup.ts"]
 }

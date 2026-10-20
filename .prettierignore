@@ -6,3 +6,6 @@ package-lock.json
 specs/
 .specify/
 .claude/
+docs/
+README.md
+build/
