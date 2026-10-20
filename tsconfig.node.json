@@ -1,0 +1,29 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": [
+    "src/core/**/*.ts",
+    "src/adapters/**/*.ts",
+    "src/host/**/*.ts",
+    "src/main/**/*.ts",
+    "src/preload/**/*.ts",
+    "src/shared/**/*.ts",
+    "tests/unit/core/**/*.ts",
+    "tests/unit/host/**/*.ts",
+    "tests/unit/main/**/*.ts",
+    "tests/unit/preload/**/*.ts",
+    "tests/unit/support/**/*.ts",
+    "tests/integration/**/*.ts",
+    "tests/perf/**/*.ts",
+    "tests/arch/**/*.ts",
+    "tests/e2e/**/*.ts",
+    "tests/support/**/*.ts",
+    "electron.vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ],
+  "exclude": ["tests/arch/fixtures/**"]
+}
