@@ -1,14 +1,17 @@
-import type { LaunchResult } from '../api-types';
+import type { LaunchResult, RemovalCheck, SwitchKind, SwitchPlan } from '../api-types';
 import { MelinnaError, toIpcError } from '../errors';
+import { baseAdvancedBy } from '../git/divergence';
 import type { Execution } from '../persistence/state-schema';
 import type { Detach, ExitEvent, HostClient, OutputSink } from '../ports/host-client';
 import { BusyTracker } from './busy-tracker';
 import type { ExecutionContext, ExecutionDeps, TermSize } from './context';
+import { checkRemoval, relaunchExecution, removeExecution, stopExecution } from './lifecycle';
 import { assertWithinLimit } from './limits';
 import { createExecutionRecord, prepareExecution, type AgentPick } from './prepare';
 import { markLiveAsLost, reconcileWithHost } from './recovery';
 import { clampSize, startExecution } from './start';
 import { isLive } from './state-machine';
+import { SwitchService } from './switch-service';
 
 export type { LaunchResult };
 
@@ -18,6 +21,7 @@ export class ExecutionService {
   private wiredHost: HostClient | null = null;
   private readonly unwire: (() => void)[] = [];
   private readonly exitListeners = new Set<(e: ExitEvent) => void>();
+  private readonly switches: SwitchService;
 
   constructor(deps: ExecutionDeps) {
     const busy = new BusyTracker(deps.clock, (execId, isBusy) => this.onBusyChange(execId, isBusy));
@@ -40,6 +44,7 @@ export class ExecutionService {
         },
       },
     };
+    this.switches = new SwitchService(this.ctx);
   }
 
   /** Contexto interno, para os módulos de ciclo de vida e troca. */
@@ -105,6 +110,7 @@ export class ExecutionService {
   }
 
   resize(execId: string, size: TermSize): void {
+    this.switches.rememberSize(execId, size);
     const exec = this.ctx.model.execution(execId);
     if (!exec || !isLive(exec.status) || !this.wiredHost) return;
     const { cols, rows } = clampSize(size);
@@ -121,6 +127,55 @@ export class ExecutionService {
       throw new MelinnaError('INPUT_INVALID', { userMessage: 'Execução não encontrada.' });
     const host = (await this.ctx.hosts.existing()) ?? (await this.ctx.hosts.get());
     return host.attach(execId, 0, sink);
+  }
+
+  /** Planeja a troca de modelo ou de modo; nada muda até `confirmSwitch`. */
+  requestSwitch(execId: string, kind: SwitchKind, value: string): Promise<SwitchPlan> {
+    return this.switches.request(execId, kind, value);
+  }
+
+  confirmSwitch(execId: string, planId: string): Promise<void> {
+    return this.switches.confirm(execId, planId);
+  }
+
+  cancelPendingSwitch(execId: string): void {
+    this.switches.cancelPending(execId);
+  }
+
+  /** Na abertura: rearma as trocas que estavam pendentes. */
+  resumePendingSwitches(): void {
+    this.switches.resumePending();
+  }
+
+  /** Para o processo; worktree e lease ficam. */
+  stop(execId: string): Promise<void> {
+    return stopExecution(this.ctx, execId);
+  }
+
+  /** Relança no mesmo worktree, com separador no histórico. */
+  relaunch(execId: string, size: TermSize): Promise<void> {
+    return relaunchExecution(this.ctx, execId, size);
+  }
+
+  removalCheck(execId: string): Promise<RemovalCheck> {
+    return checkRemoval(this.ctx, execId);
+  }
+
+  /** Remove uma execução encerrada; sem `force`, recusa perder trabalho (WORK_WOULD_BE_LOST). */
+  remove(execId: string, opts: { deleteBranch: boolean; force: boolean }): Promise<void> {
+    return removeExecution(this.ctx, execId, opts);
+  }
+
+  /** Commits que a base da tarefa avançou desde a criação do worktree. */
+  async divergence(execId: string): Promise<{ baseAdvancedBy: number }> {
+    const exec = this.ctx.model.execution(execId);
+    const task = exec ? this.ctx.model.task(exec.taskId) : undefined;
+    if (!exec || !task) throw new MelinnaError('INPUT_INVALID', { userMessage: 'Execução não encontrada.' });
+    const n = await baseAdvancedBy(
+      { git: this.ctx.git, log: this.ctx.log },
+      { repoRoot: task.repoPath, baseRef: task.baseRef, baseCommit: exec.baseCommit },
+    );
+    return { baseAdvancedBy: n };
   }
 
   async reconcileWithHost(): Promise<void> {

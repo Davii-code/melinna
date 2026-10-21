@@ -179,20 +179,20 @@
 
 ### Testes da US3 (escrever antes)
 
-- [ ] T114 [P] [US3] Integração de ciclo de vida com git real: parar mantém worktree e lease; relançar usa mesmo worktree, agente, modelo e modo, grava separador, incrementa `launchCount` e mantém o lease; remover viva → `EXECUTION_RUNNING`; `removalCheck` conta não commitados e commits fora da base; remover com trabalho e sem `force` → `WORK_WOULD_BE_LOST` sem remover nada; com `force` remove; sem trabalho remove com `branch -d`; `deleteBranch` falso mantém a branch; lease e scrollback removidos; árvore principal inalterada — `tests/integration/core/execution/lifecycle.test.ts`
-- [ ] T115 [P] [US3] `WorkspaceService`: renomear grupo e tarefa com validação e persistência; `cleanResidue` recusa caminho fora da pasta de worktrees e caminho com lease válido, e remove resíduo válido — `tests/unit/core/workspace/rename-and-residue.test.ts`
-- [ ] T116 [P] [US3] IPC: `executions.stop|relaunch|removalCheck|remove`, `workspace.renameGroup|renameTask|cleanResidue` com validação — `tests/unit/main/ipc/register-lifecycle.test.ts`, `tests/unit/main/ipc/register-workspace.test.ts`
-- [ ] T117 [P] [US3] `Tree`: três níveis, estados com rótulo e faixa, ações conforme o estado, abrir foca painel existente, renomear inline — `tests/unit/renderer/Tree.test.tsx`
-- [ ] T118 [P] [US3] `RemoveExecutionDialog` (mostra contagens de perda, exige confirmação explícita para forçar, escolha de manter a branch) e `ResidueDialog` (mostra o caminho, confirma e chama `cleanResidue`) — `tests/unit/renderer/RemoveExecutionDialog.test.tsx`, `tests/unit/renderer/ResidueDialog.test.tsx`
+- [X] T114 [P] [US3] Integração de ciclo de vida com git real: parar mantém worktree e lease; relançar usa mesmo worktree, agente, modelo e modo, grava separador, incrementa `launchCount` e mantém o lease; remover viva → `EXECUTION_RUNNING`; `removalCheck` conta não commitados e commits fora da base; remover com trabalho e sem `force` → `WORK_WOULD_BE_LOST` sem remover nada; com `force` remove; sem trabalho remove com `branch -d`; `deleteBranch` falso mantém a branch; lease e scrollback removidos; árvore principal inalterada — `tests/integration/core/execution/lifecycle.test.ts`
+- [X] T115 [P] [US3] `WorkspaceService`: renomear grupo e tarefa com validação e persistência; `cleanResidue` recusa caminho fora da pasta de worktrees e caminho com lease válido, e remove resíduo válido — `tests/unit/core/workspace/rename-and-residue.test.ts`
+- [X] T116 [P] [US3] IPC: `executions.stop|relaunch|removalCheck|remove`, `workspace.renameGroup|renameTask|cleanResidue` com validação — `tests/unit/main/ipc/register-lifecycle.test.ts`, `tests/unit/main/ipc/register-workspace.test.ts`
+- [X] T117 [P] [US3] `Tree`: três níveis, estados com rótulo e faixa, ações conforme o estado, abrir foca painel existente, renomear inline — `tests/unit/renderer/Tree.test.tsx`
+- [X] T118 [P] [US3] `RemoveExecutionDialog` (mostra contagens de perda, exige confirmação explícita para forçar, escolha de manter a branch) e `ResidueDialog` (mostra o caminho, confirma e chama `cleanResidue`) — `tests/unit/renderer/RemoveExecutionDialog.test.tsx`, `tests/unit/renderer/ResidueDialog.test.tsx`
 
 ### Implementação da US3
 
-- [ ] T119 [US3] `removalCheck` e remoção com e sem `force` (`worktree remove [--force]`, `branch -d|-D`, liberação do lease) — `src/core/git/removal.ts`
-- [ ] T120 [US3] `stop`, `relaunch` e `remove` com ligação na fachada (com T119, passa T114) — `src/core/execution/lifecycle.ts`, `src/core/execution/execution-service.ts`
-- [ ] T121 [US3] `renameGroup`, `renameTask` e `cleanResidue` (passa T115) — `src/core/workspace/workspace-service.ts`
-- [ ] T122 [US3] Canais de ciclo de vida e de workspace (passa T116) — `src/main/ipc/register-lifecycle.ts`, `src/main/ipc/validate-lifecycle.ts`, `src/main/ipc/register-workspace.ts`, `src/main/ipc/validate-workspace.ts`, `src/main/ipc/register.ts`
-- [ ] T123 [US3] Componentes da árvore (passa T117) — `src/renderer/components/Tree/Tree.tsx`, `src/renderer/components/Tree/TreeGroup.tsx`, `src/renderer/components/Tree/TreeTask.tsx`, `src/renderer/components/Tree/TreeExecution.tsx`
-- [ ] T124 [US3] Diálogos de remoção e de resíduo (passa T118) — `src/renderer/components/RemoveExecutionDialog.tsx`, `src/renderer/components/ResidueDialog.tsx`
+- [X] T119 [US3] `removalCheck` e remoção com e sem `force` (`worktree remove [--force]`, `branch -d|-D`, liberação do lease) — `src/core/git/removal.ts`
+- [X] T120 [US3] `stop`, `relaunch` e `remove` com ligação na fachada (com T119, passa T114) — `src/core/execution/lifecycle.ts`, `src/core/execution/execution-service.ts`
+- [X] T121 [US3] `renameGroup`, `renameTask` e `cleanResidue` (passa T115) — `src/core/workspace/workspace-service.ts`
+- [X] T122 [US3] Canais de ciclo de vida e de workspace (passa T116) — `src/main/ipc/register-lifecycle.ts`, `src/main/ipc/validate-lifecycle.ts`, `src/main/ipc/register-workspace.ts`, `src/main/ipc/validate-workspace.ts`, `src/main/ipc/register.ts`
+- [X] T123 [US3] Componentes da árvore (passa T117) — `src/renderer/components/Tree/Tree.tsx`, `src/renderer/components/Tree/TreeGroup.tsx`, `src/renderer/components/Tree/TreeTask.tsx`, `src/renderer/components/Tree/TreeExecution.tsx`
+- [X] T124 [US3] Diálogos de remoção e de resíduo (passa T118) — `src/renderer/components/RemoveExecutionDialog.tsx`, `src/renderer/components/ResidueDialog.tsx`
 
 **Checkpoint**: US3 completa.
 
@@ -206,20 +206,20 @@
 
 ### Testes da US4 (escrever antes)
 
-- [ ] T125 [P] [US4] Parser de diff unificado (cabeçalhos, renomeação, novo, apagado, binário, sem nova linha no fim, caminhos com espaço e acentos) e montagem lado a lado — `tests/unit/core/git/diff-parse.test.ts`, `tests/unit/core/git/diff-side-by-side.test.ts`
-- [ ] T126 [P] [US4] Integração do `DiffService` com os sete tipos de mudança, tamanhos de binário e índice do worktree inalterado — `tests/integration/core/git/diff.test.ts`
-- [ ] T127 [P] [US4] Integração de divergência: base avança 3 commits criados com `git commit-tree` + `git update-ref` → `baseAdvancedBy: 3` por `rev-list --count`; base apagada → 0 com aviso no log — `tests/integration/core/git/divergence.test.ts`
-- [ ] T128 [P] [US4] IPC `executions.diff` e `executions.divergence` com validação — `tests/unit/main/ipc/register-diff.test.ts`
-- [ ] T129 [P] [US4] `DiffView` (alternar modos sem nova chamada, recolher acima de 5.000 linhas, binário com tamanhos, lista de arquivos) e selo "base avançou N commits" no `PanelHeader` e na `TreeExecution` — `tests/unit/renderer/DiffView.test.tsx`, `tests/unit/renderer/DivergenceBadge.test.tsx`
+- [X] T125 [P] [US4] Parser de diff unificado (cabeçalhos, renomeação, novo, apagado, binário, sem nova linha no fim, caminhos com espaço e acentos) e montagem lado a lado — `tests/unit/core/git/diff-parse.test.ts`, `tests/unit/core/git/diff-side-by-side.test.ts`
+- [X] T126 [P] [US4] Integração do `DiffService` com os sete tipos de mudança, tamanhos de binário e índice do worktree inalterado — `tests/integration/core/git/diff.test.ts`
+- [X] T127 [P] [US4] Integração de divergência: base avança 3 commits criados com `git commit-tree` + `git update-ref` → `baseAdvancedBy: 3` por `rev-list --count`; base apagada → 0 com aviso no log — `tests/integration/core/git/divergence.test.ts`
+- [X] T128 [P] [US4] IPC `executions.diff` e `executions.divergence` com validação — `tests/unit/main/ipc/register-diff.test.ts`
+- [X] T129 [P] [US4] `DiffView` (alternar modos sem nova chamada, recolher acima de 5.000 linhas, binário com tamanhos, lista de arquivos) e selo "base avançou N commits" no `PanelHeader` e na `TreeExecution` — `tests/unit/renderer/DiffView.test.tsx`, `tests/unit/renderer/DivergenceBadge.test.tsx`
 
 ### Implementação da US4
 
-- [ ] T130 [US4] Parser e lado a lado (passa T125) — `src/core/git/diff-parse.ts`, `src/core/git/diff-side-by-side.ts`
-- [ ] T131 [US4] `DiffService` (passa T126) — `src/core/git/diff.ts`
-- [ ] T132 [US4] Divergência e ligação na fachada (passa T127) — `src/core/git/divergence.ts`, `src/core/execution/execution-service.ts`
-- [ ] T133 [US4] Canais de diff (passa T128) — `src/main/ipc/register-diff.ts`, `src/main/ipc/validate-diff.ts`, `src/main/ipc/register.ts`
-- [ ] T134 [US4] `DiffView` (passa parte de T129) — `src/renderer/components/DiffView/DiffView.tsx`, `src/renderer/components/DiffView/FileList.tsx`, `src/renderer/components/DiffView/UnifiedView.tsx`, `src/renderer/components/DiffView/SideBySideView.tsx`
-- [ ] T135 [US4] Selo de divergência (passa o restante de T129) — `src/renderer/components/DivergenceBadge.tsx`, `src/renderer/components/Panel/PanelHeader.tsx`, `src/renderer/components/Tree/TreeExecution.tsx`
+- [X] T130 [US4] Parser e lado a lado (passa T125) — `src/core/git/diff-parse.ts`, `src/core/git/diff-side-by-side.ts`
+- [X] T131 [US4] `DiffService` (passa T126) — `src/core/git/diff.ts`
+- [X] T132 [US4] Divergência e ligação na fachada (passa T127) — `src/core/git/divergence.ts`, `src/core/execution/execution-service.ts`
+- [X] T133 [US4] Canais de diff (passa T128) — `src/main/ipc/register-diff.ts`, `src/main/ipc/validate-diff.ts`, `src/main/ipc/register.ts`
+- [X] T134 [US4] `DiffView` (passa parte de T129) — `src/renderer/components/DiffView/DiffView.tsx`, `src/renderer/components/DiffView/FileList.tsx`, `src/renderer/components/DiffView/UnifiedView.tsx`, `src/renderer/components/DiffView/SideBySideView.tsx`
+- [X] T135 [US4] Selo de divergência (passa o restante de T129) — `src/renderer/components/DivergenceBadge.tsx`, `src/renderer/components/Panel/PanelHeader.tsx`, `src/renderer/components/Tree/TreeExecution.tsx`
 
 **Checkpoint**: US4 completa.
 
@@ -233,19 +233,19 @@
 
 ### Testes da US5 (escrever antes)
 
-- [ ] T136 [P] [US5] `computeSpotlight` (faixa à direita em janela larga, embaixo em janela alta, foco inexistente cai no primeiro) e `computeSidebar` — `tests/unit/core/layout/spotlight.test.ts`, `tests/unit/core/layout/sidebar.test.ts`
-- [ ] T137 [P] [US5] `computeCustom`, `moveDivider` (frações somam 1, mínimo, índice inválido) e `reorder` — `tests/unit/core/layout/custom.test.ts`, `tests/unit/core/layout/reorder.test.ts`
+- [X] T136 [P] [US5] `computeSpotlight` (faixa à direita em janela larga, embaixo em janela alta, foco inexistente cai no primeiro) e `computeSidebar` — `tests/unit/core/layout/spotlight.test.ts`, `tests/unit/core/layout/sidebar.test.ts`
+- [X] T137 [P] [US5] `computeCustom`, `moveDivider` (frações somam 1, mínimo, índice inválido) e `reorder` — `tests/unit/core/layout/custom.test.ts`, `tests/unit/core/layout/reorder.test.ts`
 - [X] T138 [P] [US5] IPC `layout.get|set` com validação do `LayoutState` e persistência em `state.json` — `tests/unit/main/ipc/register-layout.test.ts`
-- [ ] T139 [P] [US5] `Grid` nos quatro modos: troca reposiciona e reenvia tamanho dos visíveis; persistência via `layout.set` — `tests/unit/renderer/Grid-modes.test.tsx`
-- [ ] T140 [P] [US5] `Divider` (arrasto altera proporções ao vivo e salva ao soltar), reordenação por arrastar o cabeçalho, `LayoutSwitcher` e atalhos `Ctrl+Alt+→`/`←` no Spotlight — `tests/unit/renderer/Divider.test.tsx`, `tests/unit/renderer/LayoutSwitcher.test.tsx`
+- [X] T139 [P] [US5] `Grid` nos quatro modos: troca reposiciona e reenvia tamanho dos visíveis; persistência via `layout.set` — `tests/unit/renderer/Grid-modes.test.tsx`
+- [X] T140 [P] [US5] `Divider` (arrasto altera proporções ao vivo e salva ao soltar), reordenação por arrastar o cabeçalho, `LayoutSwitcher` e atalhos `Ctrl+Alt+→`/`←` no Spotlight — `tests/unit/renderer/Divider.test.tsx`, `tests/unit/renderer/LayoutSwitcher.test.tsx`
 
 ### Implementação da US5
 
-- [ ] T141 [US5] Spotlight e sidebar (passa T136) — `src/core/layout/spotlight.ts`, `src/core/layout/sidebar.ts`
-- [ ] T142 [US5] Grade personalizada e reordenação (passa T137) — `src/core/layout/custom.ts`, `src/core/layout/reorder.ts`
+- [X] T141 [US5] Spotlight e sidebar (passa T136) — `src/core/layout/spotlight.ts`, `src/core/layout/sidebar.ts`
+- [X] T142 [US5] Grade personalizada e reordenação (passa T137) — `src/core/layout/custom.ts`, `src/core/layout/reorder.ts`
 - [X] T143 [US5] Canais de layout (passa T138) — `src/main/ipc/register-layout.ts`, `src/main/ipc/validate-layout.ts`, `src/main/ipc/register.ts`
-- [ ] T144 [US5] Modos na `Grid` (passa T139) — `src/renderer/components/Grid/Grid.tsx`, `src/renderer/store/layout-store.ts`
-- [ ] T145 [US5] `Divider`, reordenação no cabeçalho, `LayoutSwitcher` e atalhos (passa T140) — `src/renderer/components/Grid/Divider.tsx`, `src/renderer/components/Grid/useReorderDrag.ts`, `src/renderer/components/LayoutSwitcher.tsx`
+- [X] T144 [US5] Modos na `Grid` (passa T139) — `src/renderer/components/Grid/Grid.tsx`, `src/renderer/store/layout-store.ts`
+- [X] T145 [US5] `Divider`, reordenação no cabeçalho, `LayoutSwitcher` e atalhos (passa T140) — `src/renderer/components/Grid/Divider.tsx`, `src/renderer/components/Grid/useReorderDrag.ts`, `src/renderer/components/LayoutSwitcher.tsx`
 
 **Checkpoint**: US5 completa.
 
@@ -259,22 +259,22 @@
 
 ### Testes da US6 (escrever antes)
 
-- [ ] T146 [P] [US6] `BusyTracker`: ocupado até 1,5 s após a última atividade; encerrada nunca ocupada — `tests/unit/core/execution/busy-tracker.test.ts`
-- [ ] T147 [P] [US6] `switch-planner` para modelo e para modo de permissão: cada estratégia gera o plano certo; `pty-command` ocupado → `waitsForIdle`; relançamentos marcam `interruptsResponse` se ocupado; modo `dangerous` exige confirmação; valor fora da lista sem `allowCustom` → `INPUT_INVALID`; shell → `SWITCH_UNSUPPORTED` — `tests/unit/core/execution/switch-planner.test.ts`
-- [ ] T148 [P] [US6] Integração da troca de modelo: `fake` ocioso recebe `/model X`; em `/busy 3000` só recebe após ocioso; cancelar a pendente não escreve nada; `fake-resume` relança com `resume.args` e novo modelo; `fake-nosw` relança sem retomada com separador — `tests/integration/core/execution/switch-model.test.ts`
-- [ ] T149 [P] [US6] Integração da troca de modo de permissão (caso de borda 12) nas três estratégias: `fake` recebe `/permission X`; `fake-resume` relança com os argumentos do novo modo e `resume.args`; `fake-nosw` relança sem retomada; o estado reflete o modo novo — `tests/integration/core/execution/switch-permission.test.ts`
-- [ ] T150 [P] [US6] IPC `executions.requestSwitch|confirmSwitch|cancelPendingSwitch` com validação — `tests/unit/main/ipc/register-switch.test.ts`
-- [ ] T151 [P] [US6] `ModelSelect` e `PermissionSelect`: valores do catálogo, campo personalizado validado, "trocar ao ficar ocioso" com cancelar, diálogos de relançamento e de perda de conversa, confirmação de modo perigoso com texto sobre isolamento só de arquivos — `tests/unit/renderer/ModelSelect.test.tsx`, `tests/unit/renderer/PermissionSelect.test.tsx`
-- [ ] T152 [P] [US6] Escolha de modelo e modo por agente no `NewTaskDialog`, com confirmação de modo perigoso — `tests/unit/renderer/NewTaskDialog-picks.test.tsx`
+- [X] T146 [P] [US6] `BusyTracker`: ocupado até 1,5 s após a última atividade; encerrada nunca ocupada — `tests/unit/core/execution/busy-tracker.test.ts`
+- [X] T147 [P] [US6] `switch-planner` para modelo e para modo de permissão: cada estratégia gera o plano certo; `pty-command` ocupado → `waitsForIdle`; relançamentos marcam `interruptsResponse` se ocupado; modo `dangerous` exige confirmação; valor fora da lista sem `allowCustom` → `INPUT_INVALID`; shell → `SWITCH_UNSUPPORTED` — `tests/unit/core/execution/switch-planner.test.ts`
+- [X] T148 [P] [US6] Integração da troca de modelo: `fake` ocioso recebe `/model X`; em `/busy 3000` só recebe após ocioso; cancelar a pendente não escreve nada; `fake-resume` relança com `resume.args` e novo modelo; `fake-nosw` relança sem retomada com separador — `tests/integration/core/execution/switch-model.test.ts`
+- [X] T149 [P] [US6] Integração da troca de modo de permissão (caso de borda 12) nas três estratégias: `fake` recebe `/permission X`; `fake-resume` relança com os argumentos do novo modo e `resume.args`; `fake-nosw` relança sem retomada; o estado reflete o modo novo — `tests/integration/core/execution/switch-permission.test.ts`
+- [X] T150 [P] [US6] IPC `executions.requestSwitch|confirmSwitch|cancelPendingSwitch` com validação — `tests/unit/main/ipc/register-switch.test.ts`
+- [X] T151 [P] [US6] `ModelSelect` e `PermissionSelect`: valores do catálogo, campo personalizado validado, "trocar ao ficar ocioso" com cancelar, diálogos de relançamento e de perda de conversa, confirmação de modo perigoso com texto sobre isolamento só de arquivos — `tests/unit/renderer/ModelSelect.test.tsx`, `tests/unit/renderer/PermissionSelect.test.tsx`
+- [X] T152 [P] [US6] Escolha de modelo e modo por agente no `NewTaskDialog`, com confirmação de modo perigoso — `tests/unit/renderer/NewTaskDialog-picks.test.tsx`
 
 ### Implementação da US6
 
-- [ ] T153 [US6] `BusyTracker` alimentado por `activity` (passa T146) — `src/core/execution/busy-tracker.ts`
-- [ ] T154 [US6] `switch-planner` (passa T147) — `src/core/execution/switch-planner.ts`
-- [ ] T155 [US6] `SwitchService` com `pendingSwitch` persistido e ligação na fachada (passa T148 e T149) — `src/core/execution/switch-service.ts`, `src/core/execution/execution-service.ts`
-- [ ] T156 [US6] Canais de troca (passa T150) — `src/main/ipc/register-switch.ts`, `src/main/ipc/validate-switch.ts`, `src/main/ipc/register.ts`
-- [ ] T157 [US6] `ModelSelect`, `PermissionSelect` e `ConfirmDialog` no cabeçalho do painel (passa T151) — `src/renderer/components/ModelSelect.tsx`, `src/renderer/components/PermissionSelect.tsx`, `src/renderer/components/ConfirmDialog.tsx`, `src/renderer/components/Panel/PanelHeader.tsx`
-- [ ] T158 [US6] Escolha por agente no `NewTaskDialog` (passa T152) — `src/renderer/components/NewTaskDialog.tsx`
+- [X] T153 [US6] `BusyTracker` alimentado por `activity` (passa T146) — `src/core/execution/busy-tracker.ts`
+- [X] T154 [US6] `switch-planner` (passa T147) — `src/core/execution/switch-planner.ts`
+- [X] T155 [US6] `SwitchService` com `pendingSwitch` persistido e ligação na fachada (passa T148 e T149) — `src/core/execution/switch-service.ts`, `src/core/execution/execution-service.ts`
+- [X] T156 [US6] Canais de troca (passa T150) — `src/main/ipc/register-switch.ts`, `src/main/ipc/validate-switch.ts`, `src/main/ipc/register.ts`
+- [X] T157 [US6] `ModelSelect`, `PermissionSelect` e `ConfirmDialog` no cabeçalho do painel (passa T151) — `src/renderer/components/ModelSelect.tsx`, `src/renderer/components/PermissionSelect.tsx`, `src/renderer/components/ConfirmDialog.tsx`, `src/renderer/components/Panel/PanelHeader.tsx`
+- [X] T158 [US6] Escolha por agente no `NewTaskDialog` (passa T152) — `src/renderer/components/NewTaskDialog.tsx`
 
 **Checkpoint**: todas as histórias completas.
 
@@ -284,16 +284,16 @@
 
 ### Testes do Polish (escrever antes)
 
-- [ ] T159 [P] Busca no terminal: `Ctrl+Shift+F` abre no painel em foco, próximo/anterior, `Esc` fecha — `tests/unit/renderer/TerminalSearch.test.tsx`
-- [ ] T160 [P] `openExternal` aceita só `http`/`https` e recusa `file:`, `javascript:` e URLs malformadas; canal `app.openExternal` — `tests/unit/main/open-external.test.ts`
-- [ ] T161 [P] Tela de catálogo: agentes, estado de instalação e inválidos com motivo — `tests/unit/renderer/CatalogView.test.tsx`
+- [X] T159 [P] Busca no terminal: `Ctrl+Shift+F` abre no painel em foco, próximo/anterior, `Esc` fecha — `tests/unit/renderer/TerminalSearch.test.tsx`
+- [X] T160 [P] `openExternal` aceita só `http`/`https` e recusa `file:`, `javascript:` e URLs malformadas; canal `app.openExternal` — `tests/unit/main/open-external.test.ts`
+- [X] T161 [P] Tela de catálogo: agentes, estado de instalação e inválidos com motivo — `tests/unit/renderer/CatalogView.test.tsx`
 
 ### Implementação do Polish
 
-- [ ] T162 Busca no terminal com `@xterm/addon-search` (passa T159) — `src/renderer/components/Panel/TerminalSearch.tsx`, `src/renderer/components/TerminalView.tsx`
-- [ ] T163 `openExternal` ligado ao addon web-links (passa T160) — `src/main/open-external.ts`, `src/main/ipc/register-app.ts`, `src/main/ipc/validate-app.ts`
-- [ ] T164 Tela de catálogo (passa T161) — `src/renderer/components/CatalogView.tsx`
-- [ ] T165 [simples] `README.md` (o que é, pré-requisitos, comandos, regra de independência de código e de marca em relação à referência de inspiração) — `README.md`
+- [X] T162 Busca no terminal com `@xterm/addon-search` (passa T159) — `src/renderer/components/Panel/TerminalSearch.tsx`, `src/renderer/components/TerminalView.tsx`
+- [X] T163 `openExternal` ligado ao addon web-links (passa T160) — `src/main/open-external.ts`, `src/main/ipc/register-app.ts`, `src/main/ipc/validate-app.ts`
+- [X] T164 Tela de catálogo (passa T161) — `src/renderer/components/CatalogView.tsx`
+- [X] T165 [simples] `README.md` (o que é, pré-requisitos, comandos, regra de independência de código e de marca em relação à referência de inspiração) — `README.md`
 
 ---
 

@@ -63,6 +63,7 @@ class FakeTerm implements TerminalLike {
 const tick = (ms = 0) => act(() => new Promise((r) => setTimeout(r, ms)));
 
 let resizeFns: (() => void)[] = [];
+let lastOpenLink: ((url: string) => void) | null = null;
 beforeEach(() => {
   resizeFns = [];
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 800 });
@@ -84,7 +85,10 @@ function setup(props: { visible?: boolean; onExit?: () => void; onRendererFallba
     dispose: () => undefined,
   };
   const deps: TerminalDeps = {
-    factory: () => term,
+    factory: (opts) => {
+      lastOpenLink = opts.openLink;
+      return term;
+    },
     receiver,
     observeResize: (_el, fn) => {
       resizeFns.push(fn);
@@ -199,5 +203,12 @@ describe('TerminalView', () => {
     expect(api.terminal.close).toHaveBeenCalledWith('e1');
     expect(term.disposed).toBe(true);
     expect(api.executions.stop).not.toHaveBeenCalled();
+  });
+
+  it('opens clicked links through the main process', async () => {
+    const { api } = setup();
+    await tick();
+    lastOpenLink?.('https://example.com/docs');
+    expect(api.app.openExternal).toHaveBeenCalledWith('https://example.com/docs');
   });
 });

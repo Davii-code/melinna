@@ -39,6 +39,32 @@ describe('workspace IPC', () => {
     expect(await rec.call('workspace:pickRepository')).toEqual({ ok: true, value: '/repo' });
   });
 
+  it('renames groups and tasks and cleans residue', async () => {
+    const { rec, core } = setup();
+    const g = (await rec.call('workspace:createGroup', 'Frente')).value as { id: string };
+    const task = await core.workspace.createTask({
+      groupId: g.id,
+      repoPath: '/repo',
+      baseRef: 'main',
+      prompt: 'Faça X',
+    });
+    expect(await rec.call('workspace:renameGroup', g.id, 'Frente B')).toEqual({ ok: true, value: undefined });
+    expect(await rec.call('workspace:renameTask', task.id, 'Outro título')).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    const snap = core.workspace.snapshot();
+    expect(snap.groups[0]?.name).toBe('Frente B');
+    expect(snap.tasks[0]?.title).toBe('Outro título');
+
+    const residue = core.paths.worktree('0123456789abcdef', 'solto');
+    core.fs.seed(`${residue}/a.txt`, 'x');
+    expect(await rec.call('workspace:cleanResidue', residue)).toEqual({ ok: true, value: undefined });
+    expect(await core.fs.exists(residue)).toBe(false);
+    expect((await rec.call('workspace:cleanResidue', '/repo')).error?.code).toBe('INPUT_INVALID');
+    expect((await rec.call('workspace:cleanResidue', 7)).error?.code).toBe('INPUT_INVALID');
+  });
+
   it('validates types, sizes and ids', async () => {
     const { rec } = setup();
     expect((await rec.call('workspace:createGroup', 42)).error?.code).toBe('INPUT_INVALID');
