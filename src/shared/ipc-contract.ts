@@ -90,13 +90,18 @@ export interface MelinnaApi {
     createGroup(name: string): Promise<Result<Group>>;
     renameGroup(id: string, name: string): Promise<Result<void>>;
     renameTask(id: string, title: string): Promise<Result<void>>;
-    pickRepository(): Promise<Result<string | null>>;
+    /** Diálogo nativo de escolha de pasta; `defaultPath` abre o diálogo nessa pasta. */
+    pickRepository(defaultPath?: string): Promise<Result<string | null>>;
     inspectRepo(repoPath: string, baseRef: string): Promise<Result<RepoInspection>>;
   };
   tasks: {
     createAndLaunch(
       input: CreateAndLaunchInput,
     ): Promise<Result<{ taskId: string; results: LaunchResult[] }>>;
+    /** Remove a sessão e as execuções dela (paradas); a pasta no disco não é tocada. */
+    remove(taskId: string): Promise<Result<void>>;
+    /** Tira o workspace da lista com as sessões dele (paradas); a pasta no disco não é tocada. */
+    removeWorkspace(groupId: string): Promise<Result<void>>;
   };
   executions: {
     stop(execId: string): Promise<Result<void>>;
@@ -147,7 +152,11 @@ export const CHANNELS = {
     pickRepository: 'workspace:pickRepository',
     inspectRepo: 'workspace:inspectRepo',
   },
-  tasks: { createAndLaunch: 'tasks:createAndLaunch' },
+  tasks: {
+    createAndLaunch: 'tasks:createAndLaunch',
+    remove: 'tasks:remove',
+    removeWorkspace: 'tasks:removeWorkspace',
+  },
   executions: {
     stop: 'executions:stop',
     relaunch: 'executions:relaunch',

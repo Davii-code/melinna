@@ -5,6 +5,8 @@ import { errorMessage, unwrap, useApi } from '../api';
 export interface RemoveExecutionDialogProps {
   execution: Execution;
   agentName: string;
+  /** Execução direta: roda na pasta do usuário, que não é apagada; não há worktree nem branch. */
+  direct?: boolean;
   onDone: () => void;
   onCancel: () => void;
 }
@@ -17,7 +19,13 @@ function plural(n: number, one: string, many: string): string {
  * Confirma a remoção de uma execução encerrada. Mostra o que seria perdido e só força a remoção
  * com confirmação explícita. Manter a branch é o padrão (preserva os commits do agente).
  */
-export function RemoveExecutionDialog({ execution, agentName, onDone, onCancel }: RemoveExecutionDialogProps) {
+export function RemoveExecutionDialog({
+  execution,
+  agentName,
+  direct = false,
+  onDone,
+  onCancel,
+}: RemoveExecutionDialogProps) {
   const api = useApi();
   const [check, setCheck] = useState<RemovalCheck | null>(null);
   const [deleteBranch, setDeleteBranch] = useState(false);
@@ -57,22 +65,31 @@ export function RemoveExecutionDialog({ execution, agentName, onDone, onCancel }
       <div className="modal" role="alertdialog" aria-modal="true" aria-labelledby="remove-title">
         <h2 id="remove-title">Remover execução de {agentName}</h2>
         <div className="confirm">
-          <p>
-            O worktree <code>{execution.worktreePath}</code> e o histórico do terminal serão apagados.
-          </p>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={deleteBranch}
-              onChange={(e) => {
-                setDeleteBranch(e.target.checked);
-                setAcceptLoss(false);
-              }}
-            />
-            Apagar a branch {execution.branch || '(sem branch)'}
-          </label>
+          {direct ? (
+            <p>
+              O histórico do terminal será apagado. A pasta <code>{execution.worktreePath}</code> não é
+              apagada.
+            </p>
+          ) : (
+            <>
+              <p>
+                O worktree <code>{execution.worktreePath}</code> e o histórico do terminal serão apagados.
+              </p>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={deleteBranch}
+                  onChange={(e) => {
+                    setDeleteBranch(e.target.checked);
+                    setAcceptLoss(false);
+                  }}
+                />
+                Apagar a branch {execution.branch || '(sem branch)'}
+              </label>
+            </>
+          )}
           {check === null && !error && <p className="meta">Verificando o worktree…</p>}
-          {check && !loses && (
+          {check && !loses && !direct && (
             <p>
               Nenhum trabalho será perdido.
               {check.unmergedCommits > 0 &&
@@ -84,14 +101,20 @@ export function RemoveExecutionDialog({ execution, agentName, onDone, onCancel }
               <p className="warning">Esta remoção descarta trabalho do agente:</p>
               <ul>
                 {losesFiles && (
-                  <li>{plural(check.uncommittedFiles, 'arquivo não commitado', 'arquivos não commitados')}</li>
+                  <li>
+                    {plural(check.uncommittedFiles, 'arquivo não commitado', 'arquivos não commitados')}
+                  </li>
                 )}
                 {losesCommits && (
                   <li>{plural(check.unmergedCommits, 'commit fora da base', 'commits fora da base')}</li>
                 )}
               </ul>
               <label className="check">
-                <input type="checkbox" checked={acceptLoss} onChange={(e) => setAcceptLoss(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={acceptLoss}
+                  onChange={(e) => setAcceptLoss(e.target.checked)}
+                />
                 Entendo que esse trabalho será perdido
               </label>
             </div>

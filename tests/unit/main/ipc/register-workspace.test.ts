@@ -8,7 +8,7 @@ function setup() {
   registerWorkspace(rec.handle, {
     workspace: core.workspace,
     log: core.log,
-    pickRepository: async () => '/repo',
+    pickRepository: async (defaultPath?: string) => defaultPath ?? '/repo',
   });
   return { core, rec };
 }
@@ -38,6 +38,8 @@ describe('workspace IPC', () => {
       value: { root: '/repo', baseCommit: BASE_SHA, uncommittedCount: 0 },
     });
     expect(await rec.call('workspace:pickRepository')).toEqual({ ok: true, value: '/repo' });
+    expect(await rec.call('workspace:pickRepository', '/inicio')).toEqual({ ok: true, value: '/inicio' });
+    expect((await rec.call('workspace:pickRepository', 42)).error?.code).toBe('INPUT_INVALID');
   });
 
   it('renames groups and tasks and cleans residue', async () => {

@@ -30,10 +30,7 @@ export function workspacesOf(groups: readonly Group[]): Group[] {
     .sort((a, b) => (b.lastOpenedAt ?? '').localeCompare(a.lastOpenedAt ?? '') || a.order - b.order);
 }
 
-type Step =
-  | { kind: 'idle' }
-  | { kind: 'dangerous'; prompt: string; ws: Group }
-  | { kind: 'uncommitted'; prompt: string; ws: Group; count: number };
+type Step = { kind: 'idle' } | { kind: 'dangerous'; prompt: string; ws: Group };
 
 export interface HomeProps {
   snapshot: WorkspaceSnapshot;
@@ -41,14 +38,25 @@ export interface HomeProps {
   detect: Record<string, DetectResult>;
   size: TermSize;
   onLaunched: (taskId: string, results: LaunchResult[]) => void;
+  /** Pede a confirmação para tirar o workspace da lista (a pasta não é apagada). */
+  onRemoveWorkspace: (group: Group) => void;
   now?: Date;
 }
 
 /**
  * Tela inicial: saudação com o avatar, barra rápida (enunciado opcional, agente, workspace e modo),
- * "Novo terminal" sem enunciado, "Abrir workspace" e os workspaces recentes.
+ * "Novo terminal" (escolhe a pasta e abre o agente sem enunciado), "Abrir workspace" e os workspaces
+ * recentes. Tudo roda direto na pasta escolhida.
  */
-export function Home({ snapshot, agents, detect, size, onLaunched, now = new Date() }: HomeProps) {
+export function Home({
+  snapshot,
+  agents,
+  detect,
+  size,
+  onLaunched,
+  onRemoveWorkspace,
+  now = new Date(),
+}: HomeProps) {
   const api = useApi();
   const installed = useMemo(() => agents.filter((a) => detect[a.id]?.installed), [agents, detect]);
   const [agentId, setAgentId] = useState<string>(
@@ -69,15 +77,16 @@ export function Home({ snapshot, agents, detect, size, onLaunched, now = new Dat
   const [permission, setPermission] = useState<string>(() => agent?.permission?.default ?? '');
   const ws = workspaces.find((w) => w.id === wsId) ?? null;
   const execCount = (w: Group) =>
-    snapshot.executions.filter((e) => snapshot.tasks.some((t) => t.id === e.taskId && t.groupId === w.id)).length;
+    snapshot.executions.filter((e) => snapshot.tasks.some((t) => t.id === e.taskId && t.groupId === w.id))
+      .length;
 
   const chooseAgent = (id: string) => {
     setAgentId(id);
     setPermission(installed.find((a) => a.id === id)?.permission?.default ?? '');
   };
 
-  const openFolder = async (): Promise<Group | null> => {
-    const path = await unwrap(api.workspace.pickRepository());
+  const openFolder = async (defaultPath?: string): Promise<Group | null> => {
+    const path = await unwrap(api.workspace.pickRepository(defaultPath));
     if (!path) return null;
     const group = await unwrap(api.workspace.openWorkspace(path));
     setExtraWs(group);
@@ -120,38 +129,22 @@ export function Home({ snapshot, agents, detect, size, onLaunched, now = new Dat
     }
   };
 
-  const checkRepo = async (text: string, target: Group) => {
-    if (!target.repoPath) return;
-    setBusy(true);
-    try {
-      const info = await unwrap(api.workspace.inspectRepo(target.repoPath, 'HEAD'));
-      setBusy(false);
-      if (info.uncommittedCount > 0) {
-        setStep({ kind: 'uncommitted', prompt: text, ws: target, count: info.uncommittedCount });
-        return;
-      }
-      await launch(text, target);
-    } catch (err) {
-      setBusy(false);
-      setError(errorMessage(err));
-    }
-  };
-
-  const start = async (text: string) => {
+  /** Lança na pasta do workspace selecionado; com `chooseFolder`, pergunta a pasta antes (abrindo no workspace atual). */
+  const start = async (text: string, chooseFolder = false) => {
     setError(null);
     if (!agent) {
       setError('Nenhum agente instalado. Veja o catálogo para instalar um.');
       return;
     }
     try {
-      const target = ws ?? (await openFolder());
+      const target = chooseFolder || !ws ? await openFolder(ws?.repoPath) : ws;
       if (!target) return;
       const dangerous = agent.permission?.options.find((o) => o.id === permission)?.dangerous;
       if (dangerous) {
         setStep({ kind: 'dangerous', prompt: text, ws: target });
         return;
       }
-      await checkRepo(text, target);
+      await launch(text, target);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -208,7 +201,8 @@ export function Home({ snapshot, agents, detect, size, onLaunched, now = new Dat
               aria-label="Workspace"
               value={ws?.id ?? OPEN_FOLDER}
               onChange={(e) => {
-                if (e.target.value === OPEN_FOLDER) void openFolder().catch((err: unknown) => setError(errorMessage(err)));
+                if (e.target.value === OPEN_FOLDER)
+                  void openFolder().catch((err: unknown) => setError(errorMessage(err)));
                 else setWsId(e.target.value);
               }}
             >
@@ -252,7 +246,7 @@ export function Home({ snapshot, agents, detect, size, onLaunched, now = new Dat
       )}
 
       <div className="home-actions">
-        <button type="button" disabled={busy || !agent} onClick={() => void start('')}>
+        <button type="button" disabled={busy || !agent} onClick={() => void start('', true)}>
           ▸ Novo terminal
         </button>
         <button
@@ -269,7 +263,7 @@ export function Home({ snapshot, agents, detect, size, onLaunched, now = new Dat
           <h2>Workspaces recentes</h2>
           <ul aria-label="Workspaces recentes">
             {workspaces.slice(0, 6).map((w) => (
-              <li key={w.id}>
+              <li key={w.id} className="home-card-item">
                 <button
                   type="button"
                   className={`home-card${w.id === ws?.id ? ' selected' : ''}`}
@@ -281,6 +275,15 @@ export function Home({ snapshot, agents, detect, size, onLaunched, now = new Dat
                   <span className="meta">
                     {execCount(w)} {execCount(w) === 1 ? 'execução' : 'execuções'}
                   </span>
+                </button>
+                <button
+                  type="button"
+                  className="icon-button home-card-remove"
+                  aria-label={`Remover ${w.name} dos recentes`}
+                  title="Tirar da lista (a pasta não é apagada)"
+                  onClick={() => onRemoveWorkspace(w)}
+                >
+                  ×
                 </button>
               </li>
             ))}
@@ -295,25 +298,11 @@ export function Home({ snapshot, agents, detect, size, onLaunched, now = new Dat
           danger
           busy={busy}
           onCancel={() => setStep({ kind: 'idle' })}
-          onConfirm={() => void checkRepo(step.prompt, step.ws)}
-        >
-          <p>
-            {agent?.displayName}: {modeLabel}. O agente poderá executar comandos sem perguntar. O worktree isola
-            apenas os arquivos do repositório, não a máquina.
-          </p>
-        </ConfirmDialog>
-      )}
-      {step.kind === 'uncommitted' && (
-        <ConfirmDialog
-          title="Alterações não commitadas"
-          confirmLabel="Lançar mesmo assim"
-          busy={busy}
-          onCancel={() => setStep({ kind: 'idle' })}
           onConfirm={() => void launch(step.prompt, step.ws)}
         >
           <p>
-            O repositório tem {step.count} alterações não commitadas. O worktree parte do último commit (HEAD) e
-            não inclui essas alterações.
+            {agent?.displayName}: {modeLabel}. O agente poderá executar comandos sem perguntar, direto na
+            pasta <code>{step.ws.repoPath}</code> e na máquina.
           </p>
         </ConfirmDialog>
       )}

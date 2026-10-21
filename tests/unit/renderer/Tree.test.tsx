@@ -45,6 +45,8 @@ function setup(over: Partial<TreeProps> = {}) {
     onRemove: vi.fn(),
     onRenameGroup: vi.fn(),
     onRenameTask: vi.fn(),
+    onRemoveTask: vi.fn(),
+    onRemoveGroup: vi.fn(),
     ...over,
   };
   render(<Tree {...props} />);
@@ -73,7 +75,8 @@ describe('Tree', () => {
 
   it('enables actions according to the state', () => {
     setup();
-    const btn = (id: string, name: RegExp) => within(row(id)).getByRole('button', { name }) as HTMLButtonElement;
+    const btn = (id: string, name: RegExp) =>
+      within(row(id)).getByRole('button', { name }) as HTMLButtonElement;
     expect(btn('e1', /parar/i).disabled).toBe(false);
     expect(btn('e1', /relançar/i).disabled).toBe(true);
     expect(btn('e1', /remover/i).disabled).toBe(true);
@@ -139,5 +142,20 @@ describe('Tree', () => {
   it('shows an empty state without groups', () => {
     setup({ groups: [], tasks: [], executions: [] });
     expect(screen.getByText(/nenhuma tarefa/i)).toBeTruthy();
+  });
+
+  it('removes a stopped session or workspace and blocks removal while something runs', () => {
+    const props = setup();
+    const removeBusca = screen.getByRole('button', { name: 'Remover sessão Busca' }) as HTMLButtonElement;
+    const removeLogin = screen.getByRole('button', { name: 'Remover sessão Login' }) as HTMLButtonElement;
+    expect(removeBusca.disabled).toBe(true);
+    expect(removeLogin.disabled).toBe(false);
+    fireEvent.click(removeLogin);
+    expect(props.onRemoveTask).toHaveBeenCalledWith('t2');
+    expect(
+      (screen.getByRole('button', { name: 'Remover workspace Primeiro' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Remover workspace Segundo' }));
+    expect(props.onRemoveGroup).toHaveBeenCalledWith('g2');
   });
 });

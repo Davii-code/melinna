@@ -11,17 +11,20 @@ interface MelinnaApi {
   workspace: {
     snapshot(): Promise<Result<WorkspaceSnapshot>>;
     cleanResidue(residuePath: string): Promise<Result<void>>; // só caminhos devolvidos num erro WORKTREE_RESIDUE
-    openWorkspace(path: string, name?: string): Promise<Result<Group>>; // abre ou reaproveita o workspace do repositório
+    openWorkspace(path: string, name?: string): Promise<Result<Group>>; // abre ou reaproveita o workspace da pasta (raiz do repositório git, ou a própria pasta fora do git)
     onChange(fn: (s: WorkspaceSnapshot) => void): Unsubscribe;
     createGroup(name: string): Promise<Result<Group>>;
     renameGroup(id: string, name: string): Promise<Result<void>>;
     renameTask(id: string, title: string): Promise<Result<void>>;
-    pickRepository(): Promise<Result<string | null>>;   // diálogo nativo de pasta
+    pickRepository(defaultPath?: string): Promise<Result<string | null>>;   // diálogo nativo de pasta, aberto em defaultPath
     inspectRepo(repoPath: string, baseRef: string): Promise<Result<RepoInspection>>;
   };
   tasks: {
     createAndLaunch(input: { groupId: string; repoPath: string; baseRef: string; prompt: string; title?: string;
       picks: AgentPick[]; size: TermSize }): Promise<Result<{ taskId: string; results: LaunchResult[] }>>;
+      // a tarefa é criada em execução direta: o processo roda na própria pasta (repoPath), sem worktree
+    remove(taskId: string): Promise<Result<void>>;            // sessão e execuções (paradas); a pasta não é tocada
+    removeWorkspace(groupId: string): Promise<Result<void>>;  // tira o workspace da lista com as sessões (paradas)
   };
   executions: {
     stop(execId: string): Promise<Result<void>>;

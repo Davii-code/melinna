@@ -19,19 +19,33 @@ export interface Group {
   lastOpenedAt?: string;
 }
 
+/**
+ * Onde as execuções da tarefa rodam: `direct` na própria pasta (qualquer pasta, git ou não);
+ * `worktree` num git worktree isolado sob a pasta de dados do app.
+ */
+export type Isolation = 'worktree' | 'direct';
+
 export interface Task {
   id: string;
   groupId: string;
   title: string;
   prompt: string;
+  /** Pasta da tarefa: raiz do repositório ou, em `direct` fora do git, a própria pasta escolhida. */
   repoPath: string;
   repoId: string;
   baseRef: string;
+  /** Vazio em `direct`: não há commit base a preservar. */
   baseCommit: string;
   slug: string;
   createdAt: string;
   /** Próximo índice de faixa; execuções removidas não liberam o índice. */
   nextBandIndex?: number;
+  /** Ausente = `worktree` (estado gravado antes da execução direta). */
+  isolation?: Isolation;
+}
+
+export function isDirect(task: Pick<Task, 'isolation'>): boolean {
+  return task.isolation === 'direct';
 }
 
 export type ExecutionStatus =
@@ -125,7 +139,8 @@ function strings(v: unknown): string[] {
 function parsePane(raw: unknown): Pane | null {
   if (!isObj(raw)) return null;
   if (typeof raw.id !== 'string' || raw.id.length === 0) return null;
-  const index = typeof raw.activeIndex === 'number' && Number.isInteger(raw.activeIndex) ? raw.activeIndex : 0;
+  const index =
+    typeof raw.activeIndex === 'number' && Number.isInteger(raw.activeIndex) ? raw.activeIndex : 0;
   if (raw.kind === 'executions') {
     const execIds = strings(raw.execIds);
     if (execIds.length === 0) return null;

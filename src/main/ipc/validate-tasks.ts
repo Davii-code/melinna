@@ -40,3 +40,11 @@ export function parseCreateAndLaunch(groupExists: (id: string) => boolean, freeS
     return [input];
   };
 }
+
+export function parseTaskId(taskExists: (id: string) => boolean) {
+  return (args: unknown[]): [string] => [existing(args[0], 'Sessão', taskExists)];
+}
+
+export function parseGroupId(groupExists: (id: string) => boolean) {
+  return (args: unknown[]): [string] => [existing(args[0], 'Workspace', groupExists)];
+}

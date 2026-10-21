@@ -43,7 +43,13 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
       snapshot: vi.fn(() => okR(snapshot())),
       cleanResidue: vi.fn(() => okR(undefined)),
       openWorkspace: vi.fn((path: string, name?: string) =>
-        okR({ id: 'ws-new', name: name ?? path.split(/[\\/]/).pop() ?? 'ws', order: 0, repoPath: path, colorIndex: 0 }),
+        okR({
+          id: 'ws-new',
+          name: name ?? path.split(/[\\/]/).pop() ?? 'ws',
+          order: 0,
+          repoPath: path,
+          colorIndex: 0,
+        }),
       ),
       onChange: vi.fn((fn: (s: WorkspaceSnapshot) => void) => {
         changeListeners.add(fn);
@@ -55,7 +61,11 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
       pickRepository: vi.fn(() => okR<string | null>('/escolhido')),
       inspectRepo: vi.fn(() => okR({ root: '/repo', baseCommit: 'a'.repeat(40), uncommittedCount: 0 })),
     },
-    tasks: { createAndLaunch: vi.fn(() => okR({ taskId: 't1', results: [] })) },
+    tasks: {
+      createAndLaunch: vi.fn(() => okR({ taskId: 't1', results: [] })),
+      remove: vi.fn(() => okR(undefined)),
+      removeWorkspace: vi.fn(() => okR(undefined)),
+    },
     executions: {
       stop: vi.fn(() => okR(undefined)),
       relaunch: vi.fn(() => okR(undefined)),

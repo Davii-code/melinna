@@ -4,9 +4,11 @@ import { pathModule } from '../paths';
 import type { FileSystem } from '../ports/file-system';
 import type { Logger } from '../ports/logger';
 import type { OsName } from '../ports/platform';
+import { isDirect } from '../persistence/state-schema';
 import type { WorkspaceModel } from '../workspace/workspace-model';
 import { parseUnifiedDiff } from './diff-parse';
 import type { GitRunner } from './git-runner';
+import { repoRoot } from './repo';
 
 export interface DiffDeps {
   git: GitRunner;
@@ -69,7 +71,10 @@ export async function diffWorktree(
     if (!f.binary) continue;
     const oldPath = f.oldPath ?? f.path;
     f.binary = {
-      oldSize: f.change === 'added' || f.change === 'untracked' ? null : await blobSize(git, cwd, input.baseCommit, oldPath),
+      oldSize:
+        f.change === 'added' || f.change === 'untracked'
+          ? null
+          : await blobSize(git, cwd, input.baseCommit, oldPath),
       newSize: f.change === 'deleted' ? null : await fileSize(fs, p.join(cwd, f.path)),
     };
   }
@@ -86,9 +91,24 @@ export class DiffService {
     if (!(await this.deps.fs.exists(exec.worktreePath))) {
       throw new MelinnaError('INPUT_INVALID', { userMessage: 'O worktree desta execução não existe.' });
     }
+    const task = this.deps.model.task(exec.taskId);
+    let baseCommit = exec.baseCommit;
+    if (task && isDirect(task)) {
+      // Execução direta: mostra o que mudou na pasta desde o último commit; pasta fora do git não tem diff.
+      const inRepo = await repoRoot(this.deps.git, exec.worktreePath, this.deps.os).then(
+        () => true,
+        () => false,
+      );
+      if (!inRepo) return { files: [] };
+      baseCommit = 'HEAD';
+    }
     const started = Date.now();
-    const result = await diffWorktree(this.deps, { worktreePath: exec.worktreePath, baseCommit: exec.baseCommit });
-    this.deps.log.info('diff.computed', { execId, files: result.files.length, durationMs: Date.now() - started });
+    const result = await diffWorktree(this.deps, { worktreePath: exec.worktreePath, baseCommit });
+    this.deps.log.info('diff.computed', {
+      execId,
+      files: result.files.length,
+      durationMs: Date.now() - started,
+    });
     return result;
   }
 }

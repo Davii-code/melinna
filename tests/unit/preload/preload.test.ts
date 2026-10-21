@@ -37,7 +37,7 @@ const CONTRACT = {
     'renameTask',
     'snapshot',
   ],
-  tasks: ['createAndLaunch'],
+  tasks: ['createAndLaunch', 'remove', 'removeWorkspace'],
   executions: [
     'cancelPendingSwitch',
     'confirmSwitch',

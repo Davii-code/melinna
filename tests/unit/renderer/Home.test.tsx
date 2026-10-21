@@ -15,6 +15,7 @@ const WS: Group[] = [
 function setup(snap: WorkspaceSnapshot = snapshot({ groups: WS })) {
   const api = fakeApi();
   const onLaunched = vi.fn();
+  const onRemoveWorkspace = vi.fn();
   render(
     <ApiContext.Provider value={api}>
       <Home
@@ -32,10 +33,11 @@ function setup(snap: WorkspaceSnapshot = snapshot({ groups: WS })) {
         size={{ cols: 100, rows: 30 }}
         now={new Date('2026-10-21T09:20:00')}
         onLaunched={onLaunched}
+        onRemoveWorkspace={onRemoveWorkspace}
       />
     </ApiContext.Provider>,
   );
-  return { api, onLaunched };
+  return { api, onLaunched, onRemoveWorkspace };
 }
 
 const prompt = () => screen.getByRole('textbox', { name: /o que você quer construir/i });
@@ -69,7 +71,7 @@ describe('Home', () => {
       expect.stringContaining('/repos/api'),
       expect.stringContaining('/repos/site'),
     ]);
-    fireEvent.click(within(recent).getByRole('button', { name: /site/ }));
+    fireEvent.click(within(recent).getByRole('button', { name: /^site/ }));
     expect(ws.value).toBe('w1');
   });
 
@@ -78,7 +80,7 @@ describe('Home', () => {
     fireEvent.change(prompt(), { target: { value: 'Crie a página de login' } });
     fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
     await waitFor(() => expect(api.tasks.createAndLaunch).toHaveBeenCalled());
-    expect(api.workspace.inspectRepo).toHaveBeenCalledWith('/repos/api', 'HEAD');
+    expect(api.workspace.pickRepository).not.toHaveBeenCalled();
     expect(api.tasks.createAndLaunch.mock.calls[0]?.[0]).toEqual({
       groupId: 'w2',
       repoPath: '/repos/api',
@@ -99,13 +101,37 @@ describe('Home', () => {
     await waitFor(() => expect(api.tasks.createAndLaunch).toHaveBeenCalled());
   });
 
-  it('"Novo terminal" opens the chosen agent or shell without a prompt', async () => {
+  it('"Novo terminal" asks for the folder, starting at the current workspace, and opens the agent there', async () => {
     const { api } = setup();
     fireEvent.change(screen.getByRole('combobox', { name: 'Agente' }), { target: { value: 'bash' } });
     expect(screen.queryByRole('combobox', { name: 'Modo' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /novo terminal/i }));
     await waitFor(() => expect(api.tasks.createAndLaunch).toHaveBeenCalled());
-    expect(api.tasks.createAndLaunch.mock.calls[0]?.[0]).toMatchObject({ prompt: '', picks: [{ agentId: 'bash' }] });
+    expect(api.workspace.pickRepository).toHaveBeenCalledWith('/repos/api');
+    expect(api.workspace.openWorkspace).toHaveBeenCalledWith('/escolhido');
+    expect(api.tasks.createAndLaunch.mock.calls[0]?.[0]).toMatchObject({
+      groupId: 'ws-new',
+      repoPath: '/escolhido',
+      prompt: '',
+      picks: [{ agentId: 'bash' }],
+    });
+  });
+
+  it('"Novo terminal" does nothing when the folder dialog is canceled', async () => {
+    const { api } = setup();
+    api.workspace.pickRepository.mockImplementation(() => okR<string | null>(null));
+    fireEvent.click(screen.getByRole('button', { name: /novo terminal/i }));
+    await waitFor(() => expect(api.workspace.pickRepository).toHaveBeenCalled());
+    expect(api.workspace.openWorkspace).not.toHaveBeenCalled();
+    expect(api.tasks.createAndLaunch).not.toHaveBeenCalled();
+  });
+
+  it('asks to remove a recent workspace from the list', () => {
+    const { onRemoveWorkspace, onLaunched } = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Remover site dos recentes' }));
+    expect(onRemoveWorkspace).toHaveBeenCalledWith(expect.objectContaining({ id: 'w1' }));
+    expect(onLaunched).not.toHaveBeenCalled();
+    expect((screen.getByRole('combobox', { name: 'Workspace' }) as HTMLSelectElement).value).toBe('w2');
   });
 
   it('opens a folder as a workspace and selects it', async () => {
@@ -124,23 +150,12 @@ describe('Home', () => {
     expect(api.tasks.createAndLaunch.mock.calls[0]?.[0]).toMatchObject({ groupId: 'ws-new', repoPath: '/escolhido' });
   });
 
-  it('warns about uncommitted changes before launching', async () => {
-    const { api } = setup();
-    api.workspace.inspectRepo.mockImplementation(() => okR({ root: '/repos/api', baseCommit: 'a'.repeat(40), uncommittedCount: 3 }));
-    fireEvent.click(screen.getByRole('button', { name: /novo terminal/i }));
-    const dialog = await screen.findByRole('alertdialog');
-    expect(dialog.textContent).toMatch(/3 alterações não commitadas/);
-    expect(api.tasks.createAndLaunch).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /lançar mesmo assim/i }));
-    await waitFor(() => expect(api.tasks.createAndLaunch).toHaveBeenCalled());
-  });
-
   it('confirms a dangerous mode before launching', async () => {
     const { api } = setup();
     fireEvent.change(screen.getByRole('combobox', { name: 'Modo' }), { target: { value: 'bypass' } });
     fireEvent.click(screen.getByRole('button', { name: /novo terminal/i }));
     const dialog = await screen.findByRole('alertdialog');
-    expect(dialog.textContent).toMatch(/não a máquina/);
+    expect(dialog.textContent).toMatch(/direto na pasta /escolhido e na máquina/);
     fireEvent.click(screen.getByRole('button', { name: /lançar sem confirmações/i }));
     await waitFor(() =>
       expect(api.tasks.createAndLaunch.mock.calls[0]?.[0].picks).toEqual([

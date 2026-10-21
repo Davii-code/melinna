@@ -17,7 +17,7 @@ export interface WorkspaceIpcDeps {
   workspace: WorkspaceService;
   log: Logger;
   /** Diálogo nativo de escolha de pasta. */
-  pickRepository: () => Promise<string | null>;
+  pickRepository: (defaultPath?: string) => Promise<string | null>;
 }
 
 export function registerWorkspace(handle: Handle, deps: WorkspaceIpcDeps): void {
@@ -45,7 +45,7 @@ export function registerWorkspace(handle: Handle, deps: WorkspaceIpcDeps): void 
   );
   handle(
     C.pickRepository,
-    handler(log, C.pickRepository, parsePickRepository, () => deps.pickRepository()),
+    handler(log, C.pickRepository, parsePickRepository, (p) => deps.pickRepository(p)),
   );
   handle(
     C.inspectRepo,

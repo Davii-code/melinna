@@ -1,4 +1,5 @@
 import { LIMITS, type Execution, type Task } from '../../../shared/ipc-contract';
+import { isLiveStatus } from '../../labels';
 import { InlineEdit, type TreeProps } from './Tree';
 import { TreeExecution } from './TreeExecution';
 
@@ -9,6 +10,7 @@ export interface TreeTaskProps extends TreeProps {
 
 export function TreeTask(props: TreeTaskProps) {
   const { task } = props;
+  const live = props.taskExecutions.some((e) => isLiveStatus(e.status));
   return (
     <li role="treeitem" aria-expanded="true" className="tree-task" data-testid={`tree-task-${task.id}`}>
       <div className="tree-row tree-task-row" title={`${task.repoPath} @ ${task.baseRef}`}>
@@ -19,6 +21,19 @@ export function TreeTask(props: TreeTaskProps) {
           testId={`tree-task-name-${task.id}`}
           onCommit={(title) => props.onRenameTask(task.id, title)}
         />
+        <span className="spacer" />
+        <span className="tree-actions">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={`Remover sessão ${task.title}`}
+            title={live ? 'Pare a sessão para removê-la' : 'Remover sessão'}
+            disabled={live}
+            onClick={() => props.onRemoveTask(task.id)}
+          >
+            🗑
+          </button>
+        </span>
       </div>
       {props.taskExecutions.length > 0 && (
         <ul role="group">

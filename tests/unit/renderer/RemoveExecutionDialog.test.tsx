@@ -82,4 +82,28 @@ describe('RemoveExecutionDialog', () => {
     expect(onCancel).toHaveBeenCalled();
     expect(api.executions.remove).not.toHaveBeenCalled();
   });
+
+  it('in a direct run, says the folder is kept and offers no branch option', async () => {
+    const api = fakeApi();
+    api.executions.removalCheck.mockImplementation(() => okR({ uncommittedFiles: 0, unmergedCommits: 0, branch: '' }));
+    const onDone = vi.fn();
+    render(
+      <ApiContext.Provider value={api}>
+        <RemoveExecutionDialog
+          execution={execution('e1', { status: 'exited', branch: '', worktreePath: '/minha/pasta' })}
+          agentName="Claude Code"
+          direct
+          onDone={onDone}
+          onCancel={vi.fn()}
+        />
+      </ApiContext.Provider>,
+    );
+    expect(screen.getByText(/a pasta/i).textContent).toMatch(/A pasta /minha/pasta não é apagada/);
+    expect(screen.queryByRole('checkbox', { name: /apagar a branch/i })).toBeNull();
+    const remove = screen.getByRole('button', { name: /^remover$/i }) as HTMLButtonElement;
+    await waitFor(() => expect(remove.disabled).toBe(false));
+    fireEvent.click(remove);
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(api.executions.remove).toHaveBeenCalledWith('e1', { deleteBranch: false, force: false });
+  });
 });

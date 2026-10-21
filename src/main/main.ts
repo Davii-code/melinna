@@ -200,7 +200,8 @@ async function boot(): Promise<void> {
     const details = a as { message?: unknown; level?: unknown };
     const legacy = typeof rest[1] === 'string' ? rest[1] : undefined;
     const message = typeof details?.message === 'string' ? details.message : legacy;
-    const level = typeof details?.level === 'number' || typeof details?.level === 'string' ? details.level : rest[0];
+    const level =
+      typeof details?.level === 'number' || typeof details?.level === 'string' ? details.level : rest[0];
     log.warn('renderer.console', { level: String(level ?? ''), message: String(message ?? '') });
   });
   wc.on('did-fail-load', (...args) => {
@@ -273,10 +274,11 @@ async function boot(): Promise<void> {
     bridge,
     closeFlow,
     log: log.child('ipc'),
-    pickRepository: async () => {
+    pickRepository: async (defaultPath) => {
       const r = await dialog.showOpenDialog(win, {
-        title: 'Escolher repositório',
+        title: 'Escolher pasta',
         properties: ['openDirectory'],
+        ...(defaultPath ? { defaultPath } : {}),
       });
       return r.canceled ? null : (r.filePaths[0] ?? null);
     },

@@ -313,6 +313,26 @@ button:focus-visible {
   font-size: 13px;
 }
 
+.modal details.advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal details.advanced[open] > summary {
+  margin-bottom: 10px;
+}
+
+.modal details.advanced > summary {
+  cursor: pointer;
+  color: var(--prism);
+  font-size: 12px;
+}
+
+.modal details.advanced > label + label {
+  margin-top: 10px;
+}
+
 .modal label.check {
   flex-direction: row;
   align-items: center;
@@ -1311,6 +1331,22 @@ button.link {
 
 .home-card.selected {
   border-color: var(--accent);
+}
+
+.home-card-item {
+  position: relative;
+}
+
+.home-card-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+}
+
+.home-card-item:hover .home-card-remove,
+.home-card-remove:focus-visible {
+  opacity: 1;
 }
 
 .home-card-band {

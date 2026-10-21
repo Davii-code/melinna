@@ -26,6 +26,7 @@ import { Panel } from './components/Panel/Panel';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { ScrollbackBanner } from './components/Panel/ScrollbackBanner';
 import { RemoveExecutionDialog } from './components/RemoveExecutionDialog';
+import { RemoveFromListDialog, type RemoveTarget } from './components/RemoveFromListDialog';
 import { ResidueDialog } from './components/ResidueDialog';
 import { Tree, type TreeActions } from './components/Tree/Tree';
 import { ModelSelect } from './components/ModelSelect';
@@ -111,6 +112,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const [showNewTask, setShowNewTask] = useState(false);
   const [closeAsk, setCloseAsk] = useState<{ liveCount: number } | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [removingFromList, setRemovingFromList] = useState<RemoveTarget | null>(null);
   const [residue, setResidue] = useState<{ path: string; message: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
@@ -233,6 +235,14 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
     onRemove: (id) => setRemoving(id),
     onRenameGroup: (id, name) => void run(api.workspace.renameGroup(id, name)),
     onRenameTask: (id, title) => void run(api.workspace.renameTask(id, title)),
+    onRemoveTask: (id) => {
+      const task = snapshot?.tasks.find((t) => t.id === id);
+      if (task) setRemovingFromList({ kind: 'task', task });
+    },
+    onRemoveGroup: (id) => {
+      const group = snapshot?.groups.find((g) => g.id === id);
+      if (group) setRemovingFromList({ kind: 'workspace', group });
+    },
   };
   const removingExec = removing ? execById.get(removing) : undefined;
   const diffExec = diffFor ? execById.get(diffFor) : undefined;
@@ -260,9 +270,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
         />
       );
     }
-    const execs = pane.execIds
-      .map((id) => execById.get(id))
-      .filter((e): e is Execution => e !== undefined);
+    const execs = pane.execIds.map((id) => execById.get(id)).filter((e): e is Execution => e !== undefined);
     const index = Math.min(pane.activeIndex, execs.length - 1);
     const exec = execs[index];
     if (!exec) return null;
@@ -356,7 +364,12 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
           {notice && (
             <div className="panel-banner error app-notice" role="alert">
               <span>{notice}</span>
-              <button type="button" className="icon-button" aria-label="Fechar aviso" onClick={() => setNotice(null)}>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Fechar aviso"
+                onClick={() => setNotice(null)}
+              >
                 ×
               </button>
             </div>
@@ -425,6 +438,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                   detect={catalog.detect}
                   size={DEFAULT_TERM_SIZE}
                   onLaunched={onLaunched}
+                  onRemoveWorkspace={(group) => setRemovingFromList({ kind: 'workspace', group })}
                 />
               ) : snapshot ? (
                 <Grid
@@ -448,8 +462,18 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
             <RemoveExecutionDialog
               execution={removingExec}
               agentName={agentsById.get(removingExec.agentId)?.displayName ?? removingExec.agentId}
+              direct={snapshot?.tasks.find((t) => t.id === removingExec.taskId)?.isolation === 'direct'}
               onDone={() => setRemoving(null)}
               onCancel={() => setRemoving(null)}
+            />
+          )}
+          {removingFromList && snapshot && (
+            <RemoveFromListDialog
+              target={removingFromList}
+              tasks={snapshot.tasks}
+              executions={snapshot.executions}
+              onDone={() => setRemovingFromList(null)}
+              onCancel={() => setRemovingFromList(null)}
             />
           )}
           {diffExec && (

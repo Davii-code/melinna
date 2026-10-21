@@ -14,6 +14,10 @@ import { failed, FakeProcessRunner, ok } from '../../../support/fakes/process-ru
 function setup() {
   const fs = new MemoryFileSystem();
   fs.seed('/data/.keep', '');
+  fs.seed('/repos/site/src/index.ts', '');
+  fs.seed('/repos/site/docs/README.md', '');
+  fs.seed('/repos/api/package.json', '');
+  fs.seed('/tmp/solta/notas.txt', '');
   const clock = new FakeClock(Date.parse('2026-10-21T09:00:00.000Z'));
   const log = new MemoryLogger();
   const model = new WorkspaceModel(emptyState(), new StateStore(fs, '/data/state.json', clock, log));
@@ -69,10 +73,53 @@ describe('WorkspaceService.openWorkspace', () => {
     expect(api).toMatchObject({ name: 'Backend', colorIndex: 1 });
   });
 
-  it('rejects folders that are not git repositories', async () => {
+  it('opens a folder outside git as the folder itself', async () => {
     const { svc } = setup();
-    await expect(svc.openWorkspace('/tmp/solta')).rejects.toMatchObject({ code: 'REPO_INVALID' });
+    const ws = await svc.openWorkspace('/tmp/solta');
+    expect(ws).toMatchObject({
+      name: 'solta',
+      repoPath: '/tmp/solta',
+      repoId: repoIdOf('/tmp/solta', 'linux'),
+    });
+    expect((await svc.openWorkspace('/tmp/solta')).id).toBe(ws.id);
+  });
+
+  it('rejects a folder that does not exist', async () => {
+    const { svc } = setup();
+    await expect(svc.openWorkspace('/nao/existe')).rejects.toMatchObject({ code: 'INPUT_INVALID' });
     expect(svc.snapshot().groups).toHaveLength(0);
+  });
+
+  it('creates a direct task in any folder, without a base commit', async () => {
+    const { svc } = setup();
+    const ws = await svc.openWorkspace('/tmp/solta');
+    const task = await svc.createTask({
+      groupId: ws.id,
+      repoPath: '/tmp/solta',
+      baseRef: 'HEAD',
+      prompt: '',
+      isolation: 'direct',
+    });
+    expect(task).toMatchObject({
+      repoPath: '/tmp/solta',
+      baseCommit: '',
+      isolation: 'direct',
+      title: 'Sessão',
+    });
+  });
+
+  it('removes a workspace only after its sessions are gone', async () => {
+    const { svc } = setup();
+    const ws = await svc.openWorkspace('/repos/site');
+    const task = await svc.createTask({
+      groupId: ws.id,
+      repoPath: '/repos/site',
+      baseRef: 'HEAD',
+      prompt: '',
+    });
+    expect(() => svc.removeGroup(ws.id)).toThrow(expect.objectContaining({ code: 'INPUT_INVALID' }));
+    expect(task.isolation).toBeUndefined();
+    expect(() => svc.removeGroup('nao-existe')).toThrow(expect.objectContaining({ code: 'INPUT_INVALID' }));
   });
 
   it('marks the workspace as recently used when a task is created in it', async () => {

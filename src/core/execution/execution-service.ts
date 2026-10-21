@@ -1,11 +1,11 @@
 import type { LaunchResult, RemovalCheck, SwitchKind, SwitchPlan } from '../api-types';
 import { MelinnaError, toIpcError } from '../errors';
 import { baseAdvancedBy } from '../git/divergence';
-import type { Execution } from '../persistence/state-schema';
+import { isDirect, type Execution } from '../persistence/state-schema';
 import type { Detach, ExitEvent, HostClient, OutputSink } from '../ports/host-client';
 import { BusyTracker } from './busy-tracker';
 import type { ExecutionContext, ExecutionDeps, TermSize } from './context';
-import { checkRemoval, relaunchExecution, removeExecution, stopExecution } from './lifecycle';
+import { checkRemoval, relaunchExecution, removeExecution, removeTask, stopExecution } from './lifecycle';
 import { assertWithinLimit } from './limits';
 import { createExecutionRecord, prepareExecution, type AgentPick } from './prepare';
 import { markLiveAsLost, reconcileWithHost } from './recovery';
@@ -166,11 +166,30 @@ export class ExecutionService {
     return removeExecution(this.ctx, execId, opts);
   }
 
+  /** Remove uma sessão e as execuções dela; recusa com execução viva. */
+  removeTask(taskId: string): Promise<void> {
+    return removeTask(this.ctx, taskId);
+  }
+
+  /** Remove todas as sessões do grupo; confere antes que nenhuma execução do grupo está viva. */
+  async removeTasksOf(groupId: string): Promise<void> {
+    const tasks = this.ctx.model.raw.tasks.filter((t) => t.groupId === groupId);
+    const live = tasks.some((t) => this.ctx.model.executionsOf(t.id).some((e) => isLive(e.status)));
+    if (live) {
+      throw new MelinnaError('EXECUTION_RUNNING', {
+        userMessage: 'Pare as sessões do workspace antes de removê-lo.',
+      });
+    }
+    for (const t of tasks) await removeTask(this.ctx, t.id);
+  }
+
   /** Commits que a base da tarefa avançou desde a criação do worktree. */
   async divergence(execId: string): Promise<{ baseAdvancedBy: number }> {
     const exec = this.ctx.model.execution(execId);
     const task = exec ? this.ctx.model.task(exec.taskId) : undefined;
     if (!exec || !task) throw new MelinnaError('INPUT_INVALID', { userMessage: 'Execução não encontrada.' });
+    // Execução direta roda na própria pasta: não há base fixa da qual divergir.
+    if (isDirect(task)) return { baseAdvancedBy: 0 };
     const n = await baseAdvancedBy(
       { git: this.ctx.git, log: this.ctx.log },
       { repoRoot: task.repoPath, baseRef: task.baseRef, baseCommit: exec.baseCommit },

@@ -2,10 +2,10 @@ import type { RemovalCheck } from '../api-types';
 import { isMelinnaError, MelinnaError } from '../errors';
 import { acquireLease } from '../git/lease';
 import { removalCheck, removeExecutionArtifacts, type RemovalDeps, type RemovalTarget } from '../git/removal';
-import type { Execution, Pane, Task } from '../persistence/state-schema';
+import { isDirect, type Execution, type Pane, type Task } from '../persistence/state-schema';
 import type { ExecutionContext, TermSize } from './context';
 import { assertWithinLimit } from './limits';
-import { prepareExecution } from './prepare';
+import { assertFolderExists, prepareExecution } from './prepare';
 import { startExecution } from './start';
 import { isLive, transition } from './state-machine';
 
@@ -89,13 +89,20 @@ export async function stopExecution(
  * Relança uma execução encerrada no mesmo worktree, com o mesmo agente, modelo e modo. Se o preparo
  * nunca terminou (sem branch ou sem worktree), prepara de novo. O histórico ganha um separador.
  */
-export async function relaunchExecution(ctx: ExecutionContext, execId: string, size: TermSize): Promise<void> {
+export async function relaunchExecution(
+  ctx: ExecutionContext,
+  execId: string,
+  size: TermSize,
+): Promise<void> {
   const exec = requireExecution(ctx, execId);
   transition(exec.status, 'relaunch');
   assertWithinLimit(ctx.model.liveCount(), 1);
   const task = requireTask(ctx, exec);
   const prepared = exec.branch !== '' && (await ctx.fs.exists(exec.worktreePath));
-  if (prepared) {
+  if (isDirect(task)) {
+    await assertFolderExists(ctx, exec.worktreePath);
+    ctx.update(exec.id, { status: 'starting', failure: null });
+  } else if (prepared) {
     await acquireLease({
       fs: ctx.fs,
       os: ctx.os,
@@ -116,15 +123,21 @@ export async function relaunchExecution(ctx: ExecutionContext, execId: string, s
   ctx.log.info('execution.relaunched', { execId, launchCount: current.launchCount + 1 });
 }
 
+/** Na execução direta não há worktree nem branch do app: remover não descarta trabalho. */
+const NOTHING_TO_LOSE: RemovalCheck = { uncommittedFiles: 0, unmergedCommits: 0, branch: '' };
+
 export async function checkRemoval(ctx: ExecutionContext, execId: string): Promise<RemovalCheck> {
   const exec = requireExecution(ctx, execId);
-  return removalCheck(removalDeps(ctx), removalTarget(ctx, exec, requireTask(ctx, exec)));
+  const task = requireTask(ctx, exec);
+  if (isDirect(task)) return NOTHING_TO_LOSE;
+  return removalCheck(removalDeps(ctx), removalTarget(ctx, exec, task));
 }
 
 /**
  * Remove uma execução encerrada: worktree, branch (opcional), lease, histórico e registro.
  * Sem `force`, recusa com WORK_WOULD_BE_LOST se houver arquivos não commitados ou, apagando a branch,
- * commits fora da base.
+ * commits fora da base. Na execução direta, a pasta é do usuário e nunca é apagada: saem só o histórico
+ * do terminal e o registro.
  */
 export async function removeExecution(
   ctx: ExecutionContext,
@@ -136,24 +149,28 @@ export async function removeExecution(
     throw new MelinnaError('EXECUTION_RUNNING', { userMessage: 'Pare a execução antes de removê-la.' });
   }
   const task = requireTask(ctx, exec);
-  const deps = removalDeps(ctx);
-  const target = removalTarget(ctx, exec, task);
-  const check = await removalCheck(deps, target);
-  const loses = check.uncommittedFiles > 0 || (opts.deleteBranch && check.unmergedCommits > 0);
-  if (loses && !opts.force) {
-    throw new MelinnaError('WORK_WOULD_BE_LOST', {
-      userMessage:
-        'A remoção descartaria trabalho do agente. Confirme a remoção forçada para continuar.',
-      details: {
-        uncommittedFiles: check.uncommittedFiles,
-        unmergedCommits: opts.deleteBranch ? check.unmergedCommits : 0,
-      },
-    });
+  let loses = false;
+  if (!isDirect(task)) {
+    const deps = removalDeps(ctx);
+    const target = removalTarget(ctx, exec, task);
+    const check = await removalCheck(deps, target);
+    loses = check.uncommittedFiles > 0 || (opts.deleteBranch && check.unmergedCommits > 0);
+    if (loses && !opts.force) {
+      throw new MelinnaError('WORK_WOULD_BE_LOST', {
+        userMessage: 'A remoção descartaria trabalho do agente. Confirme a remoção forçada para continuar.',
+        details: {
+          uncommittedFiles: check.uncommittedFiles,
+          unmergedCommits: opts.deleteBranch ? check.unmergedCommits : 0,
+        },
+      });
+    }
+    await removeExecutionArtifacts(deps, target, opts);
   }
-  await removeExecutionArtifacts(deps, target, opts);
-  await ctx.fs.rm(ctx.paths.scrollbackDir(exec.id), { recursive: true, force: true }).catch((err: unknown) => {
-    ctx.log.error('scrollback.remove_failed', { execId, err });
-  });
+  await ctx.fs
+    .rm(ctx.paths.scrollbackDir(exec.id), { recursive: true, force: true })
+    .catch((err: unknown) => {
+      ctx.log.error('scrollback.remove_failed', { execId, err });
+    });
   ctx.busy.ended(exec.id);
   ctx.model.mutate((s) => {
     s.executions = s.executions.filter((e) => e.id !== exec.id);
@@ -180,4 +197,22 @@ export async function removeExecution(
     deletedBranch: opts.deleteBranch,
     forced: opts.force && loses,
   });
+}
+
+/**
+ * Remove uma sessão (tarefa) e as execuções dela. Recusa se alguma estiver viva. Execuções em worktree
+ * saem com remoção forçada (o worktree do app é apagado; a branch fica); a pasta do usuário nunca é tocada.
+ */
+export async function removeTask(ctx: ExecutionContext, taskId: string): Promise<void> {
+  const task = ctx.model.task(taskId);
+  if (!task) throw new MelinnaError('INPUT_INVALID', { userMessage: 'Sessão não encontrada.' });
+  const execs = ctx.model.executionsOf(taskId);
+  if (execs.some((e) => isLive(e.status))) {
+    throw new MelinnaError('EXECUTION_RUNNING', { userMessage: 'Pare a sessão antes de removê-la.' });
+  }
+  for (const exec of execs) await removeExecution(ctx, exec.id, { deleteBranch: false, force: true });
+  ctx.model.mutate((s) => {
+    s.tasks = s.tasks.filter((t) => t.id !== taskId);
+  });
+  ctx.log.info('task.removed', { taskId, executions: execs.length });
 }

@@ -1,11 +1,11 @@
 import { MelinnaError } from '../errors';
 import { slugify } from '../git/branch-name';
 import type { GitRunner } from '../git/git-runner';
-import { inspectRepo, type RepoInspection } from '../git/repo';
+import { inspectRepo, repoRoot, type RepoInspection } from '../git/repo';
 import { cleanResidue, type ResidueDeps } from '../git/residue';
 import { newId } from '../ids';
-import { repoIdOf } from '../paths';
-import type { Group, Task } from '../persistence/state-schema';
+import { pathModule, repoIdOf } from '../paths';
+import type { Group, Isolation, Task } from '../persistence/state-schema';
 import type { Clock } from '../ports/clock';
 import type { Unsubscribe } from '../ports/host-client';
 import type { Logger } from '../ports/logger';
@@ -21,6 +21,8 @@ export interface CreateTaskInput {
   baseRef: string;
   prompt: string;
   title?: string;
+  /** Padrão `worktree`; o app lança em `direct`. */
+  isolation?: Isolation;
 }
 
 export interface WorkspaceServiceDeps {
@@ -106,13 +108,14 @@ export class WorkspaceService {
   }
 
   /**
-   * Abre um workspace a partir de uma pasta: resolve a raiz do repositório e reaproveita o workspace
-   * existente do mesmo repositório; senão cria um, com o nome da pasta e a próxima cor.
+   * Abre um workspace a partir de uma pasta: dentro de um repositório git, usa a raiz do repositório;
+   * fora do git, a própria pasta. Reaproveita o workspace existente da mesma pasta; senão cria um, com o
+   * nome da pasta e a próxima cor.
    */
   async openWorkspace(path: string, name?: string): Promise<Group> {
-    const repo = await this.inspectRepo(path, 'HEAD');
+    const root = await this.folderRoot(path);
     const os = this.deps.residue.os;
-    const repoId = repoIdOf(repo.root, os);
+    const repoId = repoIdOf(root, os);
     const now = this.deps.clock.now().toISOString();
     const existing = this.deps.model.raw.groups.find((g) => g.repoId === repoId);
     if (existing) {
@@ -125,9 +128,9 @@ export class WorkspaceService {
     const groups = this.deps.model.raw.groups;
     const group: Group = {
       id: newId(),
-      name: validateGroupName(name && name.trim().length > 0 ? name : folderName(repo.root)),
+      name: validateGroupName(name && name.trim().length > 0 ? name : folderName(root)),
       order: groups.length,
-      repoPath: repo.root,
+      repoPath: root,
       repoId,
       colorIndex: groups.filter((g) => g.repoPath).length % 6,
       lastOpenedAt: now,
@@ -141,6 +144,31 @@ export class WorkspaceService {
     return inspectRepo(this.deps.git, repoPath, baseRef, this.deps.residue.os);
   }
 
+  /** Raiz do repositório que contém a pasta ou, fora do git, a própria pasta (que precisa existir). */
+  private async folderRoot(path: string): Promise<string> {
+    const { fs, os } = this.deps.residue;
+    const resolved = pathModule(os).resolve(path);
+    const stat = await fs.stat(resolved).catch(() => null);
+    if (!stat?.isDirectory) {
+      throw new MelinnaError('INPUT_INVALID', { userMessage: `A pasta ${path} não existe.` });
+    }
+    return repoRoot(this.deps.git, resolved, os).catch(() => resolved);
+  }
+
+  /** Tira o workspace (ou grupo) da lista; a pasta no disco não é tocada. Exige o grupo sem tarefas. */
+  removeGroup(id: string): void {
+    const { model, log } = this.deps;
+    if (!model.group(id))
+      throw new MelinnaError('INPUT_INVALID', { userMessage: 'Workspace não encontrado.' });
+    if (model.raw.tasks.some((t) => t.groupId === id)) {
+      throw new MelinnaError('INPUT_INVALID', { userMessage: 'Remova as sessões do workspace antes.' });
+    }
+    model.mutate((s) => {
+      s.groups = s.groups.filter((g) => g.id !== id);
+    });
+    log.info('workspace.removed', { groupId: id });
+  }
+
   async createTask(input: CreateTaskInput): Promise<Task> {
     if (!this.deps.model.group(input.groupId))
       throw new MelinnaError('INPUT_INVALID', { userMessage: 'Grupo não encontrado.' });
@@ -149,7 +177,11 @@ export class WorkspaceService {
       input.title !== undefined && input.title.trim().length > 0
         ? validateTaskTitle(input.title)
         : defaultTitle(input.prompt, 'Sessão');
-    const repo = await this.inspectRepo(input.repoPath, input.baseRef);
+    const isolation = input.isolation ?? 'worktree';
+    const repo =
+      isolation === 'direct'
+        ? { root: await this.folderRoot(input.repoPath), baseCommit: '' }
+        : await this.inspectRepo(input.repoPath, input.baseRef);
     // Só notifica quando há de fato um workspace com repositório para marcar como aberto agora.
     if (this.deps.model.group(input.groupId)?.repoPath) {
       this.deps.model.mutate((s) => {
@@ -168,6 +200,7 @@ export class WorkspaceService {
       baseCommit: repo.baseCommit,
       slug: slugify(title),
       createdAt: this.deps.clock.now().toISOString(),
+      ...(isolation === 'direct' ? { isolation } : {}),
     };
     this.deps.model.mutate((s) => s.tasks.push(task));
     this.deps.log.info('task.created', { taskId: task.id, repoId: task.repoId, size: task.prompt.length });

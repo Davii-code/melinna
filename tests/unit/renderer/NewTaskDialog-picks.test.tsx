@@ -3,11 +3,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiContext } from '../../../src/renderer/api';
 import { NewTaskDialog } from '../../../src/renderer/components/NewTaskDialog';
 import { fakeApi, snapshot } from '../../support/fake-api';
-import { agentDef } from '../../support/renderer-fixtures';
+import { agentDef, shellDef } from '../../support/renderer-fixtures';
 
 function setup() {
   const api = fakeApi();
-  const agents = [agentDef('claude'), agentDef('codex', { displayName: 'Codex CLI' })];
+  const agents = [
+    agentDef('claude'),
+    agentDef('codex', { displayName: 'Codex CLI' }),
+    shellDef('bash', 'Git Bash'),
+  ];
   render(
     <ApiContext.Provider value={api}>
       <NewTaskDialog
@@ -16,6 +20,7 @@ function setup() {
         detect={{
           claude: { installed: true, searched: 'claude' },
           codex: { installed: true, searched: 'codex' },
+          bash: { installed: true, searched: 'bash' },
         }}
         size={{ cols: 100, rows: 30 }}
         onClose={vi.fn()}
@@ -23,39 +28,43 @@ function setup() {
       />
     </ApiContext.Provider>,
   );
-  fireEvent.change(screen.getByPlaceholderText(/caminho de um repositório/i), { target: { value: '/repo' } });
-  fireEvent.change(screen.getByPlaceholderText(/o que os agentes devem fazer/i), { target: { value: 'Faça X' } });
+  fireEvent.change(screen.getByLabelText('Pasta'), { target: { value: '/repo' } });
+  fireEvent.change(screen.getByLabelText('Enunciado'), { target: { value: 'Faça X' } });
   return api;
 }
 
-describe('NewTaskDialog: modelo e modo por agente', () => {
-  it('sends the model and mode chosen for each agent', async () => {
+describe('NewTaskDialog: modelo, modo e título em "Avançado"', () => {
+  it('sends the model, mode and title chosen in "Avançado"', async () => {
     const api = setup();
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Claude Code' }));
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Codex CLI' }));
-    fireEvent.change(screen.getByRole('combobox', { name: 'Modelo de Claude Code' }), { target: { value: 'opus' } });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Modelo de Codex CLI' }), { target: { value: '__custom__' } });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Modelo personalizado de Codex CLI' }), {
-      target: { value: 'gpt-x' },
-    });
+    fireEvent.change(screen.getByLabelText('Agente'), { target: { value: 'codex' } });
+    fireEvent.change(screen.getByLabelText('Modelo'), { target: { value: '__custom__' } });
+    fireEvent.change(screen.getByLabelText('Modelo personalizado'), { target: { value: 'gpt-x' } });
+    fireEvent.change(screen.getByLabelText('Título (opcional)'), { target: { value: 'Login' } });
     fireEvent.click(screen.getByRole('button', { name: 'Lançar' }));
     await waitFor(() => expect(api.tasks.createAndLaunch).toHaveBeenCalled());
-    expect(api.tasks.createAndLaunch.mock.calls[0]?.[0].picks).toEqual([
-      { agentId: 'claude', model: 'opus', permission: 'manual' },
-      { agentId: 'codex', model: 'gpt-x', permission: 'manual' },
-    ]);
+    expect(api.tasks.createAndLaunch.mock.calls[0]?.[0]).toMatchObject({
+      title: 'Login',
+      picks: [{ agentId: 'codex', model: 'gpt-x', permission: 'manual' }],
+    });
+  });
+
+  it('resets model and mode to the defaults of the newly chosen agent and hides them for a shell', () => {
+    setup();
+    fireEvent.change(screen.getByLabelText('Modelo'), { target: { value: 'opus' } });
+    fireEvent.change(screen.getByLabelText('Agente'), { target: { value: 'codex' } });
+    expect((screen.getByLabelText('Modelo') as HTMLSelectElement).value).toBe('sonnet');
+    fireEvent.change(screen.getByLabelText('Agente'), { target: { value: 'bash' } });
+    expect(screen.queryByLabelText('Modelo')).toBeNull();
+    expect(screen.queryByLabelText('Modo de permissão')).toBeNull();
   });
 
   it('asks for confirmation before launching with a dangerous mode', async () => {
     const api = setup();
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Claude Code' }));
-    fireEvent.change(screen.getByRole('combobox', { name: 'Modo de permissão de Claude Code' }), {
-      target: { value: 'bypass' },
-    });
+    fireEvent.change(screen.getByLabelText('Modo de permissão'), { target: { value: 'bypass' } });
     fireEvent.click(screen.getByRole('button', { name: 'Lançar' }));
     const confirm = await screen.findByRole('alertdialog', { name: /modo sem confirmações/i });
     expect(confirm.textContent).toMatch(/Claude Code: Sem confirmações/);
-    expect(confirm.textContent).toMatch(/não a máquina/);
+    expect(confirm.textContent).toMatch(/direto na pasta \/repo e na máquina/);
     expect(api.tasks.createAndLaunch).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /lançar sem confirmações/i }));
     await waitFor(() =>
@@ -67,11 +76,8 @@ describe('NewTaskDialog: modelo e modo por agente', () => {
 
   it('blocks an invalid custom model', () => {
     setup();
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Claude Code' }));
-    fireEvent.change(screen.getByRole('combobox', { name: 'Modelo de Claude Code' }), { target: { value: '__custom__' } });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Modelo personalizado de Claude Code' }), {
-      target: { value: 'com espaço' },
-    });
+    fireEvent.change(screen.getByLabelText('Modelo'), { target: { value: '__custom__' } });
+    fireEvent.change(screen.getByLabelText('Modelo personalizado'), { target: { value: 'com espaço' } });
     expect((screen.getByRole('button', { name: 'Lançar' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/nome de modelo inválido/i)).toBeTruthy();
   });

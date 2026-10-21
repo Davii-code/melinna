@@ -9,6 +9,10 @@ export interface TreeActions {
   onRemove: (execId: string) => void;
   onRenameGroup: (groupId: string, name: string) => void;
   onRenameTask: (taskId: string, title: string) => void;
+  /** Remover a sessão (tarefa) inteira; só com as execuções dela paradas. */
+  onRemoveTask: (taskId: string) => void;
+  /** Tirar o workspace (ou grupo) da lista; só com as execuções dele paradas. */
+  onRemoveGroup: (groupId: string) => void;
 }
 
 export interface TreeProps extends TreeActions {

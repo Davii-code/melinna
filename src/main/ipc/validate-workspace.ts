@@ -1,5 +1,5 @@
 import { LIMITS } from '../../shared/ipc-contract';
-import { existing, noArgs, optStr, str } from './validate-common';
+import { existing, invalid, noArgs, optStr, str } from './validate-common';
 
 export interface WorkspaceIds {
   group: (id: string) => boolean;
@@ -7,7 +7,10 @@ export interface WorkspaceIds {
 }
 
 export const parseSnapshot = noArgs;
-export const parsePickRepository = noArgs;
+export function parsePickRepository(args: unknown[]): [string | undefined] {
+  if (args.length > 1) throw invalid('argumentos');
+  return [optStr(args[0], 'pasta inicial', LIMITS.path)];
+}
 
 export function parseCreateGroup(args: unknown[]): [string] {
   return [str(args[0], 'nome do grupo', 1, LIMITS.groupName)];

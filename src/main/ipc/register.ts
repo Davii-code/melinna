@@ -30,7 +30,7 @@ export interface IpcServices {
   bridge: TerminalBridge;
   closeFlow: CloseFlow;
   log: Logger;
-  pickRepository: () => Promise<string | null>;
+  pickRepository: (defaultPath?: string) => Promise<string | null>;
   openExternal: (url: string) => Promise<void>;
 }
 

@@ -66,7 +66,7 @@ export function TreeExecution(p: TreeExecutionProps) {
             type="button"
             className="icon-button"
             aria-label={`Relançar ${name}`}
-            title="Relançar no mesmo worktree"
+            title="Relançar no mesmo lugar"
             disabled={live}
             onClick={() => p.onRelaunch(e.id)}
           >
@@ -76,7 +76,7 @@ export function TreeExecution(p: TreeExecutionProps) {
             type="button"
             className="icon-button"
             aria-label={`Remover ${name}`}
-            title="Remover worktree e execução"
+            title="Remover execução"
             disabled={live}
             onClick={() => p.onRemove(e.id)}
           >

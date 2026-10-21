@@ -6,8 +6,16 @@ import { acquireLease, releaseLease } from '../git/lease';
 import { assertWorktreePathFree } from '../git/residue';
 import { createWorktree } from '../git/worktree';
 import { newId } from '../ids';
-import type { Execution, Task } from '../persistence/state-schema';
+import { isDirect, type Execution, type Task } from '../persistence/state-schema';
 import type { ExecutionContext } from './context';
+
+/** Na execução direta, a pasta da tarefa precisa continuar existindo: é o cwd do processo. */
+export async function assertFolderExists(ctx: ExecutionContext, folder: string): Promise<void> {
+  const stat = await ctx.fs.stat(folder).catch(() => null);
+  if (!stat?.isDirectory) {
+    throw new MelinnaError('INPUT_INVALID', { userMessage: `A pasta ${folder} não existe mais.` });
+  }
+}
 
 export type { AgentPick };
 
@@ -24,7 +32,7 @@ export function createExecutionRecord(ctx: ExecutionContext, task: Task, pick: A
     model: pick.model ?? null,
     permissionMode: pick.permission ?? null,
     branch: '',
-    worktreePath: ctx.paths.worktree(task.repoId, id),
+    worktreePath: isDirect(task) ? task.repoPath : ctx.paths.worktree(task.repoId, id),
     baseCommit: task.baseCommit,
     status: 'preparing',
     pendingSwitch: null,
@@ -45,8 +53,9 @@ export function createExecutionRecord(ctx: ExecutionContext, task: Task, pick: A
 }
 
 /**
- * Prepara uma execução: valida agente, modelo e modo; escolhe branch livre; adquire o lease;
- * cria o worktree no commit base. Em falha, desfaz só o que foi criado para esta execução.
+ * Prepara uma execução: valida agente, modelo e modo; na execução direta, só confere a pasta. Em worktree,
+ * escolhe branch livre, adquire o lease e cria o worktree no commit base. Em falha, desfaz só o que foi
+ * criado para esta execução.
  */
 export async function prepareExecution(
   ctx: ExecutionContext,
@@ -61,6 +70,12 @@ export async function prepareExecution(
     const model = resolveModel(def, exec.model);
     const permission = resolvePermission(def, exec.permissionMode);
     ctx.update(exec.id, { model, permissionMode: permission });
+
+    if (isDirect(task)) {
+      await assertFolderExists(ctx, exec.worktreePath);
+      ctx.update(exec.id, { status: 'starting' });
+      return;
+    }
 
     await ctx.mutex.run(`prepare:${task.repoId}`, async () => {
       await assertWorktreePathFree(
