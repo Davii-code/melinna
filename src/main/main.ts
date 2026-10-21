@@ -18,6 +18,7 @@ import { nodePlatform } from '../adapters/node-platform';
 import { NodeProcessRunner } from '../adapters/node-process-runner';
 import { CatalogService } from '../core/catalog/catalog-service';
 import { ExecutionService } from '../core/execution/execution-service';
+import { FileStatusService } from '../core/files/file-status';
 import { FilesService } from '../core/files/files-service';
 import { navigationRoots } from '../core/files/roots';
 import { DiffService } from '../core/git/diff';
@@ -143,11 +144,18 @@ async function boot(): Promise<void> {
 
   const diff = new DiffService({ model, git, fs, os: platform.os, log: log.child('diff') });
 
+  const navigationRootsOf = () => navigationRoots(model.raw);
   const files = new FilesService({
     fs,
     os: platform.os,
     log: log.child('files'),
-    roots: () => navigationRoots(model.raw),
+    roots: navigationRootsOf,
+  });
+  const fileStatus = new FileStatusService({
+    git,
+    os: platform.os,
+    log: log.child('files'),
+    roots: navigationRootsOf,
   });
 
   await executions.reconcileWithHost().catch((err: unknown) => log.error('host.reconcile_failed', { err }));
@@ -233,6 +241,7 @@ async function boot(): Promise<void> {
     executions,
     diff,
     files,
+    fileStatus,
     model,
     bridge,
     closeFlow,

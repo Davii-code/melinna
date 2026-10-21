@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { DirectoryListing, FileEntry, FileRoot, FileText } from '../../../shared/ipc-contract';
+import type { DirectoryListing, FileChange, FileEntry, FileRoot, FileText } from '../../../shared/ipc-contract';
 import { useApi } from '../../api';
+import { statusForDir, statusForPath, statusLabel, statusLetter } from '../../files/decorations';
 
 interface DirState {
   listing: DirectoryListing | null;
@@ -24,6 +25,19 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Marca de estado do git na linha da árvore. */
+function StatusBadge({ change }: { change: FileChange }) {
+  return (
+    <span
+      className={`files-status ${change}`}
+      title={statusLabel(change)}
+      aria-label={statusLabel(change)}
+    >
+      {statusLetter(change)}
+    </span>
+  );
+}
+
 /** Explorador de arquivos somente leitura das raízes abertas no app (workspaces e worktrees). */
 export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps) {
   const api = useApi();
@@ -33,6 +47,7 @@ export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<FileText | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [status, setStatus] = useState<Record<string, FileChange>>({});
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -71,12 +86,20 @@ export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps
     if (rootPath === null) {
       setDirs({});
       setExpanded({});
+      setStatus({});
       return;
     }
     setDirs({});
     setExpanded({ [rootPath]: true });
     loadDir(rootPath);
-  }, [rootPath, reloadKey, loadDir]);
+    let alive = true;
+    void api.files.status(rootPath).then((r) => {
+      if (alive && r.ok) setStatus(r.value);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [rootPath, reloadKey, loadDir, api]);
 
   const toggle = (entry: FileEntry) => {
     const open = expanded[entry.path] !== true;
@@ -127,6 +150,9 @@ export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps
               >
                 <span className="files-caret">{expanded[entry.path] ? '▾' : '▸'}</span>
                 <span className="files-name">{entry.name}</span>
+                {rootPath !== null && statusForDir(status, rootPath, entry.path) !== null ? (
+                  <StatusBadge change={statusForDir(status, rootPath, entry.path) as FileChange} />
+                ) : null}
               </button>
               {expanded[entry.path] ? renderDir(entry.path, depth + 1) : null}
             </div>
@@ -145,6 +171,9 @@ export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps
                 ▤
               </span>
               <span className="files-name">{entry.name}</span>
+              {rootPath !== null && statusForPath(status, rootPath, entry.path) !== null ? (
+                <StatusBadge change={statusForPath(status, rootPath, entry.path) as FileChange} />
+              ) : null}
               <span className="files-size">{formatSize(entry.size)}</span>
             </button>
           ),

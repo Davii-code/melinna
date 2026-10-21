@@ -1,5 +1,6 @@
 import type { CatalogService } from '../../core/catalog/catalog-service';
 import type { ExecutionService } from '../../core/execution/execution-service';
+import type { FileStatusService } from '../../core/files/file-status';
 import type { FilesService } from '../../core/files/files-service';
 import type { DiffService } from '../../core/git/diff';
 import type { Logger } from '../../core/ports/logger';
@@ -24,6 +25,7 @@ export interface IpcServices {
   executions: ExecutionService;
   diff: DiffService;
   files: FilesService;
+  fileStatus: FileStatusService;
   model: WorkspaceModel;
   bridge: TerminalBridge;
   closeFlow: CloseFlow;
@@ -41,7 +43,7 @@ export function registerIpc(handle: Handle, s: IpcServices): void {
   registerDiff(handle, { diff: s.diff, executions: s.executions, model: s.model, log: s.log });
   registerSwitch(handle, { executions: s.executions, model: s.model, log: s.log });
   registerLayout(handle, { model: s.model, files: s.files, log: s.log });
-  registerFiles(handle, { files: s.files, log: s.log });
+  registerFiles(handle, { files: s.files, status: s.fileStatus, log: s.log });
   registerApp(handle, { closeFlow: s.closeFlow, log: s.log, open: s.openExternal });
   s.bridge.register(handle);
 }

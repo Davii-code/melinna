@@ -47,7 +47,9 @@ interface MelinnaApi {
   files: {
     roots(): Promise<Result<FileRoot[]>>;              // workspace (repositório) e worktrees das execuções
     list(path: string): Promise<Result<DirectoryListing>>;
-    read(path: string): Promise<Result<FileText>>;     // somente leitura nesta fatia
+    read(path: string): Promise<Result<FileText>>;     // traz o hash do conteúdo para o salvamento
+    write(path: string, content: string, expectedHash: string): Promise<Result<FileWriteResult>>;
+    status(root: string): Promise<Result<Record<string, FileChange>>>; // decoração de git por arquivo
   };
   app: {
     onCloseRequested(fn: (info: { liveCount: number }) => void): Unsubscribe;
@@ -78,5 +80,7 @@ Limites validados no principal: `prompt` de 0 a 100.000 caracteres (vazio = agen
 - **Raízes**: `roots()` devolve o repositório de cada workspace aberto (`Group.repoPath`) e o worktree de cada execução com `worktreePath` preenchido; execução não preparada não aparece. Caminho repetido aparece uma vez só.
 - **Contenção**: `list` e `read` resolvem o caminho com `realpath` **antes** de conferir se está dentro de alguma raiz. Link simbólico que aponte para fora é recusado com `FILE_OUTSIDE_ROOT`, não seguido.
 - **Limites**: 5.000 entradas por listagem (`truncated: true` acima disso) e 5 MB por leitura (conteúdo cortado, `truncated: true`). Arquivo binário (byte nulo nos primeiros 8 KB) volta com `binary: true` e `content` vazio.
-- **Erros**: `INPUT_INVALID` (argumento malformado ou pasta em vez de arquivo), `FILE_OUTSIDE_ROOT`, `FILE_UNREADABLE` (não existe, sumiu ou falhou leitura).
-- **Somente leitura**: nesta fatia não há escrita; salvar arquivo entra na fatia do editor e exige a exceção registrada no Princípio II (só por ação explícita do usuário, com hash antes/depois e conflito recusado).
+- **Erros**: `INPUT_INVALID` (argumento malformado ou pasta em vez de arquivo), `FILE_OUTSIDE_ROOT`, `FILE_UNREADABLE` (não existe, sumiu ou falhou leitura), `FILE_CONFLICT` (o arquivo mudou em disco desde a leitura).
+- **Leitura**: sem escrita nenhuma até a fatia do editor.
+- **Escrita (`write`)**: exige o hash devolvido por `read`; se o arquivo em disco não tem mais esse hash, devolve `FILE_CONFLICT` e **nada é gravado**. Gravação atômica (`.melinna-tmp` + renomeação) e log com caminho e os dois hashes, nunca o conteúdo. É a exceção do Princípio II: só por ação explícita do usuário, sem autosave.
+- **Decoração (`status`)**: roda `git status --porcelain=v1 -z --untracked-files=all` em modo leitura na raiz pedida e devolve `caminho relativo → added|modified|deleted|renamed|untracked`. Raiz fora das raízes navegáveis devolve `{}` sem executar git; pasta que não é repositório também devolve `{}`.

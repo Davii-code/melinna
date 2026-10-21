@@ -85,6 +85,7 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
         }),
       ),
       write: vi.fn(() => okR({ path: '/r/a.txt', size: 0, hash: 'b'.repeat(64) })),
+      status: vi.fn(() => okR({})),
     },
     app: {
       onCloseRequested: vi.fn((fn: (i: { liveCount: number }) => void) => {

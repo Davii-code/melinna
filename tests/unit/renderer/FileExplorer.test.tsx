@@ -33,6 +33,7 @@ function setup(roots: FileRoot[] = [ROOT]) {
   api.files.roots.mockImplementation(() => okR(roots));
   api.files.list.mockImplementation((p: string) => okR(TREE[p] ?? listing(p, [])));
   api.files.read.mockImplementation(() => okR(FILE));
+  api.files.status.mockImplementation(() => okR({}));
   const view = render(
     <ApiContext.Provider value={api}>
       <FileExplorer />
@@ -67,6 +68,16 @@ describe('FileExplorer', () => {
     expect(api.files.read.mock.calls[0]?.[0]).toBe('/ws/a.txt');
     fireEvent.click(screen.getByText('Fechar'));
     await waitFor(() => expect(screen.queryByText('olá mundo')).toBeNull());
+  });
+
+  it('shows the git status of a file and of a folder that contains changes', async () => {
+    const { api } = setup();
+    api.files.status.mockImplementation(() => okR({ 'a.txt': 'modified', 'src/main.ts': 'added' }));
+    expect(await screen.findByText('a.txt')).toBeTruthy();
+    // o arquivo modificado ganha a marca
+    expect(await screen.findByLabelText('modificado')).toBeTruthy();
+    // a pasta que contém um arquivo adicionado também é sinalizada
+    expect(await screen.findByLabelText('adicionado')).toBeTruthy();
   });
 
   it('shows the error message when a folder cannot be read', async () => {

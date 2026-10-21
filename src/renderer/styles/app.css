@@ -507,6 +507,37 @@ button:focus-visible {
   color: var(--prism);
 }
 
+/* Estado do git por arquivo na árvore */
+.files-status {
+  flex: none;
+  width: 14px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 3px;
+}
+
+.files-status.added {
+  color: var(--band-3);
+}
+
+.files-status.modified {
+  color: var(--band-2);
+}
+
+.files-status.deleted {
+  color: var(--danger);
+}
+
+.files-status.renamed {
+  color: var(--band-4);
+}
+
+.files-status.untracked {
+  color: var(--muted);
+}
+
 .files-message {
   padding: 6px 12px;
   font-size: 12px;

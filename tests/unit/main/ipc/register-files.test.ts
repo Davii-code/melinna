@@ -1,28 +1,36 @@
 import { describe, expect, it } from 'vitest';
+import { FileStatusService } from '../../../../src/core/files/file-status';
 import { FilesService } from '../../../../src/core/files/files-service';
+import { GitRunner } from '../../../../src/core/git/git-runner';
 import { registerFiles } from '../../../../src/main/ipc/register-files';
 import { MemoryFileSystem } from '../../../support/fakes/file-system';
+import { FakeProcessRunner } from '../../../support/fakes/process-runner';
 import { MemoryLogger } from '../../../support/fakes/logger';
 import { handleRecorder } from '../../../support/fake-core';
+import type { FileRoot } from '../../../../src/shared/ipc-contract';
 import { currentOs } from '../../../support/os';
 
 function setup() {
   const fs = new MemoryFileSystem();
   const log = new MemoryLogger();
-  const files = new FilesService({
-    fs,
-    os: currentOs,
-    log,
-    roots: () => [{ path: '/ws', label: 'ws', kind: 'workspace' }],
-  });
+  const roots = (): FileRoot[] => [{ path: '/ws', label: 'ws', kind: 'workspace' }];
+  const files = new FilesService({ fs, os: currentOs, log, roots });
+  const runner = new FakeProcessRunner();
+  const status = new FileStatusService({ git: new GitRunner(runner, log), os: currentOs, log, roots });
   const rec = handleRecorder();
-  registerFiles(rec.handle, { files, log });
-  return { fs, rec };
+  registerFiles(rec.handle, { files, status, log });
+  return { fs, rec, runner };
 }
 
 describe('files IPC', () => {
   it('registers the file channels', () => {
-    expect(setup().rec.channels()).toEqual(['files:list', 'files:read', 'files:roots', 'files:write']);
+    expect(setup().rec.channels()).toEqual([
+      'files:list',
+      'files:read',
+      'files:roots',
+      'files:status',
+      'files:write',
+    ]);
   });
 
   it('answers roots, listing and content', async () => {

@@ -19,6 +19,7 @@ import type {
 import type { AgentDefinition, CatalogIssue } from '../core/catalog/schema';
 import type { MarkerKind } from '../core/contracts/host-protocol';
 import type { ErrorCode } from '../core/errors';
+import type { FileChange } from '../core/api-types';
 import type { Group, LayoutState } from '../core/persistence/state-schema';
 
 export type {
@@ -43,7 +44,7 @@ export type {
   TermSize,
   WorkspaceSnapshot,
 };
-export type { DiffLine, FileDiff, Hunk } from '../core/api-types';
+export type { DiffLine, FileChange, FileDiff, Hunk } from '../core/api-types';
 export type {
   CustomGrid,
   Execution,
@@ -123,6 +124,8 @@ export interface MelinnaApi {
     read(path: string): Promise<Result<FileText>>;
     /** Grava só se o hash em disco ainda for o recebido na leitura; senão devolve FILE_CONFLICT. */
     write(path: string, content: string, expectedHash: string): Promise<Result<FileWriteResult>>;
+    /** Estado do git por arquivo (caminho relativo à raiz), para decorar a árvore. */
+    status(root: string): Promise<Result<Record<string, FileChange>>>;
   };
   app: {
     onCloseRequested(fn: (info: { liveCount: number }) => void): Unsubscribe;
@@ -158,7 +161,13 @@ export const CHANNELS = {
   },
   terminal: { open: 'terminal:open', close: 'terminal:close' },
   layout: { get: 'layout:get', set: 'layout:set' },
-  files: { roots: 'files:roots', list: 'files:list', read: 'files:read', write: 'files:write' },
+  files: {
+    roots: 'files:roots',
+    list: 'files:list',
+    read: 'files:read',
+    write: 'files:write',
+    status: 'files:status',
+  },
   app: { answerClose: 'app:answerClose', openExternal: 'app:openExternal' },
 } as const;
 
