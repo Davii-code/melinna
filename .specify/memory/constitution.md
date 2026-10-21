@@ -1,11 +1,12 @@
 <!--
 Sync Impact Report
+- 1.1.0 → 1.2.0: Princípio IX passa a autorizar a leitura do repositório de referência para análise de comportamento (mantidas as proibições de cópia, paráfrase de implementação, símbolos e estrutura de arquivos) e ganha regra de higiene do clone. Princípio II ganha exceção estreita para escrita do usuário pelo editor, com quatro guardas verificáveis.
 - 1.0.0 → 1.1.0: Princípio IX ganha exceção registrada para verificação dos bloqueantes técnicos da feature 001 no repositório de referência, sem cópia de código.
 - Version change: (template) → 1.0.0
 - Principles added: I–X (all new)
 - Sections added: Restrições técnicas, Fluxo de desenvolvimento, Governança
 - Templates requiring updates: none (plan/spec/tasks templates are generic and compatible)
-- Follow-up TODOs: none
+- Follow-up TODOs: registrar no plan da próxima feature a lista fechada de dependências do editor (Princípio VII) antes de qualquer código.
 -->
 
 # Constitution do Melinna Desk
@@ -21,6 +22,13 @@ Um agente é um executável externo lançado num PTY. O app não importa SDK nem
 ### II. Isolamento por worktree (INEGOCIÁVEL)
 
 Todo trabalho de agente acontece numa branch e num git worktree próprios, criados antes do lançamento. A árvore de trabalho principal do repositório do usuário nunca é escrita, nunca tem arquivos criados, nunca recebe stash, reset, checkout ou troca de branch, em nenhum fluxo. Leituras do repositório principal usam comandos que não tocam o índice (`git --no-optional-locks`). A remoção de um worktree não deixa diretório, registro em `git worktree list` nem branch órfã, exceto quando o usuário escolhe manter a branch.
+
+**Exceção registrada (v1.2.0, 2026-10-21, autorizada pelo dono do projeto):** o editor de arquivos pode gravar na árvore de trabalho principal, porque quem escreve é o humano e não o agente. A exceção é estreita e verificável:
+
+- Só uma ação explícita de salvar do usuário escreve. O app nunca grava por conta própria: sem salvamento automático, sem formatação ao salvar, sem refactor, sem correção de fim de linha e sem escrita em massa.
+- Agente continua proibido de escrever na árvore principal, em qualquer fluxo, inclusive o de orquestração.
+- Toda escrita registra caminho, tamanho e hash antes e depois, no log estruturado, e recusa gravar se o arquivo mudou em disco desde que foi aberto (conflito é reportado, nunca sobrescrito em silêncio).
+- A escrita só ocorre dentro de uma raiz registrada (o repositório de um workspace aberto ou o worktree de uma execução) e nunca em `.git/`.
 
 ### III. O PTY é a fonte da verdade da sessão
 
@@ -53,7 +61,8 @@ O produto se inspira no layout e nas funcionalidades de um projeto público lice
 - Não se copia, transcreve nem parafraseia código daquele repositório, e não se clona nem se lê o seu código-fonte para derivar implementação.
 - Não se usa o nome, o logo, os ícones nem qualquer asset daquele projeto em código, interface, documentação, metadados, nomes de pacote ou de arquivo.
 - As ideias de interface e de produto são reimplementadas do zero, com decisões próprias, e descritas em palavras nas specs, sem apontar para arquivos do original.
-- **Exceção registrada (v1.1.0, 2026-10-20, autorizada pelo dono do projeto):** o repositório de referência pode ser clonado fora da pasta do projeto e lido somente para verificar se os bloqueantes técnicos da feature 001 (canal MessagePort entre principal e página, respostas a consultas de terminal sem painel, limpeza de resíduo de worktree, posse de worktree e instância única) aparecem lá e como se manifestam. Continua proibido copiar, transcrever ou parafrasear código, nomes de símbolos ou estrutura de arquivos; as conclusões entram nas specs só como descrição de comportamento, e cada decisão segue justificada por documentação pública das bibliotecas usadas. O clone não entra no repositório do projeto e é apagado após a verificação.
+- **Leitura autorizada (v1.2.0, 2026-10-21, autorizada pelo dono do projeto):** o repositório de referência pode ser clonado fora da pasta do projeto e lido para analisar o comportamento do produto — inventário de funcionalidades, modelo de domínio, fluxos de interação, decisões de plataforma e limites conhecidos. Continua proibido copiar, transcrever ou parafrasear código, nomes de símbolos ou estrutura de arquivos; toda conclusão entra em spec, plan ou documento de análise como descrição de comportamento, e cada decisão técnica segue justificada por documentação pública das bibliotecas usadas.
+- **Higiene do clone:** o clone não entra no repositório do projeto (fica no `.gitignore`) e é apagado quando a análise termina. Enquanto existir, nenhuma alteração nele é commitada.
 
 ### X. Identidade visual própria e única
 
@@ -78,4 +87,4 @@ A interface usa exclusivamente a marca Melinna definida em `docs/brand/` (`logo.
 
 Esta constitution prevalece sobre qualquer outra prática do projeto. Emendas exigem justificativa escrita, aprovação do dono do projeto e incremento de versão semântico: MAJOR para remoção ou redefinição incompatível de princípio, MINOR para princípio ou seção nova, PATCH para esclarecimento. Plans e revisões verificam conformidade com cada princípio; violação só entra registrada em "Complexity Tracking" do plan, com motivo e alternativa rejeitada.
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-20
+**Version**: 1.2.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-21
