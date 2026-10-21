@@ -182,8 +182,31 @@ async function boot(): Promise<void> {
     create: (opts) => new BrowserWindow(opts),
     preloadPath: preloadPath(__dirname),
     url: devUrl ?? `${APP_ORIGIN}/index.html`,
+    ...(devUrl ? { devOrigin: originOf(devUrl) } : {}),
   });
   mainWindow = win;
+
+  // Diagnóstico da página: erro de JavaScript no renderer não aparecia em log nenhum, e a janela
+  // ficava preta sem explicação. Estes três eventos cobrem console, falha de carga e morte do processo.
+  const wc = win.webContents as unknown as {
+    on(event: 'console-message', fn: (a: unknown, ...rest: unknown[]) => void): void;
+    on(event: 'did-fail-load' | 'render-process-gone', fn: (...args: unknown[]) => void): void;
+  };
+  wc.on('console-message', (a, ...rest) => {
+    const details = a as { message?: unknown; level?: unknown };
+    const legacy = typeof rest[1] === 'string' ? rest[1] : undefined;
+    const message = typeof details?.message === 'string' ? details.message : legacy;
+    const level = typeof details?.level === 'number' || typeof details?.level === 'string' ? details.level : rest[0];
+    log.warn('renderer.console', { level: String(level ?? ''), message: String(message ?? '') });
+  });
+  wc.on('did-fail-load', (...args) => {
+    const [code, description, url] = args as [number, string, string];
+    log.error('renderer.load_failed', { code, description, url });
+  });
+  wc.on('render-process-gone', (...args) => {
+    const [details] = args as [{ reason?: string; exitCode?: number }];
+    log.error('renderer.gone', { reason: details?.reason ?? '', exitCode: details?.exitCode ?? 0 });
+  });
 
   const closeFlow = new CloseFlow({
     liveCount: () => executions.liveCount(),

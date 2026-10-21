@@ -65,6 +65,24 @@ describe('main window', () => {
     expect(headers.X).toEqual(['1']);
   });
 
+  it('relaxes the CSP only for the dev server origin', () => {
+    const f = fakeWindow();
+    createMainWindow({
+      create: () => f.win,
+      preloadPath: '/p',
+      url: 'http://localhost:5173/',
+      devOrigin: 'http://localhost:5173',
+    });
+    let headers: Record<string, string[]> = {};
+    f.headerHook()!({ responseHeaders: {} }, (r) => (headers = r.responseHeaders));
+    const csp = headers['Content-Security-Policy']?.[0] ?? '';
+    // a origem do Vite precisa estar liberada para o preâmbulo do React Refresh (script inline)
+    expect(csp).toContain("script-src 'self' 'unsafe-inline' http://localhost:5173");
+    expect(csp).toContain('connect-src');
+    // produção continua sem 'unsafe-inline' para scripts
+    expect(CONTENT_SECURITY_POLICY).not.toContain('unsafe-inline\' http');
+  });
+
   it('blocks navigation and denies new windows', () => {
     const f = fakeWindow();
     createMainWindow({ create: () => f.win, preloadPath: '/p', url: 'app://melinna/' });
