@@ -28,7 +28,6 @@ import { ScrollbackBanner } from './components/Panel/ScrollbackBanner';
 import { RemoveExecutionDialog } from './components/RemoveExecutionDialog';
 import { ResidueDialog } from './components/ResidueDialog';
 import { Tree, type TreeActions } from './components/Tree/Tree';
-import { LayoutSwitcher } from './components/LayoutSwitcher';
 import { ModelSelect } from './components/ModelSelect';
 import { PermissionSelect } from './components/PermissionSelect';
 import { TerminalDepsContext, type TerminalDeps, type TerminalHandle } from './components/TerminalView';
@@ -194,7 +193,6 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const refitVisible = useCallback((visible: string[]) => {
     for (const id of visible) terminalHandles.current.get(id)?.refit();
   }, []);
-  const cycleFocus = useCallback((step: 1 | -1) => layoutStore.cycleFocus(step), [layoutStore]);
 
   const showError = useCallback((err: ResultError) => {
     const residuePath = err.details?.residuePath;
@@ -345,11 +343,6 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
             >
               Início
             </button>
-            <LayoutSwitcher
-              mode={layout.mode}
-              onChange={(m) => layoutStore.setMode(m)}
-              onCycleFocus={cycleFocus}
-            />
             <button
               type="button"
               onClick={() => {

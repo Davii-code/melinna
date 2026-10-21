@@ -8,6 +8,7 @@ import {
   app,
   dialog,
   ipcMain,
+  Menu,
   protocol,
   shell,
   type IpcMainInvokeEvent,
@@ -67,6 +68,9 @@ function isPidAlive(pid: number): boolean {
 }
 
 async function boot(): Promise<void> {
+  // A interface tem barra de título própria; o menu nativo do Electron (File/Edit/View/Window) só
+  // ocupava espaço com cara de app antigo.
+  Menu.setApplicationMenu(null);
   const platform = nodePlatform();
   const paths = makePaths(app.getPath('userData'), platform.os);
   const fs = new NodeFileSystem();
