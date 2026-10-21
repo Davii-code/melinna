@@ -32,7 +32,11 @@ export function gridFor(ids: readonly string[]): CustomGrid {
 /** Verdadeiro se as células livres da grade bastam para os painéis abertos que ainda não têm célula. */
 export function hasRoomFor(grid: CustomGrid, ids: readonly string[]): boolean {
   const assigned = ids.filter((id) => grid.cells[id]);
-  const used = assigned.reduce((n, id) => n + grid.cells[id]!.colSpan * grid.cells[id]!.rowSpan, 0);
+  let used = 0;
+  for (const id of assigned) {
+    const cell = grid.cells[id];
+    if (cell) used += cell.colSpan * cell.rowSpan;
+  }
   return grid.columns.length * grid.rows.length - used >= ids.length - assigned.length;
 }
 
@@ -95,8 +99,11 @@ export function moveDivider(
   if (!Number.isInteger(index) || index < 0 || index >= tracks.length - 1) {
     throw new RangeError(`divisória ${axis} ${index} inexistente`);
   }
-  const a = tracks[index]!;
-  const b = tracks[index + 1]!;
+  const a = tracks[index];
+  const b = tracks[index + 1];
+  if (a === undefined || b === undefined) {
+    throw new RangeError(`divisória ${axis} ${index} inexistente`);
+  }
   const delta = Math.max(minFraction - a, Math.min(b - minFraction, deltaFraction));
   const next = [...tracks];
   next[index] = a + delta;

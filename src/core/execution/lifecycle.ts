@@ -152,7 +152,7 @@ export async function removeExecution(
   }
   await removeExecutionArtifacts(deps, target, opts);
   await ctx.fs.rm(ctx.paths.scrollbackDir(exec.id), { recursive: true, force: true }).catch((err: unknown) => {
-    ctx.log.warn('scrollback.remove_failed', { execId, err });
+    ctx.log.error('scrollback.remove_failed', { execId, err });
   });
   ctx.busy.ended(exec.id);
   ctx.model.mutate((s) => {
@@ -160,7 +160,8 @@ export async function removeExecution(
     const l = s.layout;
     l.openExecutionIds = l.openExecutionIds.filter((id) => id !== exec.id);
     if (l.focusedExecutionId === exec.id) l.focusedExecutionId = l.openExecutionIds[0] ?? null;
-    delete l.custom.cells[exec.id];
+    const { [exec.id]: _removed, ...remainingCells } = l.custom.cells;
+    l.custom.cells = remainingCells;
   });
   ctx.log.info('execution.removed', {
     execId,

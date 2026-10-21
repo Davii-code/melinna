@@ -1,9 +1,16 @@
 export const STATE_SCHEMA_VERSION = 1;
 
+/** Grupo de tarefas; com `repoPath`, é um workspace aberto a partir de uma pasta. */
 export interface Group {
   id: string;
   name: string;
   order: number;
+  /** Raiz do repositório do workspace. */
+  repoPath?: string;
+  repoId?: string;
+  /** Índice da faixa de cor do workspace (0..5). */
+  colorIndex?: number;
+  lastOpenedAt?: string;
 }
 
 export interface Task {

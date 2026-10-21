@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NodeClock } from '../../src/adapters/node-clock';
@@ -21,6 +21,7 @@ import { fakeCatalogJson } from './fake-catalog';
 import { MemoryLogger } from './fakes/logger';
 import { startTestHost, type TestHost } from './host-harness';
 import { currentOs } from './os';
+import { removeDirRecursive } from './temp-dirs';
 
 export interface CoreHarness {
   userData: string;
@@ -110,7 +111,7 @@ export async function createCoreHarness(): Promise<CoreHarness> {
     async cleanup() {
       await th?.cleanup();
       await store.flush();
-      rmSync(userData, { recursive: true, force: true });
+      removeDirRecursive(userData);
     },
   };
 }

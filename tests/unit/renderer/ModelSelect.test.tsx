@@ -4,7 +4,7 @@ import { ApiContext } from '../../../src/renderer/api';
 import { ModelSelect } from '../../../src/renderer/components/ModelSelect';
 import type { AgentDefinition, Execution, SwitchPlan } from '../../../src/shared/ipc-contract';
 import { fakeApi, okR } from '../../support/fake-api';
-import { agentDef, execution } from '../../support/renderer-fixtures';
+import { agentDef, execution, shellDef } from '../../support/renderer-fixtures';
 
 function setup(plan: SwitchPlan, exec: Execution = execution('e1'), agent: AgentDefinition = agentDef('claude')) {
   const api = fakeApi();
@@ -108,7 +108,7 @@ describe('ModelSelect', () => {
     const { view } = setup(
       { planId: 'p', kind: 'pty-command', waitsForIdle: false, dangerous: false },
       execution('e1', { model: null }),
-      agentDef('bash', { kind: 'shell', model: undefined, permission: undefined, prompt: { delivery: 'none' } }),
+      shellDef('bash'),
     );
     expect(view.container.textContent).toBe('');
   });

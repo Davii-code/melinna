@@ -1,4 +1,4 @@
-import { dirname, resolve } from 'node:path';
+import { dirname, resolve, sep } from 'node:path';
 import type { FileStat, FileSystem } from '../../../src/core/ports/file-system';
 
 type Op = keyof FileSystem;
@@ -120,7 +120,7 @@ export class MemoryFileSystem implements FileSystem {
     this.check('rm', abs);
     if (this.files.delete(abs)) return;
     if (this.dirs.has(abs)) {
-      const prefix = abs.endsWith('/') ? abs : `${abs}/`;
+      const prefix = abs.endsWith(sep) ? abs : `${abs}${sep}`;
       const children = [...this.files.keys(), ...this.dirs].filter((k) => k.startsWith(prefix));
       if (children.length > 0 && !opts?.recursive) throw fsError('ENOTEMPTY', abs);
       for (const k of children) {

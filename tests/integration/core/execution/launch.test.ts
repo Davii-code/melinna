@@ -94,7 +94,10 @@ describe('ExecutionService.launch', () => {
       } else {
         // enunciado por PTY: chega depois da primeira saída
         expect(col.text().indexOf('echo:Implemente a busca')).toBeGreaterThan(col.text().indexOf('pronto'));
-        expect(col.text().split(/\r*\n/)[0]).toBe('[]');
+        // O ConPTY moderno prefixa a sessão com sequências de controle antes da primeira linha do
+        // agente; o que interessa aqui é a primeira linha do agente sair sem argumentos.
+        const firstLine = col.text().split(/\r*\n/)[0].replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
+        expect(firstLine).toBe('[]');
       }
     }
     expect(spawnSeen.every((s) => s.worktreeExisted)).toBe(true);
@@ -110,7 +113,9 @@ describe('ExecutionService.launch', () => {
     const col = collector();
     await h.executions.attach(e.id, col.sink);
     await col.waitFor('pronto');
-    const firstLine = col.text().split('\r\n')[0]!;
+    // O ConPTY prefixa a sessão com sequências de controle na mesma primeira linha; removê-las deixa
+    // só o JSON de argumentos que o agente falso imprime.
+    const firstLine = col.text().split('\r\n')[0]!.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
     expect(JSON.parse(firstLine)).toEqual(['--model', 'rapido', prompt]);
   });
 

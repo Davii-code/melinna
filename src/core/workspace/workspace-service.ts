@@ -51,19 +51,27 @@ export function validateTaskTitle(title: string): string {
   return trimmed;
 }
 
+/** O enunciado é opcional (vazio = o agente abre sem instrução); só não pode ter `\0` nem passar do limite. */
 export function validatePrompt(prompt: string): void {
   if (prompt.includes('\0')) throw new MelinnaError('PROMPT_INVALID');
-  if (prompt.trim().length === 0 || prompt.length > PROMPT_MAX) {
+  if (prompt.length > PROMPT_MAX) {
     throw new MelinnaError('INPUT_INVALID', {
-      userMessage: `O enunciado deve ter de 1 a ${PROMPT_MAX.toLocaleString('pt-BR')} caracteres.`,
+      userMessage: `O enunciado deve ter até ${PROMPT_MAX.toLocaleString('pt-BR')} caracteres.`,
     });
   }
 }
 
-export function defaultTitle(prompt: string): string {
+export function defaultTitle(prompt: string, fallback = 'Tarefa'): string {
   const first = prompt.trim().split(/\r?\n/)[0]?.trim() ?? '';
   const t = first.length > TASK_TITLE_MAX ? `${first.slice(0, TASK_TITLE_MAX - 1)}…` : first;
-  return t.length > 0 ? t : 'Tarefa';
+  return t.length > 0 ? t : fallback;
+}
+
+/** Nome padrão de um workspace: a última pasta do caminho. */
+export function folderName(path: string): string {
+  const parts = path.split(/[\\/]+/).filter((p) => p.length > 0);
+  const last = parts[parts.length - 1] ?? 'Workspace';
+  return last.length > GROUP_NAME_MAX ? last.slice(0, GROUP_NAME_MAX) : last;
 }
 
 export class WorkspaceService {
@@ -97,6 +105,38 @@ export class WorkspaceService {
     });
   }
 
+  /**
+   * Abre um workspace a partir de uma pasta: resolve a raiz do repositório e reaproveita o workspace
+   * existente do mesmo repositório; senão cria um, com o nome da pasta e a próxima cor.
+   */
+  async openWorkspace(path: string, name?: string): Promise<Group> {
+    const repo = await this.inspectRepo(path, 'HEAD');
+    const os = this.deps.residue.os;
+    const repoId = repoIdOf(repo.root, os);
+    const now = this.deps.clock.now().toISOString();
+    const existing = this.deps.model.raw.groups.find((g) => g.repoId === repoId);
+    if (existing) {
+      this.deps.model.mutate((s) => {
+        const g = s.groups.find((x) => x.id === existing.id);
+        if (g) g.lastOpenedAt = now;
+      });
+      return this.deps.model.group(existing.id) ?? existing;
+    }
+    const groups = this.deps.model.raw.groups;
+    const group: Group = {
+      id: newId(),
+      name: validateGroupName(name && name.trim().length > 0 ? name : folderName(repo.root)),
+      order: groups.length,
+      repoPath: repo.root,
+      repoId,
+      colorIndex: groups.filter((g) => g.repoPath).length % 6,
+      lastOpenedAt: now,
+    };
+    this.deps.model.mutate((s) => s.groups.push(group));
+    this.deps.log.info('workspace.opened', { repoId });
+    return group;
+  }
+
   inspectRepo(repoPath: string, baseRef: string): Promise<RepoInspection> {
     return inspectRepo(this.deps.git, repoPath, baseRef, this.deps.residue.os);
   }
@@ -108,8 +148,15 @@ export class WorkspaceService {
     const title =
       input.title !== undefined && input.title.trim().length > 0
         ? validateTaskTitle(input.title)
-        : defaultTitle(input.prompt);
+        : defaultTitle(input.prompt, 'Sessão');
     const repo = await this.inspectRepo(input.repoPath, input.baseRef);
+    // Só notifica quando há de fato um workspace com repositório para marcar como aberto agora.
+    if (this.deps.model.group(input.groupId)?.repoPath) {
+      this.deps.model.mutate((s) => {
+        const g = s.groups.find((x) => x.id === input.groupId);
+        if (g) g.lastOpenedAt = this.deps.clock.now().toISOString();
+      });
+    }
     const task: Task = {
       id: newId(),
       groupId: input.groupId,

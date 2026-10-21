@@ -8,7 +8,19 @@ const forbiddenTestModifiers = ['it', 'test', 'describe'].flatMap((fn) =>
 );
 
 module.exports = tseslint.config(
-  { ignores: ['node_modules/', 'out/', 'dist/', 'coverage/', 'tests/arch/fixtures/**', 'build/'] },
+  {
+    ignores: [
+      'node_modules/',
+      'out/',
+      'dist/',
+      'coverage/',
+      'tests/arch/fixtures/**',
+      'build/',
+      // Repositório de referência (AGPL-3.0), não versionado: tem configuração própria e dependências
+      // que não são instaladas aqui.
+      'software-clone/',
+    ],
+  },
   ...tseslint.configs.strict,
   {
     rules: {
@@ -31,7 +43,15 @@ module.exports = tseslint.config(
           ],
         },
       ],
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          // Descartar campos por desestruturação (`const { a: _a, ...resto } = obj`) é intencional.
+          varsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+        },
+      ],
     },
   },
   {

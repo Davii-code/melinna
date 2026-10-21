@@ -32,6 +32,13 @@ describe('tasks IPC', () => {
     expect(core.host.spawns[1]?.args).toEqual(['--model', 'esperto', 'Faça X']);
   });
 
+  it('accepts an empty prompt and launches without it', async () => {
+    const { rec, core, input } = await setup();
+    const r = await rec.call('tasks:createAndLaunch', { ...input, prompt: '' });
+    expect(r.ok).toBe(true);
+    expect(core.host.spawns[0]?.args).toEqual(['--model', 'rapido']);
+  });
+
   it('validates the payload', async () => {
     const { rec, input } = await setup();
     const bad = async (v: unknown) => (await rec.call('tasks:createAndLaunch', v)).error?.code;

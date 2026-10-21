@@ -72,6 +72,8 @@ export interface MelinnaApi {
   workspace: {
     snapshot(): Promise<Result<WorkspaceSnapshot>>;
     cleanResidue(residuePath: string): Promise<Result<void>>;
+    /** Abre (ou reaproveita) o workspace da pasta; `name` opcional, padrão = nome da pasta. */
+    openWorkspace(path: string, name?: string): Promise<Result<Group>>;
     onChange(fn: (s: WorkspaceSnapshot) => void): Unsubscribe;
     createGroup(name: string): Promise<Result<Group>>;
     renameGroup(id: string, name: string): Promise<Result<void>>;
@@ -116,6 +118,7 @@ export const CHANNELS = {
   workspace: {
     snapshot: 'workspace:snapshot',
     cleanResidue: 'workspace:cleanResidue',
+    openWorkspace: 'workspace:openWorkspace',
     createGroup: 'workspace:createGroup',
     renameGroup: 'workspace:renameGroup',
     renameTask: 'workspace:renameTask',

@@ -120,8 +120,9 @@ export function createLayoutStore(
       const ids = state.openExecutionIds;
       if (ids.length === 0) return;
       const cur = state.focusedExecutionId ? ids.indexOf(state.focusedExecutionId) : -1;
-      const next = ids[(Math.max(cur, 0) + step + ids.length) % ids.length]!;
-      if (next !== state.focusedExecutionId) update({ ...state, focusedExecutionId: next });
+      const next = ids[(Math.max(cur, 0) + step + ids.length) % ids.length];
+      if (next !== undefined && next !== state.focusedExecutionId)
+        update({ ...state, focusedExecutionId: next });
     },
     replace(next) {
       update(next);

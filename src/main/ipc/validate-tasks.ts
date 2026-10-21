@@ -31,7 +31,7 @@ export function parseCreateAndLaunch(groupExists: (id: string) => boolean, freeS
       groupId: existing(v.groupId, 'Grupo', groupExists),
       repoPath: str(v.repoPath, 'caminho do repositório'),
       baseRef: str(v.baseRef, 'ponto de partida', 1, LIMITS.baseRef),
-      prompt: str(v.prompt, 'enunciado', 1, LIMITS.prompt),
+      prompt: str(v.prompt, 'enunciado', 0, LIMITS.prompt),
       picks,
       size: termSize(v.size),
     };

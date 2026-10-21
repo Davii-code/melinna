@@ -31,6 +31,7 @@ const CONTRACT = {
     'createGroup',
     'inspectRepo',
     'onChange',
+    'openWorkspace',
     'pickRepository',
     'renameGroup',
     'renameTask',

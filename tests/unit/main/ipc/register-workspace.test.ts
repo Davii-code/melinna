@@ -19,6 +19,7 @@ describe('workspace IPC', () => {
       'workspace:cleanResidue',
       'workspace:createGroup',
       'workspace:inspectRepo',
+      'workspace:openWorkspace',
       'workspace:pickRepository',
       'workspace:renameGroup',
       'workspace:renameTask',
@@ -63,6 +64,18 @@ describe('workspace IPC', () => {
     expect(await core.fs.exists(residue)).toBe(false);
     expect((await rec.call('workspace:cleanResidue', '/repo')).error?.code).toBe('INPUT_INVALID');
     expect((await rec.call('workspace:cleanResidue', 7)).error?.code).toBe('INPUT_INVALID');
+  });
+
+  it('opens a folder as a workspace, reusing it on the next opening', async () => {
+    const { rec } = setup();
+    const first = await rec.call('workspace:openWorkspace', '/repo');
+    expect(first).toMatchObject({ ok: true, value: { name: 'repo', repoPath: '/repo' } });
+    const again = await rec.call('workspace:openWorkspace', '/repo/sub', 'Outro nome');
+    expect((again.value as { id: string }).id).toBe((first.value as { id: string }).id);
+    expect((await rec.call('workspace:openWorkspace', 42)).error?.code).toBe('INPUT_INVALID');
+    expect((await rec.call('workspace:openWorkspace', '/repo', 'x'.repeat(81))).error?.code).toBe(
+      'INPUT_INVALID',
+    );
   });
 
   it('validates types, sizes and ids', async () => {

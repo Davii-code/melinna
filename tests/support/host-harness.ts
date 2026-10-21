@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { MarkerKind } from '../../src/core/contracts/host-protocol';
@@ -8,6 +8,7 @@ import { ensureToken } from '../../src/host/auth';
 import { currentOs, startHost, type RunningHost } from '../../src/host/start';
 import { FAKE_AGENT_PATH, systemNode } from './fake-catalog';
 import { MemoryLogger } from './fakes/logger';
+import { removeDirRecursive } from './temp-dirs';
 
 export interface TestHost {
   userData: string;
@@ -43,7 +44,7 @@ export async function startTestHost(
       for (const c of clients) c.close();
       await host.supervisor.shutdown(500).catch(() => undefined);
       await host.stop();
-      if (!opts.userData) rmSync(userData, { recursive: true, force: true });
+      if (!opts.userData) removeDirRecursive(userData);
     },
   };
 }

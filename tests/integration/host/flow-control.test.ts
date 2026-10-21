@@ -50,6 +50,9 @@ describe('flow control', () => {
     expect(col.text()).toContain('flood-done');
     const lines = col
       .text()
+      // O ConPTY moderno prefixa a sessão com sequências de controle; sem removê-las a primeira
+      // linha numerada não casa com o padrão e a conferência de ordem começaria em 1.
+      .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
       .split(/\r*\n/)
       .filter((l) => /^\d{10} x+$/.test(l));
     expect(lines.length).toBeGreaterThan(300_000);

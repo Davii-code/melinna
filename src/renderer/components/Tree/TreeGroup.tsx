@@ -1,4 +1,5 @@
 import { LIMITS, type Group, type Task } from '../../../shared/ipc-contract';
+import { bandColor } from '../../theme/bands';
 import { InlineEdit, type TreeProps } from './Tree';
 import { TreeTask } from './TreeTask';
 
@@ -11,7 +12,10 @@ export function TreeGroup(props: TreeGroupProps) {
   const { group } = props;
   return (
     <li role="treeitem" aria-expanded="true" className="tree-group" data-testid={`tree-group-${group.id}`}>
-      <div className="tree-row tree-group-row">
+      <div className="tree-row tree-group-row" title={group.repoPath}>
+        {group.repoPath && (
+          <span className="band" style={{ background: bandColor(group.colorIndex ?? 0) }} aria-hidden="true" />
+        )}
         <InlineEdit
           value={group.name}
           label="Nome do grupo"

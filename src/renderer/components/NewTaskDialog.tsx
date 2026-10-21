@@ -9,6 +9,7 @@ import type {
 } from '../../shared/ipc-contract';
 import { LIMITS } from '../../shared/ipc-contract';
 import { errorMessage, unwrap, useApi } from '../api';
+import { workspacesOf } from './Home/Home';
 
 export const CUSTOM_MODEL = '__custom__';
 const CUSTOM_MODEL_RE = /^[A-Za-z0-9._:/@-]{1,100}$/;
@@ -44,9 +45,10 @@ function initialSelection(a: AgentDefinition): Selection {
 
 export function NewTaskDialog({ snapshot, agents, detect, size, onClose, onLaunched }: NewTaskDialogProps) {
   const api = useApi();
-  const [groupId, setGroupId] = useState(snapshot.groups[0]?.id ?? NEW_GROUP);
+  const initialGroup = workspacesOf(snapshot.groups)[0] ?? snapshot.groups[0];
+  const [groupId, setGroupId] = useState(initialGroup?.id ?? NEW_GROUP);
   const [groupName, setGroupName] = useState('');
-  const [repoPath, setRepoPath] = useState(snapshot.tasks.at(-1)?.repoPath ?? '');
+  const [repoPath, setRepoPath] = useState(initialGroup?.repoPath ?? snapshot.tasks.at(-1)?.repoPath ?? '');
   const [baseRef, setBaseRef] = useState('HEAD');
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -83,7 +85,6 @@ export function NewTaskDialog({ snapshot, agents, detect, size, onClose, onLaunc
   );
   const canSubmit =
     !busy &&
-    prompt.trim().length > 0 &&
     prompt.length <= LIMITS.prompt &&
     picks.length > 0 &&
     picks.length <= freeSlots &&
@@ -171,7 +172,14 @@ export function NewTaskDialog({ snapshot, agents, detect, size, onClose, onLaunc
           >
             <label>
               Grupo
-              <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+              <select
+                value={groupId}
+                onChange={(e) => {
+                  setGroupId(e.target.value);
+                  const ws = snapshot.groups.find((g) => g.id === e.target.value);
+                  if (ws?.repoPath) setRepoPath(ws.repoPath);
+                }}
+              >
                 {snapshot.groups.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name}
@@ -228,7 +236,7 @@ export function NewTaskDialog({ snapshot, agents, detect, size, onClose, onLaunc
                 value={prompt}
                 rows={6}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="O que os agentes devem fazer"
+                placeholder="O que os agentes devem fazer (opcional: sem enunciado, o agente abre vazio)"
               />
             </label>
             <fieldset className="agents">

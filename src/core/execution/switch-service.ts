@@ -110,7 +110,7 @@ export class SwitchService {
     if (!strategy || strategy.strategy !== 'pty-command') throw new MelinnaError('SWITCH_UNSUPPORTED');
     const host = await this.ctx.hosts.existing();
     if (!host) throw new MelinnaError('HOST_UNAVAILABLE');
-    const text = fillTemplate(strategy.template, req.kind === 'model' ? { model: req.value } : { permission: req.value });
+    const text = fillTemplate(strategy.template, req.kind === 'model' ? { '{model}': req.value } : { '{permission}': req.value });
     host.write(execId, encoder.encode(text));
     this.ctx.update(execId, {
       ...(req.kind === 'model' ? { model: req.value } : { permissionMode: req.value }),

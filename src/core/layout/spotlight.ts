@@ -16,9 +16,10 @@ export function split(start: number, length: number, n: number): { start: number
   });
 }
 
-/** O painel em foco, ou o primeiro quando o foco não está aberto. */
-export function focusOf(ids: readonly string[], focused: string | null): string {
-  return focused !== null && ids.includes(focused) ? focused : ids[0]!;
+/** O painel em foco, ou o primeiro quando o foco não está aberto; `null` quando não há painéis. */
+export function focusOf(ids: readonly string[], focused: string | null): string | null {
+  if (focused !== null && ids.includes(focused)) return focused;
+  return ids[0] ?? null;
 }
 
 /**
@@ -28,6 +29,7 @@ export function focusOf(ids: readonly string[], focused: string | null): string 
 export function computeSpotlight(ids: readonly string[], focused: string | null, area: Area): LayoutResult {
   if (ids.length === 0) return EMPTY;
   const main = focusOf(ids, focused);
+  if (main === null) return EMPTY;
   if (ids.length === 1) {
     return { rects: [{ id: main, x: 0, y: 0, width: area.width, height: area.height }], contentHeight: area.height, overflow: false };
   }
@@ -36,15 +38,21 @@ export function computeSpotlight(ids: readonly string[], focused: string | null,
   if (area.width / Math.max(1, area.height) >= WIDE_RATIO) {
     const stripW = Math.round(area.width * STRIP_FRACTION);
     rects.push({ id: main, x: 0, y: 0, width: area.width - stripW, height: area.height });
-    split(0, area.height, others.length).forEach((s, i) =>
-      rects.push({ id: others[i]!, x: area.width - stripW, y: s.start, width: stripW, height: s.size }),
-    );
+    const slots = split(0, area.height, others.length);
+    others.forEach((id, i) => {
+      const slot = slots[i];
+      if (slot)
+        rects.push({ id, x: area.width - stripW, y: slot.start, width: stripW, height: slot.size });
+    });
   } else {
     const stripH = Math.round(area.height * STRIP_FRACTION);
     rects.push({ id: main, x: 0, y: 0, width: area.width, height: area.height - stripH });
-    split(0, area.width, others.length).forEach((s, i) =>
-      rects.push({ id: others[i]!, x: s.start, y: area.height - stripH, width: s.size, height: stripH }),
-    );
+    const slots = split(0, area.width, others.length);
+    others.forEach((id, i) => {
+      const slot = slots[i];
+      if (slot)
+        rects.push({ id, x: slot.start, y: area.height - stripH, width: slot.size, height: stripH });
+    });
   }
   return { rects, contentHeight: area.height, overflow: false };
 }

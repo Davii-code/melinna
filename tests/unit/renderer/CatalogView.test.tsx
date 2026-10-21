@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CatalogView } from '../../../src/renderer/components/CatalogView';
-import { agentDef } from '../../support/renderer-fixtures';
+import { agentDef, shellDef } from '../../support/renderer-fixtures';
 
 function setup() {
   const onClose = vi.fn();
@@ -11,7 +11,7 @@ function setup() {
       agents={[
         agentDef('claude', { verifiedWith: '2.1.0' }),
         agentDef('codex', { displayName: 'Codex CLI' }),
-        agentDef('bash', { displayName: 'Bash', kind: 'shell', model: undefined, permission: undefined }),
+        shellDef('bash', 'Bash'),
       ]}
       detect={{
         claude: { installed: true, searched: 'claude', resolvedPath: 'C:\\bin\\claude.exe' },

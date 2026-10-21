@@ -9,7 +9,7 @@ export function unquoteGitPath(raw: string): string {
   const bytes: number[] = [];
   const pushText = (s: string) => bytes.push(...new TextEncoder().encode(s));
   for (let i = 0; i < body.length; i += 1) {
-    const ch = body[i]!;
+    const ch = body[i] ?? '';
     if (ch !== '\\') {
       pushText(ch);
       continue;
@@ -41,7 +41,7 @@ function gitLinePaths(rest: string): { a: string; b: string } | null {
   if (rest.startsWith('"')) {
     const m = /^("(?:[^"\\]|\\.)*") ("(?:[^"\\]|\\.)*"|\S.*)$/.exec(rest);
     if (!m) return null;
-    return { a: headerPath(m[1]!) ?? '', b: headerPath(m[2]!) ?? '' };
+    return { a: headerPath(m[1] ?? '') ?? '', b: headerPath(m[2] ?? '') ?? '' };
   }
   // sem aspas, os dois caminhos são iguais quando não há renomeação: "a/P b/P"
   if ((rest.length - 5) % 2 === 0) {

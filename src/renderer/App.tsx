@@ -16,6 +16,7 @@ import { Grid } from './components/Grid/Grid';
 import { CatalogView } from './components/CatalogView';
 import { CloseDialog } from './components/CloseDialog';
 import { DiffView } from './components/DiffView/DiffView';
+import { Home } from './components/Home/Home';
 import { NewTaskDialog } from './components/NewTaskDialog';
 import { Panel } from './components/Panel/Panel';
 import { ScrollbackBanner } from './components/Panel/ScrollbackBanner';
@@ -109,6 +110,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const [residue, setResidue] = useState<{ path: string; message: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [showHome, setShowHome] = useState(false);
 
   useEffect(() => api.app.onCloseRequested((info) => setCloseAsk(info)), [api]);
   const answerClose = useCallback(
@@ -155,6 +157,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
 
   const onLaunched = (_taskId: string, results: LaunchResult[]) => {
     setShowNewTask(false);
+    setShowHome(false);
     for (const r of results) if (r.execId) layoutStore.open(r.execId);
     const failed = results.find((r) => !r.ok);
     if (failed && !failed.ok) showError(failed.error);
@@ -170,7 +173,10 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   );
 
   const treeActions: TreeActions = {
-    onOpen: (id) => layoutStore.open(id),
+    onOpen: (id) => {
+      setShowHome(false);
+      layoutStore.open(id);
+    },
     onStop: (id) => void run(api.executions.stop(id)),
     onRelaunch: (id) => {
       layoutStore.open(id);
@@ -181,6 +187,13 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
     onRenameTask: (id, title) => void run(api.workspace.renameTask(id, title)),
   };
   const removingExec = removing ? execById.get(removing) : undefined;
+  const diffExec = diffFor ? execById.get(diffFor) : undefined;
+
+  const openWorkspaceFromSidebar = async () => {
+    const picked = await api.workspace.pickRepository();
+    if (!picked.ok) return showError(picked.error);
+    if (picked.value) await run(api.workspace.openWorkspace(picked.value));
+  };
 
   const renderPanel = (id: string) => {
     const exec = execById.get(id);
@@ -243,6 +256,14 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
               setShowNewTask(true);
             }}
           >
+            <button
+              type="button"
+              aria-pressed={showHome || openIds.length === 0}
+              onClick={() => setShowHome((v) => !v)}
+              disabled={openIds.length === 0}
+            >
+              Início
+            </button>
             <LayoutSwitcher
               mode={layout.mode}
               onChange={(m) => layoutStore.setMode(m)}
@@ -269,6 +290,19 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
           <div className="body">
             {snapshot && (
               <aside className="sidebar">
+                <div className="sidebar-header">
+                  <span>Workspaces</span>
+                  <span className="spacer" />
+                  <button
+                    type="button"
+                    className="icon-button"
+                    title="Abrir uma pasta como workspace"
+                    aria-label="Abrir workspace"
+                    onClick={() => void openWorkspaceFromSidebar()}
+                  >
+                    ＋
+                  </button>
+                </div>
                 <Tree
                   groups={snapshot.groups}
                   tasks={snapshot.tasks}
@@ -281,7 +315,15 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
               </aside>
             )}
             <main className="workspace">
-              {snapshot ? (
+              {snapshot && (openIds.length === 0 || showHome) ? (
+                <Home
+                  snapshot={snapshot as WorkspaceSnapshot}
+                  agents={catalog.agents}
+                  detect={catalog.detect}
+                  size={DEFAULT_TERM_SIZE}
+                  onLaunched={onLaunched}
+                />
+              ) : snapshot ? (
                 <Grid
                   ids={openIds}
                   renderPanel={renderPanel}
@@ -307,10 +349,10 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
               onCancel={() => setRemoving(null)}
             />
           )}
-          {diffFor && execById.get(diffFor) && (
+          {diffExec && (
             <DiffView
-              execId={diffFor}
-              title={agentsById.get(execById.get(diffFor)!.agentId)?.displayName ?? execById.get(diffFor)!.agentId}
+              execId={diffExec.id}
+              title={agentsById.get(diffExec.agentId)?.displayName ?? diffExec.agentId}
               onClose={() => setDiffFor(null)}
             />
           )}

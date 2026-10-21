@@ -48,13 +48,13 @@ describe('NewTaskDialog', () => {
     expect((within(row).getByRole('checkbox') as HTMLInputElement).disabled).toBe(true);
   });
 
-  it('blocks an empty prompt', async () => {
+  it('requires a repository and an agent but not a prompt', async () => {
     const { user } = setup();
-    await user.type(screen.getByLabelText('Repositório'), '/repo');
+    expect((screen.getByRole('button', { name: 'Lançar' }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(within(screen.getByTestId('agent-claude')).getByRole('checkbox'));
     expect((screen.getByRole('button', { name: 'Lançar' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.type(screen.getByLabelText('Enunciado'), '   ');
-    expect((screen.getByRole('button', { name: 'Lançar' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.type(screen.getByLabelText('Repositório'), '/repo');
+    expect((screen.getByRole('button', { name: 'Lançar' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('prevents checking more agents than free slots', async () => {
@@ -138,5 +138,29 @@ describe('NewTaskDialog', () => {
     await waitFor(() =>
       expect((screen.getByLabelText('Repositório') as HTMLInputElement).value).toBe('/escolhido'),
     );
+  });
+  it('prefills the folder of the chosen workspace and launches without a prompt', async () => {
+    const api = fakeApi();
+    const snap = snapshot({
+      groups: [
+        { id: 'g1', name: 'Frente', order: 0 },
+        { id: 'w1', name: 'site', order: 1, repoPath: '/repos/site', lastOpenedAt: '2026-10-21T08:00:00.000Z' },
+        { id: 'w2', name: 'api', order: 2, repoPath: '/repos/api', lastOpenedAt: '2026-10-20T08:00:00.000Z' },
+      ],
+    });
+    render(
+      <ApiContext.Provider value={api}>
+        <NewTaskDialog snapshot={snap} agents={agents} detect={detect} size={{ cols: 100, rows: 30 }} onClose={() => undefined} onLaunched={() => undefined} />
+      </ApiContext.Provider>,
+    );
+    const user = userEvent.setup();
+    expect((screen.getByLabelText('Grupo') as HTMLSelectElement).value).toBe('w1');
+    expect((screen.getByLabelText('Repositório') as HTMLInputElement).value).toBe('/repos/site');
+    await user.selectOptions(screen.getByLabelText('Grupo'), 'w2');
+    expect((screen.getByLabelText('Repositório') as HTMLInputElement).value).toBe('/repos/api');
+    await user.click(within(screen.getByTestId('agent-claude')).getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Lançar' }));
+    await waitFor(() => expect(api.tasks.createAndLaunch).toHaveBeenCalled());
+    expect(api.tasks.createAndLaunch.mock.calls[0]?.[0]).toMatchObject({ groupId: 'w2', repoPath: '/repos/api', prompt: '' });
   });
 });

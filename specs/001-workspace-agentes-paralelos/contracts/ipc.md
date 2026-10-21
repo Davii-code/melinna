@@ -11,6 +11,7 @@ interface MelinnaApi {
   workspace: {
     snapshot(): Promise<Result<WorkspaceSnapshot>>;
     cleanResidue(residuePath: string): Promise<Result<void>>; // só caminhos devolvidos num erro WORKTREE_RESIDUE
+    openWorkspace(path: string, name?: string): Promise<Result<Group>>; // abre ou reaproveita o workspace do repositório
     onChange(fn: (s: WorkspaceSnapshot) => void): Unsubscribe;
     createGroup(name: string): Promise<Result<Group>>;
     renameGroup(id: string, name: string): Promise<Result<void>>;
@@ -65,4 +66,4 @@ interface MelinnaApi {
 
 `RemovalCheck = { uncommittedFiles: number; unmergedCommits: number; branch: string }` — `unmergedCommits` conta commits da branch da execução que não estão em `baseRef`.
 
-Limites validados no principal: `prompt` ≤ 100.000 caracteres; `name`/`title` conforme data-model; `input` por mensagem ≤ 64 KB; `cols` 20–1000, `rows` 5–500; `picks` ≤ vagas livres.
+Limites validados no principal: `prompt` de 0 a 100.000 caracteres (vazio = agente sem enunciado); `name`/`title` conforme data-model; `input` por mensagem ≤ 64 KB; `cols` 20–1000, `rows` 5–500; `picks` ≤ vagas livres.

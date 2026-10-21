@@ -106,7 +106,7 @@ describe('ciclo de vida da execução', () => {
     await col.waitFor(/relançado em/);
     const text = col.text();
     expect(text.indexOf('relançado em')).toBeGreaterThan(text.indexOf('pronto'));
-    expect(text).toContain('["--model","esperto"]');
+    expect(text).toContain('["--model","esperto","Ajuste o app"]');
     h.executions.write(e.id, enc('continua\r'));
     await col.waitFor('echo:continua');
   });

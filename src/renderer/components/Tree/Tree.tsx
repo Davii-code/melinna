@@ -27,7 +27,7 @@ export function Tree(props: TreeProps) {
   if (groups.length === 0) {
     return (
       <nav className="tree tree-empty" aria-label="Tarefas">
-        <p>Nenhuma tarefa ainda. Use "Nova tarefa" para começar.</p>
+        <p>Nenhuma tarefa ainda. Abra uma pasta como workspace (＋) ou use "Nova tarefa".</p>
       </nav>
     );
   }

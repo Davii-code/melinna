@@ -42,6 +42,9 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
     workspace: {
       snapshot: vi.fn(() => okR(snapshot())),
       cleanResidue: vi.fn(() => okR(undefined)),
+      openWorkspace: vi.fn((path: string, name?: string) =>
+        okR({ id: 'ws-new', name: name ?? path.split(/[\\/]/).pop() ?? 'ws', order: 0, repoPath: path, colorIndex: 0 }),
+      ),
       onChange: vi.fn((fn: (s: WorkspaceSnapshot) => void) => {
         changeListeners.add(fn);
         return () => changeListeners.delete(fn);

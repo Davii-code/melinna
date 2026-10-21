@@ -81,14 +81,19 @@ describe('main window', () => {
 });
 
 describe('app protocol', () => {
+  // Comparar em forma POSIX: `resolveAppFile` usa `node:path` e devolve separador nativo.
+  const slash = (p: string | null): string | null => p?.replace(/\\/g, '/') ?? p;
+
   it('serves only files inside the renderer root', () => {
-    expect(resolveAppFile('/out/renderer', 'app://melinna/')).toBe('/out/renderer/index.html');
-    expect(resolveAppFile('/out/renderer', 'app://melinna/assets/a.js')).toBe('/out/renderer/assets/a.js');
-    expect(resolveAppFile('/out/renderer', 'app://melinna/../../etc/passwd')).toBe(
+    expect(slash(resolveAppFile('/out/renderer', 'app://melinna/'))).toBe('/out/renderer/index.html');
+    expect(slash(resolveAppFile('/out/renderer', 'app://melinna/assets/a.js'))).toBe(
+      '/out/renderer/assets/a.js',
+    );
+    expect(slash(resolveAppFile('/out/renderer', 'app://melinna/../../etc/passwd'))).toBe(
       '/out/renderer/etc/passwd',
     );
     // o parser de URL já resolve `..` (também codificado), então nada escapa da raiz
-    expect(resolveAppFile('/out/renderer', 'app://melinna/%2e%2e/%2e%2e/etc/passwd')).toBe(
+    expect(slash(resolveAppFile('/out/renderer', 'app://melinna/%2e%2e/%2e%2e/etc/passwd'))).toBe(
       '/out/renderer/etc/passwd',
     );
     expect(resolveAppFile('/out/renderer', 'app://melinna/a%00b')).toBeNull();

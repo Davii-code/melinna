@@ -11,12 +11,9 @@ export function reorder<T>(items: readonly T[], from: number, to: number): T[] {
 
 /** Troca as células de dois painéis na grade personalizada; quem não tinha célula assume a do outro. */
 export function swapCells(grid: CustomGrid, a: string, b: string): CustomGrid {
-  const cells = { ...grid.cells };
-  const ca = cells[a];
-  const cb = cells[b];
-  if (cb) cells[a] = cb;
-  else delete cells[a];
-  if (ca) cells[b] = ca;
-  else delete cells[b];
+  const { [a]: cellA, [b]: cellB, ...rest } = grid.cells;
+  const cells: CustomGrid['cells'] = { ...rest };
+  if (cellB) cells[a] = cellB;
+  if (cellA) cells[b] = cellA;
   return { ...grid, cells };
 }

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NodeFileSystem } from '../../../../src/adapters/node-fs';
 import { NodeProcessRunner } from '../../../../src/adapters/node-process-runner';
@@ -58,9 +58,16 @@ afterEach(() => {
 describe('inspectRepo', () => {
   it('rejects non-git folders and missing refs', async () => {
     const plain = mkdtempSync(join(tmpdir(), 'melinna-plain-'));
+    // A pasta temporária pode estar dentro de um repositório do usuário (neste PC o perfil é um repo),
+    // e aí `rev-parse --show-toplevel` sobe até ele e a pasta "deixa" de ser inválida. O teto de
+    // descoberta garante o cenário que o teste quer exercitar: pasta que não é repositório nenhum.
+    const before = process.env.GIT_CEILING_DIRECTORIES;
+    process.env.GIT_CEILING_DIRECTORIES = dirname(plain);
     try {
       expect(await code(inspectRepo(git, plain, 'main', os))).toBe('REPO_INVALID');
     } finally {
+      if (before === undefined) delete process.env.GIT_CEILING_DIRECTORIES;
+      else process.env.GIT_CEILING_DIRECTORIES = before;
       rmSync(plain, { recursive: true, force: true });
     }
     expect(await code(inspectRepo(git, repo.root, 'nao-existe', os))).toBe('BASE_REF_NOT_FOUND');
