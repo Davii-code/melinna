@@ -1,43 +1,45 @@
-# Handoff — 2026-10-21 11:20
+# Handoff — 2026-10-21 11:55
 ## Objetivo
-Melinna Desk: app desktop (Electron) que roda agentes de CLI em PTYs paralelos, um git worktree por execução. Fase atual: virar "editor + terminais na mesma janela" (diferencial sobre VS Code/IntelliJ e sobre o projeto de referência).
+Melinna Desk: app desktop (Electron) que roda agentes de CLI em PTYs paralelos, num git worktree por execução — agora com editor de arquivos e terminais na mesma grade.
 
 ## Feito nesta sessão
-- **Suítes rodadas pela primeira vez no Windows** e baseline recuperado: `tsc` ✅, `lint` ✅, unit 274/274 ✅, arch 2/2 ✅, integration 64/67 (só `launch.test.ts` falha, por crash nativo `0xC0000005` dentro do node-pty ao abrir vários PTYs).
-- Commit `bacc611`: workspaces/enunciado opcional/home/ícone que estavam soltos + correções de lint e da infraestrutura de teste (limpeza de temporário no Windows, separadores de caminho, sequências de init do ConPTY).
-- Commit `5808388`: constituição **v1.2.0** — Princípio IX autoriza ler a referência para analisar comportamento (segue proibido copiar código/marca) + higiene do clone; Princípio II ganha exceção estreita para o usuário salvar pelo editor.
-- Commit `9e70c19`: **Feature 002 fatia 1** — explorador de arquivos somente leitura (`files.roots/list/read`), raízes = repositórios de workspace + worktrees de execução, contenção por `realpath`, limites de 5.000 entradas / 5 MB, árvore com carga sob demanda e pré-visualização em modal. Spec em `specs/002-explorador-arquivos/spec.md`.
-- Documentos de análise: `docs/analise-referencia-alethe.md` e `docs/plano-explorador-e-multiterminal.md`.
+- **Baseline**: `tsc` ✅, `lint` ✅, unit **438/438** ✅ (node + renderer), arch 2/2 ✅, integration **63–66/67** (só `launch.test.ts`, por crash nativo `0xC0000005` do node-pty).
+- `bacc611` — trabalho pendente pós-`b030a14` (workspaces, enunciado opcional, home, ícone) + correções de lint e da infraestrutura de teste no Windows.
+- `5808388` — constituição **v1.2.0**: Princípio IX autoriza ler a referência para analisar comportamento (segue proibido copiar código/marca); Princípio II ganha exceção estreita para o usuário salvar pelo editor.
+- `9e70c19` — **fatia 1**: explorador somente leitura (`files.list/read`), raízes = repositório do workspace + worktree de cada execução, contenção por `realpath`, limites de 5.000 entradas / 5 MB.
+- `d386366` — **fatia 2**: esquema de layout **v1 → v2** com painéis tipados (`Pane`), abas de execução por painel, editor CodeMirror 6 (abas, marca de não salvo, `Ctrl+S`), `files.write` com hash e `FILE_CONFLICT`, e `Ctrl+P` (índice de arquivos + modal).
+- `bc35e6a` — decoração de git na árvore (`files.status`, letras A/M/D/R/U por arquivo e por pasta).
 
 ## Pendente (próxima task primeiro)
-1. **Feature 002 fatia 2** — painel unificado: `Pane` como união (execuções em abas, editor, diff, preview), migração `STATE_SCHEMA_VERSION` 1 → 2, e então editor CodeMirror 6 com abas, salvar (respeitando a exceção do Princípio II) e `Ctrl+P`.
-2. Decoração de git na árvore do explorador (adicionado/modificado/ignorado por arquivo).
-3. Investigar o crash `0xC0000005` do `launch.test.ts` (node-pty/Electron desta máquina; não é regressão do código).
-4. Apagar `software-clone/` (já no `.gitignore`; análise concluída).
-5. Assistente de primeira abertura (detectar/ligar agentes) — segue pendente desde o handoff anterior.
+1. Investigar o crash `0xC0000005` do `launch.test.ts` (node-pty no Electron desta máquina) — é o último item vermelho da suíte.
+2. Rascunho em disco para abas sujas (recuperação após queda) — previsto e não feito.
+3. Busca por conteúdo (`rg`) e LSP/autocomplete no editor.
+4. Assistente de primeira abertura (detectar/ligar agentes) — pendente desde o handoff anterior.
+5. Apagar `software-clone/` (já no `.gitignore`, análise concluída).
 
-## Decisões tomadas (e o porquê, 1 linha cada)
-- Reimplementação limpa, sem fork AGPL: o que a referência tem de bom já existe aqui, e o que falta (editor explorador de verdade) não existe lá.
-- Explorador por **worktree**, não só por repositório: é o diferencial que nem VS Code nem a referência entregam.
-- CodeMirror 6 em vez de Monaco: várias instâncias na grade custam pouco; Monaco é 3–5 MB e ~80 MB de heap por instância.
-- Leitura antes de escrita: a fatia 1 não tem nenhum caminho de escrita, então a exceção do Princípio II ainda não foi exercitada em código.
-- Raízes vêm de `navigationRoots` (função pura, testada) para não duplicar regra entre main e renderer.
+## Decisões tomadas (1 linha cada)
+- Painel de terminal usa `id === execId` da primeira execução: migração v1 fica literal e as células da grade continuam válidas.
+- Um xterm por aba ativa: trocar de aba desanexa e reanexa com replay; muitos PTYs custam disco, não memória.
+- `Pane` mora em `src/core/layout/panes.ts` (não em `persistence`): a fronteira de arquitetura deixa o renderer importar só `core/layout`.
+- Escrita exige hash: conflito é recusado, nunca sobrescrito em silêncio (Princípio II).
+- CodeMirror 6 em vez de Monaco: dez pacotes MIT pinados, barato com vários painéis.
+- `Ctrl+P` sem IPC novo: índice montado no renderer com a própria `files.list`, teto de 2.000 arquivos e poda de `node_modules/.git/out/dist/coverage`.
 
 ## Arquivos-chave (caminho — papel)
-- `src/core/files/tree.ts` — regras puras: contenção, ordem natural, detecção de binário, limites.
-- `src/core/files/files-service.ts` — listar/ler com `realpath` e lotes de `stat`.
-- `src/core/files/roots.ts` — quais pastas o explorador pode abrir.
-- `src/main/ipc/register-files.ts` + `validate-files.ts` — canais `files:*`.
-- `src/renderer/components/Files/FileExplorer.tsx` — árvore, seletor de raiz, modal de leitura.
-- `src/renderer/App.tsx` — alternância Workspaces | Arquivos na barra lateral.
-- `.specify/memory/constitution.md` — v1.2.0 (Princípios II e IX).
-- `tests/support/temp-dirs.ts` — limpeza de temporário que sobrevive a arquivo read-only no Windows.
+- `src/core/layout/panes.ts` — tipo `Pane`, abas e remoção de aba.
+- `src/core/persistence/state-schema.ts` — esquema 2 e migração de v1 na leitura.
+- `src/renderer/store/layout-store.ts` — abrir/fechar/focar/reordenar painéis, `openDoc`, `closeTab`.
+- `src/core/files/files-service.ts` — listar, ler e gravar com `realpath` e hash.
+- `src/core/files/file-status.ts` + `git-status.ts` — decoração de git.
+- `src/renderer/components/Editor/{CodeEditor,EditorPane}.tsx` — editor e abas.
+- `src/renderer/components/QuickOpen/QuickOpen.tsx` + `src/renderer/files/index.ts` — `Ctrl+P`.
+- `specs/002-explorador-arquivos/` — spec da fatia 1, spec-fatia-2 e plan (dependências fechadas).
 
 ## Problemas abertos / riscos
-- `launch.test.ts` derruba o worker com `0xC0000005`; os 3 testes do arquivo caem junto. Rodar isolado não reproduz sempre.
-- `C:\Users\<usuário>` desta máquina **é um repositório git**, então qualquer pasta em `%TEMP%` está "dentro de um repo"; o teste `inspectRepo` usa `GIT_CEILING_DIRECTORIES` para exercitar o caso "não é repositório".
-- O ConPTY responde a consulta de posição do cursor sozinho; por isso o teste de integração verifica "o agente não trava", não "quem respondeu".
-- A spec 002 foi escrita **depois** do código (desvio do Fluxo de desenvolvimento; registrado no fim da própria spec).
+- `launch.test.ts` derruba o worker com `0xC0000005`; os testes do arquivo caem junto (não é regressão de código).
+- O perfil do usuário desta máquina é um repositório git, então `%TEMP%` está "dentro de um repo"; testes usam `GIT_CEILING_DIRECTORIES` quando precisam do caso oposto.
+- O ConPTY responde sozinho a consulta de posição do cursor: o teste de integração verifica "o agente não trava", não "quem respondeu".
+- Processo: a spec da fatia 1 foi escrita **depois** do código e a fatia 2 teve spec/plan antes do código, mas os testes foram escritos junto da implementação, não antes — desvio do Princípio V registrado aqui.
 
 ## Próximo passo exato
-Escrever `specs/002-explorador-arquivos/` fatia 2 (modelo `Pane` + migração v2) **antes** do código, conforme o Fluxo de desenvolvimento.
+Reproduzir e isolar o crash do node-pty em `tests/integration/core/execution/launch.test.ts` (rodar com `--test-threads=1` e coletar o dump do worker).
