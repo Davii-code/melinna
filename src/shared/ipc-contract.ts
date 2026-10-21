@@ -7,6 +7,7 @@ import type {
   FileEntry,
   FileRoot,
   FileText,
+  FileWriteResult,
   LaunchResult,
   RemovalCheck,
   RepoInspection,
@@ -30,6 +31,7 @@ export type {
   FileEntry,
   FileRoot,
   FileText,
+  FileWriteResult,
   Group,
   LaunchResult,
   LayoutState,
@@ -47,6 +49,7 @@ export type {
   Execution,
   ExecutionStatus,
   LayoutMode,
+  Pane,
   Task,
 } from '../core/persistence/state-schema';
 
@@ -118,6 +121,8 @@ export interface MelinnaApi {
     roots(): Promise<Result<FileRoot[]>>;
     list(path: string): Promise<Result<DirectoryListing>>;
     read(path: string): Promise<Result<FileText>>;
+    /** Grava só se o hash em disco ainda for o recebido na leitura; senão devolve FILE_CONFLICT. */
+    write(path: string, content: string, expectedHash: string): Promise<Result<FileWriteResult>>;
   };
   app: {
     onCloseRequested(fn: (info: { liveCount: number }) => void): Unsubscribe;
@@ -153,7 +158,7 @@ export const CHANNELS = {
   },
   terminal: { open: 'terminal:open', close: 'terminal:close' },
   layout: { get: 'layout:get', set: 'layout:set' },
-  files: { roots: 'files:roots', list: 'files:list', read: 'files:read' },
+  files: { roots: 'files:roots', list: 'files:list', read: 'files:read', write: 'files:write' },
   app: { answerClose: 'app:answerClose', openExternal: 'app:openExternal' },
 } as const;
 
@@ -198,4 +203,5 @@ export const LIMITS = {
   baseRef: 256,
   modelOrMode: 100,
   urlLength: 2048,
+  fileText: 5 * 1024 * 1024,
 } as const;

@@ -2,7 +2,7 @@ import type { RemovalCheck } from '../api-types';
 import { isMelinnaError, MelinnaError } from '../errors';
 import { acquireLease } from '../git/lease';
 import { removalCheck, removeExecutionArtifacts, type RemovalDeps, type RemovalTarget } from '../git/removal';
-import type { Execution, Task } from '../persistence/state-schema';
+import type { Execution, Pane, Task } from '../persistence/state-schema';
 import type { ExecutionContext, TermSize } from './context';
 import { assertWithinLimit } from './limits';
 import { prepareExecution } from './prepare';
@@ -158,8 +158,20 @@ export async function removeExecution(
   ctx.model.mutate((s) => {
     s.executions = s.executions.filter((e) => e.id !== exec.id);
     const l = s.layout;
-    l.openExecutionIds = l.openExecutionIds.filter((id) => id !== exec.id);
-    if (l.focusedExecutionId === exec.id) l.focusedExecutionId = l.openExecutionIds[0] ?? null;
+    const panes: Pane[] = [];
+    for (const pane of l.panes) {
+      if (pane.kind !== 'executions') {
+        panes.push(pane);
+        continue;
+      }
+      const execIds = pane.execIds.filter((id) => id !== exec.id);
+      if (execIds.length === 0) continue;
+      panes.push({ ...pane, execIds, activeIndex: Math.min(pane.activeIndex, execIds.length - 1) });
+    }
+    l.panes = panes;
+    if (l.focusedPaneId !== null && !panes.some((pane) => pane.id === l.focusedPaneId)) {
+      l.focusedPaneId = panes[0]?.id ?? null;
+    }
     const { [exec.id]: _removed, ...remainingCells } = l.custom.cells;
     l.custom.cells = remainingCells;
   });

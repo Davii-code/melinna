@@ -51,7 +51,7 @@ const CONTRACT = {
   ],
   terminal: ['close', 'open'],
   layout: ['get', 'set'],
-  files: ['list', 'read', 'roots'],
+  files: ['list', 'read', 'roots', 'write'],
   app: ['answerClose', 'onCloseRequested', 'openExternal'],
 };
 

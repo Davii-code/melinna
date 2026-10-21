@@ -126,6 +126,15 @@ export interface FileText {
   binary: boolean;
   /** Verdadeiro quando o conteúdo foi cortado no limite de leitura. */
   truncated: boolean;
+  /** SHA-256 do conteúdo lido; o salvamento exige que o arquivo ainda tenha este hash. */
+  hash: string;
+}
+
+/** Resultado de um salvamento: o arquivo em disco agora tem este hash. */
+export interface FileWriteResult {
+  path: string;
+  size: number;
+  hash: string;
 }
 
 /** Raiz navegável: o repositório de um workspace ou o worktree de uma execução. */

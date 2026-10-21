@@ -186,8 +186,8 @@ describe('ciclo de vida da execução', () => {
   it('removes a clean execution deleting the branch and drops it from the layout', async () => {
     const e = await launchOne();
     h.model.mutate((s) => {
-      s.layout.openExecutionIds = [e.id];
-      s.layout.focusedExecutionId = e.id;
+      s.layout.panes = [{ id: e.id, kind: 'executions', execIds: [e.id], activeIndex: 0 }];
+      s.layout.focusedPaneId = e.id;
       s.layout.custom.cells[e.id] = { col: 0, row: 0, colSpan: 1, rowSpan: 1 };
     });
     await h.executions.stop(e.id);
@@ -196,8 +196,8 @@ describe('ciclo de vida da execução', () => {
     expect(existsSync(e.worktreePath)).toBe(false);
     expect(branches()).not.toContain(e.branch);
     const layout = h.model.snapshot().layout;
-    expect(layout.openExecutionIds).not.toContain(e.id);
-    expect(layout.focusedExecutionId).toBeNull();
+    expect(layout.panes).toEqual([]);
+    expect(layout.focusedPaneId).toBeNull();
     expect(layout.custom.cells[e.id]).toBeUndefined();
   });
 });

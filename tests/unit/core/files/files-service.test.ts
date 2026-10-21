@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FilesService } from '../../../../src/core/files/files-service';
+import { contentHash } from '../../../../src/core/files/hash';
 import { isMelinnaError } from '../../../../src/core/errors';
 import { MemoryFileSystem } from '../../../support/fakes/file-system';
 import { MemoryLogger } from '../../../support/fakes/logger';
@@ -116,6 +117,48 @@ describe('FilesService.read', () => {
     await seedDir(fs, `${ROOT}/src`);
     expect(await rejection(service.read(`${ROOT}/src`))).toBe('INPUT_INVALID');
     expect(await rejection(service.read(`${ROOT}/nada.txt`))).toBe('FILE_UNREADABLE');
+  });
+});
+
+describe('FilesService.write', () => {
+  it('replaces the content when the hash still matches and reports the new one', async () => {
+    const { fs, service } = setup();
+    fs.seed(`${ROOT}/a.txt`, 'antigo');
+    const before = await service.read(`${ROOT}/a.txt`);
+    const written = await service.write(`${ROOT}/a.txt`, 'novo conteúdo', before.hash);
+    expect(fs.readText(`${ROOT}/a.txt`)).toBe('novo conteúdo');
+    expect(written).toMatchObject({ size: 14, hash: contentHash(new TextEncoder().encode('novo conteúdo')) });
+    // nenhum temporário sobrou ao lado do arquivo
+    expect(await fs.exists(`${resolve(ROOT)}/a.txt.melinna-tmp`)).toBe(false);
+  });
+
+  it('refuses to overwrite when the file changed on disk since it was read', async () => {
+    const { fs, service } = setup();
+    fs.seed(`${ROOT}/a.txt`, 'original');
+    const before = await service.read(`${ROOT}/a.txt`);
+    // outro processo (o agente, por exemplo) gravou no meio do caminho
+    fs.seed(`${ROOT}/a.txt`, 'mexido pelo agente');
+    expect(await rejection(service.write(`${ROOT}/a.txt`, 'meu texto', before.hash))).toBe('FILE_CONFLICT');
+    expect(fs.readText(`${ROOT}/a.txt`)).toBe('mexido pelo agente');
+  });
+
+  it('refuses paths outside the roots and missing files', async () => {
+    const { fs, service } = setup();
+    fs.seed(`${OTHER}/secret.txt`, 'segredo');
+    expect(await rejection(service.write(`${OTHER}/secret.txt`, 'x', 'a'.repeat(64)))).toBe(
+      'FILE_OUTSIDE_ROOT',
+    );
+    expect(await rejection(service.write(`${ROOT}/nada.txt`, 'x', 'a'.repeat(64)))).toBe(
+      'FILE_UNREADABLE',
+    );
+  });
+
+  it('refuses content above the write limit', async () => {
+    const { fs, service } = setup({ maxTextBytes: 4 });
+    fs.seed(`${ROOT}/a.txt`, 'abc');
+    const before = await service.read(`${ROOT}/a.txt`);
+    expect(await rejection(service.write(`${ROOT}/a.txt`, '12345', before.hash))).toBe('INPUT_INVALID');
+    expect(fs.readText(`${ROOT}/a.txt`)).toBe('abc');
   });
 });
 

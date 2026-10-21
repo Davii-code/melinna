@@ -1,9 +1,10 @@
-import type { DirectoryListing, FileEntry, FileRoot, FileText } from '../api-types';
+import type { DirectoryListing, FileEntry, FileRoot, FileText, FileWriteResult } from '../api-types';
 import { MelinnaError } from '../errors';
 import { pathModule } from '../paths';
 import type { FileStat, FileSystem } from '../ports/file-system';
 import type { Logger } from '../ports/logger';
 import type { OsName } from '../ports/platform';
+import { contentHash } from './hash';
 import { isInsideRoot, looksBinary, MAX_ENTRIES, MAX_TEXT_BYTES, naturalCompare } from './tree';
 
 /** Quantas entradas são medidas por vez: `stat` em massa estoura handles em pasta grande. */
@@ -56,6 +57,11 @@ export class FilesService {
     return [...this.deps.roots()];
   }
 
+  /** Checagem barata, sem tocar no disco: o caminho literal está dentro de alguma raiz? */
+  containsPath(path: string): boolean {
+    return this.deps.roots().some((root) => isInsideRoot(root.path, path, this.deps.os));
+  }
+
   async list(rawPath: string): Promise<DirectoryListing> {
     const { os } = this.deps;
     const p = pathModule(os);
@@ -105,7 +111,54 @@ export class FilesService {
     const slice = truncated ? bytes.slice(0, this.maxTextBytes) : bytes;
     const content = binary ? '' : new TextDecoder().decode(slice);
     this.deps.log.info('files.read', { path: target, size: st.size, binary, truncated });
-    return { path: target, content, size: st.size, binary, truncated };
+    return { path: target, content, size: st.size, binary, truncated, hash: contentHash(bytes) };
+  }
+
+  /**
+   * Grava o arquivo só se o hash em disco ainda for o que o editor recebeu na leitura.
+   *
+   * É a exceção do Princípio II: escrita por ação explícita do usuário, com hash antes e depois no
+   * log, conflito recusado e gravação atômica (temporário + renomeação).
+   */
+  async write(rawPath: string, content: string, expectedHash: string): Promise<FileWriteResult> {
+    const { fs } = this.deps;
+    const target = await this.canonicalInside(rawPath);
+    const st = await this.statOrNull(target);
+    if (st === null || st.isDirectory) throw unreadable(rawPath);
+
+    let current: Uint8Array;
+    try {
+      current = await fs.readFile(target);
+    } catch (cause) {
+      throw unreadable(rawPath, cause);
+    }
+    const before = contentHash(current);
+    if (before !== expectedHash) {
+      throw new MelinnaError('FILE_CONFLICT', {
+        userMessage: 'O arquivo mudou no disco desde que foi aberto. Recarregue antes de salvar.',
+        details: { path: target },
+      });
+    }
+
+    const bytes = new TextEncoder().encode(content);
+    if (bytes.length > this.maxTextBytes) {
+      throw new MelinnaError('INPUT_INVALID', {
+        userMessage: 'O arquivo é grande demais para salvar por aqui.',
+        details: { path: target, size: bytes.length },
+      });
+    }
+
+    const temp = `${target}.melinna-tmp`;
+    try {
+      await fs.writeFile(temp, bytes, { flag: 'w' });
+      await fs.rename(temp, target);
+    } catch (cause) {
+      await fs.rm(temp, { force: true }).catch(() => undefined);
+      throw unreadable(rawPath, cause);
+    }
+    const after = contentHash(bytes);
+    this.deps.log.info('files.written', { path: target, size: bytes.length, before, after });
+    return { path: target, size: bytes.length, hash: after };
   }
 
   /** Caminho canônico que está dentro de alguma raiz; fora dela, `FILE_OUTSIDE_ROOT`. */

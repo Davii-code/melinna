@@ -19,7 +19,14 @@ const TREE: Record<string, DirectoryListing> = {
   '/ws/src': listing('/ws/src', [{ name: 'main.ts', path: '/ws/src/main.ts', kind: 'file', size: 1200 }]),
 };
 
-const FILE: FileText = { path: '/ws/a.txt', content: 'olá mundo', size: 12, binary: false, truncated: false };
+const FILE: FileText = {
+  path: '/ws/a.txt',
+  content: 'olá mundo',
+  size: 12,
+  binary: false,
+  truncated: false,
+  hash: 'a'.repeat(64),
+};
 
 function setup(roots: FileRoot[] = [ROOT]) {
   const api = fakeApi();

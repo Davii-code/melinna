@@ -5,6 +5,7 @@ import type {
   CatalogIssue,
   DetectResult,
   Execution,
+  FileRoot,
   LaunchResult,
   MelinnaApi,
   Result,
@@ -16,10 +17,13 @@ import { Grid } from './components/Grid/Grid';
 import { CatalogView } from './components/CatalogView';
 import { CloseDialog } from './components/CloseDialog';
 import { DiffView } from './components/DiffView/DiffView';
+import { EditorPane } from './components/Editor/EditorPane';
 import { FileExplorer } from './components/Files/FileExplorer';
 import { Home } from './components/Home/Home';
 import { NewTaskDialog } from './components/NewTaskDialog';
+import { ExecutionTabs } from './components/Panel/ExecutionTabs';
 import { Panel } from './components/Panel/Panel';
+import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { ScrollbackBanner } from './components/Panel/ScrollbackBanner';
 import { RemoveExecutionDialog } from './components/RemoveExecutionDialog';
 import { ResidueDialog } from './components/ResidueDialog';
@@ -113,6 +117,8 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const [showCatalog, setShowCatalog] = useState(false);
   const [showHome, setShowHome] = useState(false);
   const [sidebarView, setSidebarView] = useState<'workspaces' | 'files'>('workspaces');
+  const [showQuickOpen, setShowQuickOpen] = useState(false);
+  const [fileRoots, setFileRoots] = useState<FileRoot[]>([]);
 
   useEffect(() => api.app.onCloseRequested((info) => setCloseAsk(info)), [api]);
   const answerClose = useCallback(
@@ -133,9 +139,51 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
     if (snapshot) layoutStore.prune(new Set(snapshot.executions.map((e) => e.id)));
   }, [snapshot, layoutStore]);
 
+  // Raízes do explorador e do "ir para arquivo": mudam quando abre workspace ou execução.
+  useEffect(() => {
+    let alive = true;
+    void api.files.roots().then((r) => {
+      if (alive && r.ok) setFileRoots(r.value);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [api, snapshot]);
+
+  // Ctrl+P abre o "ir para arquivo"; Ctrl+W fecha a aba do painel em foco.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key === 'p') {
+        e.preventDefault();
+        setShowQuickOpen(true);
+        return;
+      }
+      if (key === 'w') {
+        const pane = layout.panes.find((p) => p.id === layout.focusedPaneId);
+        if (!pane) return;
+        e.preventDefault();
+        layoutStore.closeTab(pane.id, pane.activeIndex);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [layout, layoutStore]);
+
   const agentsById = useMemo(() => new Map(catalog.agents.map((a) => [a.id, a])), [catalog.agents]);
   const execById = useMemo(() => new Map((snapshot?.executions ?? []).map((e) => [e.id, e])), [snapshot]);
-  const openIds = layout.openExecutionIds.filter((id) => execById.has(id));
+  const paneIds = useMemo(() => layout.panes.map((pane) => pane.id), [layout.panes]);
+  const openExecIds = useMemo(
+    () => layout.panes.flatMap((pane) => (pane.kind === 'executions' ? pane.execIds : [])),
+    [layout.panes],
+  );
+  /** Arquivo em foco, usado para escolher a raiz padrão do "ir para arquivo". */
+  const focusedDocPath = useMemo(() => {
+    const pane = layout.panes.find((p) => p.id === layout.focusedPaneId);
+    if (pane?.kind !== 'editor') return null;
+    return pane.docs[pane.activeIndex] ?? null;
+  }, [layout.panes, layout.focusedPaneId]);
   const preparedIds = useMemo(
     () => (snapshot?.executions ?? []).filter((e) => e.branch !== '').map((e) => e.id),
     [snapshot],
@@ -197,53 +245,84 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
     if (picked.value) await run(api.workspace.openWorkspace(picked.value));
   };
 
-  const renderPanel = (id: string) => {
-    const exec = execById.get(id);
+  const renderPanel = (paneId: string) => {
+    const pane = layout.panes.find((p) => p.id === paneId);
+    if (!pane) return null;
+    if (pane.kind === 'editor') {
+      return (
+        <EditorPane
+          pane={pane}
+          focused={layout.focusedPaneId === pane.id}
+          onFocus={() => layoutStore.focus(pane.id)}
+          onSelect={(index) => layoutStore.setActive(pane.id, index)}
+          onCloseTab={(path) => {
+            const index = pane.docs.indexOf(path);
+            if (index >= 0) layoutStore.closeTab(pane.id, index);
+          }}
+        />
+      );
+    }
+    const execs = pane.execIds
+      .map((id) => execById.get(id))
+      .filter((e): e is Execution => e !== undefined);
+    const index = Math.min(pane.activeIndex, execs.length - 1);
+    const exec = execs[index];
     if (!exec) return null;
     return (
-      <Panel
-        execution={exec}
-        agent={agentsById.get(exec.agentId)}
-        onTerminalReady={(h) => {
-          if (h) terminalHandles.current.set(id, h);
-          else terminalHandles.current.delete(id);
-        }}
-        onHeaderDragStart={(e) => {
-          e.dataTransfer.effectAllowed = 'move';
-        }}
-        visible
-        focused={layout.focusedExecutionId === id}
-        onClose={() => layoutStore.close(id)}
-        onFocus={() => layoutStore.focus(id)}
-        baseAdvancedBy={divergence.get(id) ?? 0}
-        headerExtras={
-          <>
-            <ModelSelect execution={exec} agent={agentsById.get(exec.agentId)} />
-            <PermissionSelect execution={exec} agent={agentsById.get(exec.agentId)} />
-          </>
-        }
-        actions={
-          exec.branch !== '' && (
-            <button
-              type="button"
-              className="icon-button"
-              title="Ver o que este agente mudou"
-              aria-label="Ver diff"
-              onClick={() => setDiffFor(id)}
-            >
-              ±
-            </button>
-          )
-        }
-        banner={
-          <>
-            <FailureBanner execution={exec} />
-            <ScrollbackBanner
-              reason={snapshot?.scrollbackPaused.find((p) => p.execId === id)?.reason ?? null}
-            />
-          </>
-        }
-      />
+      <div className="pane-stack">
+        {execs.length > 1 ? (
+          <ExecutionTabs
+            execs={execs}
+            activeIndex={index}
+            agentOf={(agentId) => agentsById.get(agentId)}
+            onSelect={(i) => layoutStore.setActive(pane.id, i)}
+            onCloseTab={(i) => layoutStore.closeTab(pane.id, i)}
+          />
+        ) : null}
+        <Panel
+          execution={exec}
+          agent={agentsById.get(exec.agentId)}
+          onTerminalReady={(h) => {
+            if (h) terminalHandles.current.set(exec.id, h);
+            else terminalHandles.current.delete(exec.id);
+          }}
+          onHeaderDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'move';
+          }}
+          visible
+          focused={layout.focusedPaneId === pane.id}
+          onClose={() => layoutStore.close(pane.id)}
+          onFocus={() => layoutStore.focus(pane.id)}
+          baseAdvancedBy={divergence.get(exec.id) ?? 0}
+          headerExtras={
+            <>
+              <ModelSelect execution={exec} agent={agentsById.get(exec.agentId)} />
+              <PermissionSelect execution={exec} agent={agentsById.get(exec.agentId)} />
+            </>
+          }
+          actions={
+            exec.branch !== '' && (
+              <button
+                type="button"
+                className="icon-button"
+                title="Ver o que este agente mudou"
+                aria-label="Ver diff"
+                onClick={() => setDiffFor(exec.id)}
+              >
+                ±
+              </button>
+            )
+          }
+          banner={
+            <>
+              <FailureBanner execution={exec} />
+              <ScrollbackBanner
+                reason={snapshot?.scrollbackPaused.find((p) => p.execId === exec.id)?.reason ?? null}
+              />
+            </>
+          }
+        />
+      </div>
     );
   };
 
@@ -260,9 +339,9 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
           >
             <button
               type="button"
-              aria-pressed={showHome || openIds.length === 0}
+              aria-pressed={showHome || paneIds.length === 0}
               onClick={() => setShowHome((v) => !v)}
-              disabled={openIds.length === 0}
+              disabled={paneIds.length === 0}
             >
               Início
             </button>
@@ -325,14 +404,20 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                   ) : null}
                 </div>
                 {sidebarView === 'files' ? (
-                  <FileExplorer onShowWorkspaces={() => setSidebarView('workspaces')} />
+                  <FileExplorer
+                    onShowWorkspaces={() => setSidebarView('workspaces')}
+                    onOpenFile={(path) => {
+                      setShowHome(false);
+                      layoutStore.openDoc(path);
+                    }}
+                  />
                 ) : (
                   <Tree
                     groups={snapshot.groups}
                     tasks={snapshot.tasks}
                     executions={snapshot.executions}
                     agents={agentsById}
-                    openIds={openIds}
+                    openIds={openExecIds}
                     divergence={divergence}
                     {...treeActions}
                   />
@@ -340,7 +425,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
               </aside>
             )}
             <main className="workspace">
-              {snapshot && (openIds.length === 0 || showHome) ? (
+              {snapshot && (paneIds.length === 0 || showHome) ? (
                 <Home
                   snapshot={snapshot as WorkspaceSnapshot}
                   agents={catalog.agents}
@@ -350,11 +435,11 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                 />
               ) : snapshot ? (
                 <Grid
-                  ids={openIds}
+                  ids={paneIds}
                   renderPanel={renderPanel}
                   observeResize={terminal.observeResize}
                   mode={layout.mode}
-                  focusedId={layout.focusedExecutionId}
+                  focusedId={layout.focusedPaneId}
                   custom={layout.custom}
                   onRelayout={refitVisible}
                   onCustomChange={(g) => layoutStore.setCustom(g)}
@@ -396,6 +481,17 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
               message={residue.message}
               onDone={() => setResidue(null)}
               onCancel={() => setResidue(null)}
+            />
+          )}
+          {showQuickOpen && (
+            <QuickOpen
+              roots={fileRoots}
+              preferredRoot={focusedDocPath}
+              onPick={(path) => {
+                setShowHome(false);
+                layoutStore.openDoc(path);
+              }}
+              onClose={() => setShowQuickOpen(false)}
             />
           )}
           {showNewTask && snapshot && (

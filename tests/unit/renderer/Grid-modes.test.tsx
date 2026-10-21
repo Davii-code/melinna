@@ -88,15 +88,17 @@ describe('layout store persistence', () => {
     expect(s.custom.columns).toHaveLength(2);
   });
 
-  it('reorders open panels, or swaps cells in custom mode, and saves', () => {
+  it('reorders open panels, or swaps cells in custom mode, and saves', async () => {
     const { api, store } = storeWithApi();
     store.reorder('a', 'c');
-    expect(store.get().openExecutionIds).toEqual(['b', 'c', 'a', 'd']);
+    expect(store.get().panes.map((p) => p.id)).toEqual(['b', 'c', 'a', 'd']);
     store.setMode('custom');
     const before = store.get().custom.cells;
     store.reorder('b', 'd');
     expect(store.get().custom.cells.b).toEqual(before.d);
     expect(store.get().custom.cells.d).toEqual(before.b);
+    // a gravação acontece na fila de promessas do store
+    await store.flush();
     expect(api.layout.set).toHaveBeenCalled();
   });
 
@@ -104,10 +106,10 @@ describe('layout store persistence', () => {
     const { store } = storeWithApi();
     store.focus('a');
     store.cycleFocus(1);
-    expect(store.get().focusedExecutionId).toBe('b');
+    expect(store.get().focusedPaneId).toBe('b');
     store.cycleFocus(-1);
     store.cycleFocus(-1);
-    expect(store.get().focusedExecutionId).toBe('d');
+    expect(store.get().focusedPaneId).toBe('d');
     const grid: CustomGrid = { columns: [0.4, 0.6], rows: [1], cells: {} };
     store.setCustom(grid);
     expect(store.get().custom).toEqual(grid);

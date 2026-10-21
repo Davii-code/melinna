@@ -14,6 +14,8 @@ const EMPTY_DIR: DirState = { listing: null, loading: false, error: null };
 export interface FileExplorerProps {
   /** Chamado quando o usuário fecha o explorador para voltar à árvore de workspaces. */
   onShowWorkspaces?: () => void;
+  /** Abre o arquivo no painel de editor. */
+  onOpenFile?: (path: string) => void;
 }
 
 function formatSize(bytes: number): string {
@@ -23,7 +25,7 @@ function formatSize(bytes: number): string {
 }
 
 /** Explorador de arquivos somente leitura das raízes abertas no app (workspaces e worktrees). */
-export function FileExplorer({ onShowWorkspaces }: FileExplorerProps) {
+export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps) {
   const api = useApi();
   const [roots, setRoots] = useState<FileRoot[]>([]);
   const [rootPath, setRootPath] = useState<string | null>(null);
@@ -136,6 +138,7 @@ export function FileExplorer({ onShowWorkspaces }: FileExplorerProps) {
               style={{ paddingLeft: 20 + depth * 12 }}
               title={entry.path}
               onClick={() => openFile(entry)}
+              onDoubleClick={() => onOpenFile?.(entry.path)}
               data-testid={`file-${entry.name}`}
             >
               <span className="files-icon" aria-hidden="true">
@@ -237,6 +240,17 @@ export function FileExplorer({ onShowWorkspaces }: FileExplorerProps) {
             </p>
             {preview.binary ? null : <pre className="files-preview-body">{preview.content}</pre>}
             <div className="confirm">
+              {onOpenFile ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenFile(preview.path);
+                    setPreview(null);
+                  }}
+                >
+                  Abrir no editor
+                </button>
+              ) : null}
               <button type="button" onClick={() => setPreview(null)}>
                 Fechar
               </button>

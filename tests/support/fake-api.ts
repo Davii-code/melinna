@@ -9,8 +9,8 @@ export function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapsh
     executions: [],
     layout: {
       mode: 'auto',
-      openExecutionIds: [],
-      focusedExecutionId: null,
+      panes: [],
+      focusedPaneId: null,
       custom: { columns: [1], rows: [1], cells: {} },
     },
     liveCount: 0,
@@ -74,7 +74,17 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
     files: {
       roots: vi.fn(() => okR([])),
       list: vi.fn(() => okR({ path: '/r', entries: [], truncated: false })),
-      read: vi.fn(() => okR({ path: '/r/a.txt', content: '', size: 0, binary: false, truncated: false })),
+      read: vi.fn(() =>
+        okR({
+          path: '/r/a.txt',
+          content: '',
+          size: 0,
+          binary: false,
+          truncated: false,
+          hash: 'a'.repeat(64),
+        }),
+      ),
+      write: vi.fn(() => okR({ path: '/r/a.txt', size: 0, hash: 'b'.repeat(64) })),
     },
     app: {
       onCloseRequested: vi.fn((fn: (i: { liveCount: number }) => void) => {

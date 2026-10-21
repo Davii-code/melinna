@@ -40,7 +40,7 @@ export function registerIpc(handle: Handle, s: IpcServices): void {
   registerLifecycle(handle, { executions: s.executions, model: s.model, log: s.log });
   registerDiff(handle, { diff: s.diff, executions: s.executions, model: s.model, log: s.log });
   registerSwitch(handle, { executions: s.executions, model: s.model, log: s.log });
-  registerLayout(handle, { model: s.model, log: s.log });
+  registerLayout(handle, { model: s.model, files: s.files, log: s.log });
   registerFiles(handle, { files: s.files, log: s.log });
   registerApp(handle, { closeFlow: s.closeFlow, log: s.log, open: s.openExternal });
   s.bridge.register(handle);

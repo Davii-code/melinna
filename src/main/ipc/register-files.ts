@@ -2,7 +2,7 @@ import type { FilesService } from '../../core/files/files-service';
 import type { Logger } from '../../core/ports/logger';
 import { CHANNELS } from '../../shared/ipc-contract';
 import { handler, type Handle } from './result';
-import { parseFilePath, parseFilesRoots } from './validate-files';
+import { parseFilePath, parseFilesRoots, parseFileWrite } from './validate-files';
 
 export interface FilesIpcDeps {
   files: FilesService;
@@ -23,5 +23,9 @@ export function registerFiles(handle: Handle, deps: FilesIpcDeps): void {
   handle(
     C.read,
     handler(log, C.read, parseFilePath, (path) => files.read(path)),
+  );
+  handle(
+    C.write,
+    handler(log, C.write, parseFileWrite, (path, content, hash) => files.write(path, content, hash)),
   );
 }

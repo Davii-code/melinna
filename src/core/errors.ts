@@ -24,6 +24,7 @@ export type ErrorCode =
   | 'SWITCH_UNSUPPORTED'
   | 'FILE_OUTSIDE_ROOT'
   | 'FILE_UNREADABLE'
+  | 'FILE_CONFLICT'
   | 'INTERNAL';
 
 export const ERROR_CODES: readonly ErrorCode[] = [
@@ -52,6 +53,7 @@ export const ERROR_CODES: readonly ErrorCode[] = [
   'SWITCH_UNSUPPORTED',
   'FILE_OUTSIDE_ROOT',
   'FILE_UNREADABLE',
+  'FILE_CONFLICT',
   'INTERNAL',
 ];
 
@@ -81,6 +83,7 @@ const DEFAULT_MESSAGES: Record<ErrorCode, string> = {
   SWITCH_UNSUPPORTED: 'Este agente não permite essa troca.',
   FILE_OUTSIDE_ROOT: 'Este caminho está fora das pastas abertas no app.',
   FILE_UNREADABLE: 'Não foi possível ler este arquivo.',
+  FILE_CONFLICT: 'O arquivo mudou no disco desde que foi aberto.',
   INTERNAL: 'Erro interno inesperado. Detalhes no log.',
 };
 

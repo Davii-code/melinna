@@ -22,7 +22,7 @@ function setup() {
 
 describe('files IPC', () => {
   it('registers the file channels', () => {
-    expect(setup().rec.channels()).toEqual(['files:list', 'files:read', 'files:roots']);
+    expect(setup().rec.channels()).toEqual(['files:list', 'files:read', 'files:roots', 'files:write']);
   });
 
   it('answers roots, listing and content', async () => {
