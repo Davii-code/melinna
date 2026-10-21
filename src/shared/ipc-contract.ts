@@ -3,6 +3,11 @@ import type {
   AgentPick,
   DetectResult,
   DiffResult,
+  DirectoryListing,
+  FileEntry,
+  FileRoot,
+  FileText,
+  FileWriteResult,
   LaunchResult,
   RemovalCheck,
   RepoInspection,
@@ -14,6 +19,7 @@ import type {
 import type { AgentDefinition, CatalogIssue } from '../core/catalog/schema';
 import type { MarkerKind } from '../core/contracts/host-protocol';
 import type { ErrorCode } from '../core/errors';
+import type { FileChange } from '../core/api-types';
 import type { Group, LayoutState } from '../core/persistence/state-schema';
 
 export type {
@@ -22,6 +28,11 @@ export type {
   CatalogIssue,
   DetectResult,
   DiffResult,
+  DirectoryListing,
+  FileEntry,
+  FileRoot,
+  FileText,
+  FileWriteResult,
   Group,
   LaunchResult,
   LayoutState,
@@ -33,12 +44,13 @@ export type {
   TermSize,
   WorkspaceSnapshot,
 };
-export type { DiffLine, FileDiff, Hunk } from '../core/api-types';
+export type { DiffLine, FileChange, FileDiff, Hunk } from '../core/api-types';
 export type {
   CustomGrid,
   Execution,
   ExecutionStatus,
   LayoutMode,
+  Pane,
   Task,
 } from '../core/persistence/state-schema';
 
@@ -72,17 +84,24 @@ export interface MelinnaApi {
   workspace: {
     snapshot(): Promise<Result<WorkspaceSnapshot>>;
     cleanResidue(residuePath: string): Promise<Result<void>>;
+    /** Abre (ou reaproveita) o workspace da pasta; `name` opcional, padrão = nome da pasta. */
+    openWorkspace(path: string, name?: string): Promise<Result<Group>>;
     onChange(fn: (s: WorkspaceSnapshot) => void): Unsubscribe;
     createGroup(name: string): Promise<Result<Group>>;
     renameGroup(id: string, name: string): Promise<Result<void>>;
     renameTask(id: string, title: string): Promise<Result<void>>;
-    pickRepository(): Promise<Result<string | null>>;
+    /** Diálogo nativo de escolha de pasta; `defaultPath` abre o diálogo nessa pasta. */
+    pickRepository(defaultPath?: string): Promise<Result<string | null>>;
     inspectRepo(repoPath: string, baseRef: string): Promise<Result<RepoInspection>>;
   };
   tasks: {
     createAndLaunch(
       input: CreateAndLaunchInput,
     ): Promise<Result<{ taskId: string; results: LaunchResult[] }>>;
+    /** Remove a sessão e as execuções dela (paradas); a pasta no disco não é tocada. */
+    remove(taskId: string): Promise<Result<void>>;
+    /** Tira o workspace da lista com as sessões dele (paradas); a pasta no disco não é tocada. */
+    removeWorkspace(groupId: string): Promise<Result<void>>;
   };
   executions: {
     stop(execId: string): Promise<Result<void>>;
@@ -103,6 +122,16 @@ export interface MelinnaApi {
     get(): Promise<Result<LayoutState>>;
     set(state: LayoutState): Promise<Result<void>>;
   };
+  files: {
+    /** Raízes navegáveis: repositórios de workspaces abertos e worktrees das execuções. */
+    roots(): Promise<Result<FileRoot[]>>;
+    list(path: string): Promise<Result<DirectoryListing>>;
+    read(path: string): Promise<Result<FileText>>;
+    /** Grava só se o hash em disco ainda for o recebido na leitura; senão devolve FILE_CONFLICT. */
+    write(path: string, content: string, expectedHash: string): Promise<Result<FileWriteResult>>;
+    /** Estado do git por arquivo (caminho relativo à raiz), para decorar a árvore. */
+    status(root: string): Promise<Result<Record<string, FileChange>>>;
+  };
   app: {
     onCloseRequested(fn: (info: { liveCount: number }) => void): Unsubscribe;
     answerClose(choice: CloseChoice): Promise<Result<void>>;
@@ -116,13 +145,18 @@ export const CHANNELS = {
   workspace: {
     snapshot: 'workspace:snapshot',
     cleanResidue: 'workspace:cleanResidue',
+    openWorkspace: 'workspace:openWorkspace',
     createGroup: 'workspace:createGroup',
     renameGroup: 'workspace:renameGroup',
     renameTask: 'workspace:renameTask',
     pickRepository: 'workspace:pickRepository',
     inspectRepo: 'workspace:inspectRepo',
   },
-  tasks: { createAndLaunch: 'tasks:createAndLaunch' },
+  tasks: {
+    createAndLaunch: 'tasks:createAndLaunch',
+    remove: 'tasks:remove',
+    removeWorkspace: 'tasks:removeWorkspace',
+  },
   executions: {
     stop: 'executions:stop',
     relaunch: 'executions:relaunch',
@@ -136,6 +170,13 @@ export const CHANNELS = {
   },
   terminal: { open: 'terminal:open', close: 'terminal:close' },
   layout: { get: 'layout:get', set: 'layout:set' },
+  files: {
+    roots: 'files:roots',
+    list: 'files:list',
+    read: 'files:read',
+    write: 'files:write',
+    status: 'files:status',
+  },
   app: { answerClose: 'app:answerClose', openExternal: 'app:openExternal' },
 } as const;
 
@@ -180,4 +221,5 @@ export const LIMITS = {
   baseRef: 256,
   modelOrMode: 100,
   urlLength: 2048,
+  fileText: 5 * 1024 * 1024,
 } as const;

@@ -32,6 +32,13 @@ describe('tasks IPC', () => {
     expect(core.host.spawns[1]?.args).toEqual(['--model', 'esperto', 'Faça X']);
   });
 
+  it('accepts an empty prompt and launches without it', async () => {
+    const { rec, core, input } = await setup();
+    const r = await rec.call('tasks:createAndLaunch', { ...input, prompt: '' });
+    expect(r.ok).toBe(true);
+    expect(core.host.spawns[0]?.args).toEqual(['--model', 'rapido']);
+  });
+
   it('validates the payload', async () => {
     const { rec, input } = await setup();
     const bad = async (v: unknown) => (await rec.call('tasks:createAndLaunch', v)).error?.code;
@@ -44,6 +51,47 @@ describe('tasks IPC', () => {
     expect(await bad({ ...input, picks: Array.from({ length: 13 }, () => ({ agentId: 'fake' })) })).toBe(
       'LIMIT_REACHED',
     );
-    expect(await bad({ ...input, baseRef: 'nao-existe' })).toBe('BASE_REF_NOT_FOUND');
+    expect(await bad({ ...input, repoPath: '/nao/existe' })).toBe('INPUT_INVALID');
+  });
+
+  it('runs the execution directly in the chosen folder, without a worktree or branch', async () => {
+    const { rec, core, input } = await setup();
+    const r = await rec.call('tasks:createAndLaunch', input);
+    expect(r.ok).toBe(true);
+    const task = core.workspace.snapshot().tasks[0];
+    expect(task).toMatchObject({ repoPath: '/repo', isolation: 'direct', baseCommit: '' });
+    const exec = core.workspace.snapshot().executions[0];
+    expect(exec).toMatchObject({ worktreePath: '/repo', branch: '' });
+    expect(core.host.spawns[0]?.cwd).toBe('/repo');
+    expect(core.runner.calls.some((c) => c.args.includes('worktree') && c.args.includes('add'))).toBe(false);
+  });
+
+  it('removes a stopped session without touching its folder', async () => {
+    const { rec, core, input } = await setup();
+    const r = await rec.call('tasks:createAndLaunch', input);
+    const { taskId, results } = r.value as { taskId: string; results: { execId: string }[] };
+    expect(await rec.call('tasks:remove', taskId)).toMatchObject({
+      ok: false,
+      error: { code: 'EXECUTION_RUNNING' },
+    });
+    await core.executions.stop(results[0]?.execId ?? '');
+    expect(await rec.call('tasks:remove', taskId)).toEqual({ ok: true, value: undefined });
+    expect(core.workspace.snapshot().tasks).toHaveLength(0);
+    expect(core.workspace.snapshot().executions).toHaveLength(0);
+    expect(await core.fs.exists('/repo/README.md')).toBe(true);
+  });
+
+  it('removes a workspace with its stopped sessions and validates ids', async () => {
+    const { rec, core, input } = await setup();
+    const ws = await core.workspace.openWorkspace('/repo');
+    await rec.call('tasks:createAndLaunch', { ...input, groupId: ws.id });
+    const execId = core.workspace.snapshot().executions[0]?.id ?? '';
+    await core.executions.stop(execId);
+    expect(await rec.call('tasks:removeWorkspace', ws.id)).toEqual({ ok: true, value: undefined });
+    expect(core.workspace.snapshot().groups.some((g) => g.id === ws.id)).toBe(false);
+    expect(core.workspace.snapshot().tasks).toHaveLength(0);
+    expect(await core.fs.exists('/repo/README.md')).toBe(true);
+    expect((await rec.call('tasks:remove', 'nao-existe')).error?.code).toBe('INPUT_INVALID');
+    expect((await rec.call('tasks:removeWorkspace', 'nao-existe')).error?.code).toBe('INPUT_INVALID');
   });
 });

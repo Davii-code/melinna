@@ -16,7 +16,7 @@ cada um num terminal PTY vivo e isolado no seu próprio git worktree.
 <br />
 <br />
 
-![status](https://img.shields.io/badge/status-especifica%C3%A7%C3%A3o-4f8cff?style=flat-square&labelColor=07080b)
+![status](https://img.shields.io/badge/status-primeira%20fatia-4f8cff?style=flat-square&labelColor=07080b)
 ![plataforma](https://img.shields.io/badge/Windows-primeiro-34c759?style=flat-square&labelColor=07080b)
 ![stack](https://img.shields.io/badge/Electron%20%C2%B7%20node--pty%20%C2%B7%20xterm.js-bf5af2?style=flat-square&labelColor=07080b)
 
@@ -56,7 +56,7 @@ A lista completa está na [constitution](.specify/memory/constitution.md).
 
 ## Status
 
-O projeto está na fase de especificação, feita com o [GitHub Spec Kit](https://github.com/github/spec-kit). Nenhum código de produção ainda.
+A primeira fatia está implementada (feature 001), especificada com o [GitHub Spec Kit](https://github.com/github/spec-kit). Windows 10 1809+ é a plataforma validada; macOS e Linux compilam, com validação completa na fatia seguinte. O instalador ainda não é assinado.
 
 | Artefato | Caminho |
 |---|---|
@@ -66,11 +66,38 @@ O projeto está na fase de especificação, feita com o [GitHub Spec Kit](https:
 | Contratos | [`specs/001-workspace-agentes-paralelos/contracts/`](specs/001-workspace-agentes-paralelos/contracts/) |
 | Tasks (165) | [`specs/001-workspace-agentes-paralelos/tasks.md`](specs/001-workspace-agentes-paralelos/tasks.md) |
 
-## Stack planejada
+## Stack
 
 Electron 44 · node-pty 1.1 (ConPTY no Windows) · @xterm/xterm 6 · React 19 · TypeScript estrito · Vitest · Playwright
 
-Pré-requisitos e comandos de desenvolvimento estão no [quickstart](specs/001-workspace-agentes-paralelos/quickstart.md).
+## Desenvolvimento
+
+Pré-requisitos (Windows):
+
+- Node 24 e npm
+- Git 2.30+ no PATH
+- Visual Studio Build Tools com "Desenvolvimento para desktop com C++" e Python 3, para recompilar o node-pty para o Electron
+- Opcional: `claude`, `codex` e `gemini` instalados e autenticados
+
+Comandos:
+
+| Comando | O que faz |
+|---|---|
+| `npm install` | instala as dependências e recompila o node-pty |
+| `npm run dev` | abre o app em modo de desenvolvimento |
+| `npm run test:unit` | testes unitários e de componentes |
+| `npm run test:integration` | testes com git e PTY reais, sob o Node do Electron |
+| `npm run test:arch` | fronteiras entre as camadas |
+| `npm run test:perf` | metas de desempenho (lançamento, eco, reanexação) |
+| `npm run test:e2e` | fluxos ponta a ponta com o Playwright |
+| `npm run icons` | gera os ícones a partir de `docs/brand/logo.svg` |
+| `npm run dist` | gera o instalador em `dist/` |
+
+Detalhes e validação manual no [quickstart](specs/001-workspace-agentes-paralelos/quickstart.md).
+
+### Independência de código e de marca
+
+O produto se inspira em ideias de interface de outro projeto público. Neste repositório não se copia, transcreve nem parafraseia código de terceiros, e não se usa nome, logo, ícones ou qualquer asset de outro projeto. Toda a interface e toda a marca são próprias; a regra completa é o Princípio IX da [constitution](.specify/memory/constitution.md).
 
 ## Identidade visual
 

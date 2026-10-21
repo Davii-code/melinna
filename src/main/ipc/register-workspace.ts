@@ -6,6 +6,7 @@ import {
   parseCleanResidue,
   parseCreateGroup,
   parseInspectRepo,
+  parseOpenWorkspace,
   parsePickRepository,
   parseRenameGroup,
   parseRenameTask,
@@ -16,7 +17,7 @@ export interface WorkspaceIpcDeps {
   workspace: WorkspaceService;
   log: Logger;
   /** Diálogo nativo de escolha de pasta. */
-  pickRepository: () => Promise<string | null>;
+  pickRepository: (defaultPath?: string) => Promise<string | null>;
 }
 
 export function registerWorkspace(handle: Handle, deps: WorkspaceIpcDeps): void {
@@ -44,11 +45,15 @@ export function registerWorkspace(handle: Handle, deps: WorkspaceIpcDeps): void 
   );
   handle(
     C.pickRepository,
-    handler(log, C.pickRepository, parsePickRepository, () => deps.pickRepository()),
+    handler(log, C.pickRepository, parsePickRepository, (p) => deps.pickRepository(p)),
   );
   handle(
     C.inspectRepo,
     handler(log, C.inspectRepo, parseInspectRepo, (p, ref) => workspace.inspectRepo(p, ref)),
+  );
+  handle(
+    C.openWorkspace,
+    handler(log, C.openWorkspace, parseOpenWorkspace, (p, name) => workspace.openWorkspace(p, name)),
   );
   handle(
     C.cleanResidue,

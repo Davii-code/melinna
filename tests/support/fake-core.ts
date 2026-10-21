@@ -91,6 +91,7 @@ export function createFakeCore(state: StateFile = emptyState()): FakeCore {
   fs.seed('/data/.keep', '');
   fs.seed('/bin/fake', '');
   fs.seed('/bin/bash', '');
+  fs.seed('/repo/README.md', '');
   fs.seed(
     '/app/catalog/agents.json',
     JSON.stringify({ schemaVersion: 1, agents: Object.values(FAKE_AGENTS) }),

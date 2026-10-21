@@ -20,14 +20,15 @@ test.afterEach(async () => {
 test('keep running on close, kill one agent outside, reopen with history, reattach and exit status', async () => {
   app = await launchApp(userData);
   const { page } = app;
-  await page.getByRole('button', { name: 'Nova tarefa' }).click();
-  await page.getByLabel('Nome do novo grupo').fill('G');
-  await page.getByLabel('Repositório').fill(repo.root);
-  await page.getByLabel('Ponto de partida').fill('main');
-  await page.getByLabel('Enunciado').fill('Fechar e reabrir');
-  await page.getByTestId('agent-fake').getByRole('checkbox').check();
-  await page.getByTestId('agent-fake-pty').getByRole('checkbox').check();
-  await page.getByRole('button', { name: 'Lançar' }).click();
+  // uma tarefa por agente: os dois rodam direto na pasta do repositório
+  for (const agent of ['fake', 'fake-pty']) {
+    await page.getByRole('button', { name: 'Nova tarefa' }).click();
+    await page.getByLabel('Pasta').fill(repo.root);
+    await page.getByLabel('Enunciado').fill('Fechar e reabrir');
+    await page.getByLabel('Agente').selectOption(agent);
+    await page.getByRole('button', { name: 'Lançar' }).click();
+    await expect(page.getByRole('dialog', { name: 'Nova tarefa' })).toHaveCount(0);
+  }
   await expect(page.locator('section.panel')).toHaveCount(2);
   await waitFor(() => {
     const t = Object.values(scrollbackText(userData));

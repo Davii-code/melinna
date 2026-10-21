@@ -12,3 +12,6 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+
+# Repositório de referência para análise (AGPL-3.0): nunca versionar.
+software-clone/

@@ -1,6 +1,7 @@
 appId: io.github.davii-code.melinna
 productName: Melinna
 executableName: melinna-desk
+copyright: Copyright © 2026 Davii-code
 directories:
   output: dist
   buildResources: build
@@ -14,15 +15,29 @@ asarUnpack:
 extraResources:
   - from: catalog
     to: catalog
+# node-pty 1.1 é N-API e traz binários pré-compilados para Windows e macOS: não recompilar no empacotamento.
+npmRebuild: false
 electronFuses:
   runAsNode: true
-icon: build/icons/icon-256.png
+icon: build/icons/icon.png
 win:
-  target: nsis
-  icon: build/icons/icon-256.png
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icons/icon.png
 nsis:
   oneClick: false
+  perMachine: false
   allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Melinna
+  uninstallDisplayName: Melinna
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+  artifactName: Melinna-Setup-${version}.${ext}
+  installerLanguages: [pt_BR]
+  language: '1046'
 mac:
   target: dmg
   icon: build/icons/icon.png

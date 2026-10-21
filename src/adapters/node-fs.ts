@@ -43,4 +43,7 @@ export class NodeFileSystem implements FileSystem {
       await handle.close();
     }
   }
+  async realpath(p: string): Promise<string> {
+    return fsp.realpath(p);
+  }
 }

@@ -55,3 +55,9 @@ export function execution(id: string, over: Partial<Execution> = {}): Execution 
     ...over,
   };
 }
+
+/** Entrada de shell: sem modelo, sem modos de permissão e sem enunciado. */
+export function shellDef(id: string, displayName = id): AgentDefinition {
+  const { model: _model, permission: _permission, resume: _resume, ...rest } = agentDef(id);
+  return { ...rest, displayName, kind: 'shell', prompt: { delivery: 'none' } };
+}

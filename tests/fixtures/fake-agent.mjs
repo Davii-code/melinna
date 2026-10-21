@@ -71,6 +71,9 @@ async function handle(cmd) {
     case '/permission':
       out(`permission=${arg}\r\n`);
       return;
+    case '/cwd':
+      out(`cwd=${process.cwd()}\r\n`);
+      return;
     case '/busy': {
       const until = Date.now() + Number(arg);
       const timer = setInterval(() => {

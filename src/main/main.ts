@@ -8,6 +8,7 @@ import {
   app,
   dialog,
   ipcMain,
+  Menu,
   protocol,
   shell,
   type IpcMainInvokeEvent,
@@ -18,6 +19,10 @@ import { nodePlatform } from '../adapters/node-platform';
 import { NodeProcessRunner } from '../adapters/node-process-runner';
 import { CatalogService } from '../core/catalog/catalog-service';
 import { ExecutionService } from '../core/execution/execution-service';
+import { FileStatusService } from '../core/files/file-status';
+import { FilesService } from '../core/files/files-service';
+import { navigationRoots } from '../core/files/roots';
+import { DiffService } from '../core/git/diff';
 import { GitRunner } from '../core/git/git-runner';
 import { KeyedMutex } from '../core/git/repo-mutex';
 import { findOrphanLeases } from '../core/git/residue';
@@ -63,6 +68,9 @@ function isPidAlive(pid: number): boolean {
 }
 
 async function boot(): Promise<void> {
+  // A interface tem barra de título própria; o menu nativo do Electron (File/Edit/View/Window) só
+  // ocupava espaço com cara de app antigo.
+  Menu.setApplicationMenu(null);
   const platform = nodePlatform();
   const paths = makePaths(app.getPath('userData'), platform.os);
   const fs = new NodeFileSystem();
@@ -138,7 +146,24 @@ async function boot(): Promise<void> {
     baseEnv,
   });
 
+  const diff = new DiffService({ model, git, fs, os: platform.os, log: log.child('diff') });
+
+  const navigationRootsOf = () => navigationRoots(model.raw);
+  const files = new FilesService({
+    fs,
+    os: platform.os,
+    log: log.child('files'),
+    roots: navigationRootsOf,
+  });
+  const fileStatus = new FileStatusService({
+    git,
+    os: platform.os,
+    log: log.child('files'),
+    roots: navigationRootsOf,
+  });
+
   await executions.reconcileWithHost().catch((err: unknown) => log.error('host.reconcile_failed', { err }));
+  executions.resumePendingSwitches();
   const residues = await findOrphanLeases(
     { fs, paths, os: platform.os },
     (id) => model.execution(id) !== undefined,
@@ -161,8 +186,32 @@ async function boot(): Promise<void> {
     create: (opts) => new BrowserWindow(opts),
     preloadPath: preloadPath(__dirname),
     url: devUrl ?? `${APP_ORIGIN}/index.html`,
+    ...(devUrl ? { devOrigin: originOf(devUrl) } : {}),
   });
   mainWindow = win;
+
+  // Diagnóstico da página: erro de JavaScript no renderer não aparecia em log nenhum, e a janela
+  // ficava preta sem explicação. Estes três eventos cobrem console, falha de carga e morte do processo.
+  const wc = win.webContents as unknown as {
+    on(event: 'console-message', fn: (a: unknown, ...rest: unknown[]) => void): void;
+    on(event: 'did-fail-load' | 'render-process-gone', fn: (...args: unknown[]) => void): void;
+  };
+  wc.on('console-message', (a, ...rest) => {
+    const details = a as { message?: unknown; level?: unknown };
+    const legacy = typeof rest[1] === 'string' ? rest[1] : undefined;
+    const message = typeof details?.message === 'string' ? details.message : legacy;
+    const level =
+      typeof details?.level === 'number' || typeof details?.level === 'string' ? details.level : rest[0];
+    log.warn('renderer.console', { level: String(level ?? ''), message: String(message ?? '') });
+  });
+  wc.on('did-fail-load', (...args) => {
+    const [code, description, url] = args as [number, string, string];
+    log.error('renderer.load_failed', { code, description, url });
+  });
+  wc.on('render-process-gone', (...args) => {
+    const [details] = args as [{ reason?: string; exitCode?: number }];
+    log.error('renderer.gone', { reason: details?.reason ?? '', exitCode: details?.exitCode ?? 0 });
+  });
 
   const closeFlow = new CloseFlow({
     liveCount: () => executions.liveCount(),
@@ -218,14 +267,18 @@ async function boot(): Promise<void> {
     catalog,
     workspace,
     executions,
+    diff,
+    files,
+    fileStatus,
     model,
     bridge,
     closeFlow,
     log: log.child('ipc'),
-    pickRepository: async () => {
+    pickRepository: async (defaultPath) => {
       const r = await dialog.showOpenDialog(win, {
-        title: 'Escolher repositório',
+        title: 'Escolher pasta',
         properties: ['openDirectory'],
+        ...(defaultPath ? { defaultPath } : {}),
       });
       return r.canceled ? null : (r.filePaths[0] ?? null);
     },

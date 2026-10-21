@@ -87,8 +87,12 @@ describe('WorkspaceService', () => {
       svc.createTask({ groupId: g.id, repoPath: '/r', baseRef: 'main', prompt: 'a\0b' }),
     ).rejects.toMatchObject({ code: 'PROMPT_INVALID' });
     await expect(
-      svc.createTask({ groupId: g.id, repoPath: '/r', baseRef: 'main', prompt: '   ' }),
+      svc.createTask({ groupId: g.id, repoPath: '/r', baseRef: 'main', prompt: 'x'.repeat(100_001) }),
     ).rejects.toMatchObject({ code: 'INPUT_INVALID' });
+    // enunciado é opcional: vazio abre o agente sem instrução, com título padrão
+    await expect(
+      svc.createTask({ groupId: g.id, repoPath: '/r', baseRef: 'main', prompt: '   ' }),
+    ).resolves.toMatchObject({ title: 'Sessão', slug: 'sessao' });
     await expect(
       svc.createTask({ groupId: g.id, repoPath: '/r', baseRef: 'zzz', prompt: 'x' }),
     ).rejects.toMatchObject({ code: 'BASE_REF_NOT_FOUND' });

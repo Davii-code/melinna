@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { removeDirRecursive } from './temp-dirs';
 
 export function git(cwd: string, args: string[], input?: string): string {
   return execFileSync('git', args, {
@@ -47,7 +48,9 @@ export function writeFiles(root: string, files: Record<string, string | Uint8Arr
 }
 
 export function createTempRepo(opts: TempRepoOptions = {}): TempRepo {
-  const baseDir = mkdtempSync(join(tmpdir(), 'melinna-repo-'));
+  // `realpathSync.native` resolve o nome curto do perfil (ex.: `C:\Users\USUARI~1`): git e o app
+  // devolvem sempre o caminho canônico, e as asserções comparam strings de caminho.
+  const baseDir = realpathSync.native(mkdtempSync(join(tmpdir(), 'melinna-repo-')));
   const root = join(baseDir, 'repo');
   mkdirSync(root);
   git(root, ['init', '-q', '-b', 'main']);
@@ -74,7 +77,7 @@ export function createTempRepo(opts: TempRepoOptions = {}): TempRepo {
       return git(root, ['rev-parse', 'HEAD']).trim();
     },
     cleanup() {
-      rmSync(baseDir, { recursive: true, force: true });
+      removeDirRecursive(baseDir);
     },
   };
 }

@@ -9,8 +9,8 @@ export function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapsh
     executions: [],
     layout: {
       mode: 'auto',
-      openExecutionIds: [],
-      focusedExecutionId: null,
+      panes: [],
+      focusedPaneId: null,
       custom: { columns: [1], rows: [1], cells: {} },
     },
     liveCount: 0,
@@ -42,6 +42,15 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
     workspace: {
       snapshot: vi.fn(() => okR(snapshot())),
       cleanResidue: vi.fn(() => okR(undefined)),
+      openWorkspace: vi.fn((path: string, name?: string) =>
+        okR({
+          id: 'ws-new',
+          name: name ?? path.split(/[\\/]/).pop() ?? 'ws',
+          order: 0,
+          repoPath: path,
+          colorIndex: 0,
+        }),
+      ),
       onChange: vi.fn((fn: (s: WorkspaceSnapshot) => void) => {
         changeListeners.add(fn);
         return () => changeListeners.delete(fn);
@@ -52,7 +61,11 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
       pickRepository: vi.fn(() => okR<string | null>('/escolhido')),
       inspectRepo: vi.fn(() => okR({ root: '/repo', baseCommit: 'a'.repeat(40), uncommittedCount: 0 })),
     },
-    tasks: { createAndLaunch: vi.fn(() => okR({ taskId: 't1', results: [] })) },
+    tasks: {
+      createAndLaunch: vi.fn(() => okR({ taskId: 't1', results: [] })),
+      remove: vi.fn(() => okR(undefined)),
+      removeWorkspace: vi.fn(() => okR(undefined)),
+    },
     executions: {
       stop: vi.fn(() => okR(undefined)),
       relaunch: vi.fn(() => okR(undefined)),
@@ -68,6 +81,22 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
     },
     terminal: { open: vi.fn(() => okR({ channelId: 'c1' })), close: vi.fn(() => okR(undefined)) },
     layout: { get: vi.fn(() => okR(snapshot().layout)), set: vi.fn(() => okR(undefined)) },
+    files: {
+      roots: vi.fn(() => okR([])),
+      list: vi.fn(() => okR({ path: '/r', entries: [], truncated: false })),
+      read: vi.fn(() =>
+        okR({
+          path: '/r/a.txt',
+          content: '',
+          size: 0,
+          binary: false,
+          truncated: false,
+          hash: 'a'.repeat(64),
+        }),
+      ),
+      write: vi.fn(() => okR({ path: '/r/a.txt', size: 0, hash: 'b'.repeat(64) })),
+      status: vi.fn(() => okR({})),
+    },
     app: {
       onCloseRequested: vi.fn((fn: (i: { liveCount: number }) => void) => {
         closeListeners.add(fn);

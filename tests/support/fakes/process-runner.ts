@@ -32,6 +32,12 @@ export class FakeProcessRunner implements ProcessRunner {
     return this;
   }
 
+  /** Registra um handler com prioridade sobre os já registrados. */
+  prepend(handler: RunHandler): this {
+    this.handlers.unshift(handler);
+    return this;
+  }
+
   /** Responde quando `file` e o prefixo de `args` coincidem. */
   when(file: string, argsPrefix: string[], result: RunResult | ((args: string[]) => RunResult)): this {
     return this.on((f, args) => {

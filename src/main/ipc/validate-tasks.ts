@@ -31,7 +31,7 @@ export function parseCreateAndLaunch(groupExists: (id: string) => boolean, freeS
       groupId: existing(v.groupId, 'Grupo', groupExists),
       repoPath: str(v.repoPath, 'caminho do repositório'),
       baseRef: str(v.baseRef, 'ponto de partida', 1, LIMITS.baseRef),
-      prompt: str(v.prompt, 'enunciado', 1, LIMITS.prompt),
+      prompt: str(v.prompt, 'enunciado', 0, LIMITS.prompt),
       picks,
       size: termSize(v.size),
     };
@@ -39,4 +39,12 @@ export function parseCreateAndLaunch(groupExists: (id: string) => boolean, freeS
     if (title !== undefined && title.length > 0) input.title = title;
     return [input];
   };
+}
+
+export function parseTaskId(taskExists: (id: string) => boolean) {
+  return (args: unknown[]): [string] => [existing(args[0], 'Sessão', taskExists)];
+}
+
+export function parseGroupId(groupExists: (id: string) => boolean) {
+  return (args: unknown[]): [string] => [existing(args[0], 'Workspace', groupExists)];
 }

@@ -99,12 +99,16 @@ describe('host spawn and I/O', () => {
     const col = collector();
     const exits: unknown[] = [];
     c.on('exit', (e) => exits.push(e));
-    const { pid } = await c.spawn(fakeSpawn('e1', cwd, ['--model', 'x']));
+    const { pid } = await c.spawn(fakeSpawn('e1', cwd, ['--model', 'x'], { cols: 200, rows: 40 }));
     expect(pid).toBeGreaterThan(0);
     await c.attach('e1', 0, col.sink);
     await col.waitFor('pronto');
-    expect(col.text()).toContain('["--model","x"]');
-    expect(col.text()).toContain('\x1b[32mpronto\x1b[0m');
+    const text = col.text();
+    expect(text).toContain('["--model","x"]');
+    // O ConPTY pode quebrar a linha entre a sequência de cor e o texto ao redesenhar a tela, então
+    // o que se verifica é a cor vir antes do texto, não a adjacência byte a byte.
+    expect(text.indexOf('\x1b[32m')).toBeGreaterThan(-1);
+    expect(text.indexOf('\x1b[32m')).toBeLessThan(text.indexOf('pronto'));
     c.write('e1', enc('olá mundo\r'));
     await col.waitFor('echo:olá mundo');
     c.write('e1', enc('exit 7\r'));

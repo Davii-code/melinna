@@ -11,6 +11,10 @@ Identificadores: `crypto.randomUUID()`. Datas: ISO 8601 UTC. Caminhos: absolutos
 | id | string | único |
 | name | string | 1–80 caracteres, sem quebra de linha |
 | order | number | ordem na árvore |
+| repoPath | string? | raiz do repositório quando o grupo é um workspace aberto a partir de uma pasta |
+| repoId | string? | `repoId` da raiz; um workspace por repositório |
+| colorIndex | number? | faixa de cor do workspace (0..5), atribuída na ordem de abertura |
+| lastOpenedAt | string? | última abertura ou última tarefa criada; ordena os recentes |
 
 ### Task
 
@@ -19,7 +23,7 @@ Identificadores: `crypto.randomUUID()`. Datas: ISO 8601 UTC. Caminhos: absolutos
 | id | string | único |
 | groupId | string | grupo existente |
 | title | string | 1–120; padrão = primeira linha do enunciado |
-| prompt | string | 1–100.000 caracteres, sem `\0` |
+| prompt | string | 0–100.000 caracteres, sem `\0`; vazio = o agente abre sem enunciado |
 | repoPath | string | raiz de um repositório git (`git rev-parse --show-toplevel`) |
 | repoId | string | sha256 do `repoPath` normalizado, 16 primeiros hex |
 | baseRef | string | texto informado (branch, tag ou commit) |

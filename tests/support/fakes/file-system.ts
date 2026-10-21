@@ -1,4 +1,4 @@
-import { dirname, resolve } from 'node:path';
+import { dirname, resolve, sep } from 'node:path';
 import type { FileStat, FileSystem } from '../../../src/core/ports/file-system';
 
 type Op = keyof FileSystem;
@@ -22,6 +22,8 @@ const encoder = new TextEncoder();
 export class MemoryFileSystem implements FileSystem {
   readonly files = new Map<string, Uint8Array>();
   readonly dirs = new Set<string>();
+  /** Links simbólicos encenados: caminho absoluto → destino absoluto. */
+  readonly links = new Map<string, string>();
   private injections: Injection[] = [];
   fsyncCount = 0;
 
@@ -120,7 +122,7 @@ export class MemoryFileSystem implements FileSystem {
     this.check('rm', abs);
     if (this.files.delete(abs)) return;
     if (this.dirs.has(abs)) {
-      const prefix = abs.endsWith('/') ? abs : `${abs}/`;
+      const prefix = abs.endsWith(sep) ? abs : `${abs}${sep}`;
       const children = [...this.files.keys(), ...this.dirs].filter((k) => k.startsWith(prefix));
       if (children.length > 0 && !opts?.recursive) throw fsError('ENOTEMPTY', abs);
       for (const k of children) {
@@ -185,5 +187,26 @@ export class MemoryFileSystem implements FileSystem {
     this.check('fsyncFile', abs);
     if (!this.files.has(abs)) throw fsError('ENOENT', abs);
     this.fsyncCount++;
+  }
+
+  /** Registra um link simbólico `from` → `to` para exercitar a recusa de fuga por link. */
+  seedLink(from: string, to: string): void {
+    this.links.set(resolve(from), resolve(to));
+  }
+
+  async realpath(p: string): Promise<string> {
+    const abs = resolve(p);
+    this.check('realpath', abs);
+    const seen = new Set<string>();
+    let current = abs;
+    for (;;) {
+      const target = this.links.get(current);
+      if (target === undefined) break;
+      if (seen.has(current)) throw fsError('ELOOP', current);
+      seen.add(current);
+      current = target;
+    }
+    if (!this.files.has(current) && !this.dirs.has(current)) throw fsError('ENOENT', current);
+    return current;
   }
 }

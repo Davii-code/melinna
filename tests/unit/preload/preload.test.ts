@@ -31,12 +31,13 @@ const CONTRACT = {
     'createGroup',
     'inspectRepo',
     'onChange',
+    'openWorkspace',
     'pickRepository',
     'renameGroup',
     'renameTask',
     'snapshot',
   ],
-  tasks: ['createAndLaunch'],
+  tasks: ['createAndLaunch', 'remove', 'removeWorkspace'],
   executions: [
     'cancelPendingSwitch',
     'confirmSwitch',
@@ -50,6 +51,7 @@ const CONTRACT = {
   ],
   terminal: ['close', 'open'],
   layout: ['get', 'set'],
+  files: ['list', 'read', 'roots', 'status', 'write'],
   app: ['answerClose', 'onCloseRequested', 'openExternal'],
 };
 

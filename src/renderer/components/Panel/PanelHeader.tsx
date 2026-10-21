@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { AgentDefinition, Execution } from '../../../shared/ipc-contract';
 import { statusLabel } from '../../labels';
 import { bandColor, bandLabel } from '../../theme/bands';
+import { DivergenceBadge } from '../DivergenceBadge';
 
 export interface PanelHeaderProps {
   execution: Execution;
@@ -12,6 +13,8 @@ export interface PanelHeaderProps {
   onClose: () => void;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
+  /** Commits que a base avançou desde a criação do worktree. */
+  baseAdvancedBy?: number;
 }
 
 export function permissionLabel(agent: AgentDefinition | undefined, mode: string | null): string | null {
@@ -33,6 +36,7 @@ export function PanelHeader({
   onClose,
   draggable,
   onDragStart,
+  baseAdvancedBy = 0,
 }: PanelHeaderProps) {
   const color = bandColor(execution.bandIndex);
   const number = bandLabel(execution.bandIndex);
@@ -63,6 +67,7 @@ export function PanelHeader({
         </span>
       )}
       {children}
+      <DivergenceBadge count={baseAdvancedBy} />
       <span className={`status status-${execution.status}`} data-testid="panel-status">
         {statusLabel(execution)}
       </span>

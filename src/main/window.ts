@@ -1,5 +1,22 @@
 export const CONTENT_SECURITY_POLICY = "default-src 'self'; style-src 'self' 'unsafe-inline'";
 
+/**
+ * Política da janela. Em produção vale a constante acima; em desenvolvimento o servidor do Vite serve
+ * a página e o React Refresh injeta um script inline (preâmbulo do HMR), então a origem do dev server
+ * precisa ser aceita para scripts e para o websocket. Sem isso a página não executa e a janela fica
+ * preta.
+ */
+export function contentSecurityPolicy(devOrigin?: string): string {
+  if (!devOrigin) return CONTENT_SECURITY_POLICY;
+  return [
+    `default-src 'self' ${devOrigin}`,
+    `script-src 'self' 'unsafe-inline' ${devOrigin}`,
+    "style-src 'self' 'unsafe-inline'",
+    `connect-src 'self' ${devOrigin} ws://localhost:* ws://127.0.0.1:*`,
+    `img-src 'self' data: ${devOrigin}`,
+  ].join('; ');
+}
+
 export interface WebContentsLike {
   getURL(): string;
   on(event: 'will-navigate', fn: (e: { preventDefault(): void }, url: string) => void): void;
@@ -47,6 +64,8 @@ export interface CreateWindowDeps<W extends BrowserWindowLike> {
   preloadPath: string;
   url: string;
   iconPath?: string;
+  /** Origem do servidor de desenvolvimento; ausente no app empacotado. */
+  devOrigin?: string;
 }
 
 export function windowOptions(preloadPath: string, iconPath?: string): BrowserWindowOptions {
@@ -75,11 +94,12 @@ export function windowOptions(preloadPath: string, iconPath?: string): BrowserWi
 export function createMainWindow<W extends BrowserWindowLike>(deps: CreateWindowDeps<W>): W {
   const win = deps.create(windowOptions(deps.preloadPath, deps.iconPath));
   const wc = win.webContents;
+  const policy = contentSecurityPolicy(deps.devOrigin);
   wc.session.webRequest.onHeadersReceived((details, cb) => {
     cb({
       responseHeaders: {
         ...(details.responseHeaders ?? {}),
-        'Content-Security-Policy': [CONTENT_SECURITY_POLICY],
+        'Content-Security-Policy': [policy],
       },
     });
   });

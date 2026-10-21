@@ -255,6 +255,16 @@ Comportamento desejado da interface, descrito em palavras: árvore de navegaçã
 - **LayoutState**: modo, ordem dos painéis, painel em foco, proporções da grade personalizada, painéis abertos.
 - **WorktreeLease**: posse exclusiva de um caminho de worktree por uma execução.
 
+## Atualização de 2026-10-21: workspaces e tela inicial
+
+Pedido do dono depois do primeiro uso: abrir um terminal estava pesado demais.
+
+- **Workspace**: uma pasta aberta como grupo. Abrir um workspace é só escolher a pasta; o nome padrão é o da pasta e cada workspace recebe uma faixa de cor. Abrir de novo a mesma pasta (ou uma subpasta do mesmo repositório) reaproveita o workspace.
+- **Enunciado opcional**: sem enunciado, o agente ou shell abre vazio e a conversa começa no próprio terminal. O título padrão da tarefa passa a ser "Sessão".
+- **Tela inicial**: com nenhum painel aberto (ou pelo botão "Início"), a área central mostra o avatar, a saudação pela hora do dia, uma barra rápida (enunciado opcional, agente instalado, workspace e modo), os botões "Novo terminal" e "Abrir workspace" e os workspaces recentes. "Novo terminal" lança o agente ou shell escolhido no workspace escolhido, sem enunciado; sem workspace, pede a pasta antes. Os avisos de alterações não commitadas e de modo sem confirmações continuam valendo.
+- **Isolamento mantido**: o "Novo terminal" também usa branch e worktree próprios (Princípio II).
+- **Ícone do app**: campo chanfrado da marca com o avatar no disco e o prisma de seis faixas como selo, gerado a partir de `docs/brand/avatar.jpg`.
+
 ## Fora do escopo desta fatia
 
 Não entram, não geram tasks e não devem vazar para o código: sincronização em nuvem; controle remoto por rede; sistema de plugins de terceiros; ditado por voz; integração com serviços de música; navegador embutido; grafo de dependências; Pomodoro; proxy de roteamento de modelos; revisão de pull request. Também ficam fora: tema claro, merge ou aplicação automática do resultado de uma execução na branch do usuário, criação de PR, assinatura de código e instalador assinado, validação completa em macOS e Linux, os agentes adiados em D4.
