@@ -9,6 +9,7 @@ Melinna Desk: app desktop (Electron) que roda agentes de CLI em PTYs paralelos, 
 - `9e70c19` — **fatia 1**: explorador somente leitura (`files.list/read`), raízes = repositório do workspace + worktree de cada execução, contenção por `realpath`, limites de 5.000 entradas / 5 MB.
 - `d386366` — **fatia 2**: esquema de layout **v1 → v2** com painéis tipados (`Pane`), abas de execução por painel, editor CodeMirror 6 (abas, marca de não salvo, `Ctrl+S`), `files.write` com hash e `FILE_CONFLICT`, e `Ctrl+P` (índice de arquivos + modal).
 - `bc35e6a` — decoração de git na árvore (`files.status`, letras A/M/D/R/U por arquivo e por pasta).
+- `45ab5e6` — **janela preta no `npm run dev`**: o CSP estrito bloqueava o script inline do React Refresh (`@vitejs/plugin-react can't detect preamble`) e o React não montava. O CSP agora é por janela: produção mantém a string exata, desenvolvimento libera a origem do Vite e `'unsafe-inline'` para scripts. Além disso, o principal passou a logar console do renderer, `did-fail-load` e `render-process-gone` — antes um erro na página não deixava rastro.
 
 ## Pendente (próxima task primeiro)
 1. Investigar o crash `0xC0000005` do `launch.test.ts` (node-pty no Electron desta máquina) — é o último item vermelho da suíte.
