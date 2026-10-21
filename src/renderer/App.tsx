@@ -16,6 +16,7 @@ import { Grid } from './components/Grid/Grid';
 import { CatalogView } from './components/CatalogView';
 import { CloseDialog } from './components/CloseDialog';
 import { DiffView } from './components/DiffView/DiffView';
+import { FileExplorer } from './components/Files/FileExplorer';
 import { Home } from './components/Home/Home';
 import { NewTaskDialog } from './components/NewTaskDialog';
 import { Panel } from './components/Panel/Panel';
@@ -111,6 +112,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
   const [showHome, setShowHome] = useState(false);
+  const [sidebarView, setSidebarView] = useState<'workspaces' | 'files'>('workspaces');
 
   useEffect(() => api.app.onCloseRequested((info) => setCloseAsk(info)), [api]);
   const answerClose = useCallback(
@@ -291,27 +293,50 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
             {snapshot && (
               <aside className="sidebar">
                 <div className="sidebar-header">
-                  <span>Workspaces</span>
+                  <div className="sidebar-views" role="tablist" aria-label="Visão da barra lateral">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={sidebarView === 'workspaces'}
+                      onClick={() => setSidebarView('workspaces')}
+                    >
+                      Workspaces
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={sidebarView === 'files'}
+                      onClick={() => setSidebarView('files')}
+                    >
+                      Arquivos
+                    </button>
+                  </div>
                   <span className="spacer" />
-                  <button
-                    type="button"
-                    className="icon-button"
-                    title="Abrir uma pasta como workspace"
-                    aria-label="Abrir workspace"
-                    onClick={() => void openWorkspaceFromSidebar()}
-                  >
-                    ＋
-                  </button>
+                  {sidebarView === 'workspaces' ? (
+                    <button
+                      type="button"
+                      className="icon-button"
+                      title="Abrir uma pasta como workspace"
+                      aria-label="Abrir workspace"
+                      onClick={() => void openWorkspaceFromSidebar()}
+                    >
+                      ＋
+                    </button>
+                  ) : null}
                 </div>
-                <Tree
-                  groups={snapshot.groups}
-                  tasks={snapshot.tasks}
-                  executions={snapshot.executions}
-                  agents={agentsById}
-                  openIds={openIds}
-                  divergence={divergence}
-                  {...treeActions}
-                />
+                {sidebarView === 'files' ? (
+                  <FileExplorer onShowWorkspaces={() => setSidebarView('workspaces')} />
+                ) : (
+                  <Tree
+                    groups={snapshot.groups}
+                    tasks={snapshot.tasks}
+                    executions={snapshot.executions}
+                    agents={agentsById}
+                    openIds={openIds}
+                    divergence={divergence}
+                    {...treeActions}
+                  />
+                )}
               </aside>
             )}
             <main className="workspace">

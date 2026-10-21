@@ -96,7 +96,7 @@ describe('ExecutionService.launch', () => {
         expect(col.text().indexOf('echo:Implemente a busca')).toBeGreaterThan(col.text().indexOf('pronto'));
         // O ConPTY moderno prefixa a sessão com sequências de controle antes da primeira linha do
         // agente; o que interessa aqui é a primeira linha do agente sair sem argumentos.
-        const firstLine = col.text().split(/\r*\n/)[0].replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
+        const firstLine = (col.text().split(/\r*\n/)[0] ?? '').replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
         expect(firstLine).toBe('[]');
       }
     }

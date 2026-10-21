@@ -16,6 +16,8 @@ export interface FileSystem {
   stat(p: string): Promise<FileStat>;
   exists(p: string): Promise<boolean>;
   fsyncFile(p: string): Promise<void>;
+  /** Caminho canônico, com links simbólicos e juncões resolvidos; falha se não existir. */
+  realpath(p: string): Promise<string>;
 }
 
 export function errorCode(err: unknown): string | undefined {

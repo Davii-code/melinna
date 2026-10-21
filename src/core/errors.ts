@@ -22,6 +22,8 @@ export type ErrorCode =
   | 'DISK_FULL'
   | 'STATE_CORRUPT'
   | 'SWITCH_UNSUPPORTED'
+  | 'FILE_OUTSIDE_ROOT'
+  | 'FILE_UNREADABLE'
   | 'INTERNAL';
 
 export const ERROR_CODES: readonly ErrorCode[] = [
@@ -48,6 +50,8 @@ export const ERROR_CODES: readonly ErrorCode[] = [
   'DISK_FULL',
   'STATE_CORRUPT',
   'SWITCH_UNSUPPORTED',
+  'FILE_OUTSIDE_ROOT',
+  'FILE_UNREADABLE',
   'INTERNAL',
 ];
 
@@ -75,6 +79,8 @@ const DEFAULT_MESSAGES: Record<ErrorCode, string> = {
   DISK_FULL: 'Disco sem espaço.',
   STATE_CORRUPT: 'O estado salvo do app está corrompido.',
   SWITCH_UNSUPPORTED: 'Este agente não permite essa troca.',
+  FILE_OUTSIDE_ROOT: 'Este caminho está fora das pastas abertas no app.',
+  FILE_UNREADABLE: 'Não foi possível ler este arquivo.',
   INTERNAL: 'Erro interno inesperado. Detalhes no log.',
 };
 

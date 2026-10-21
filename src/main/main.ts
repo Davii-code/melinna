@@ -18,6 +18,8 @@ import { nodePlatform } from '../adapters/node-platform';
 import { NodeProcessRunner } from '../adapters/node-process-runner';
 import { CatalogService } from '../core/catalog/catalog-service';
 import { ExecutionService } from '../core/execution/execution-service';
+import { FilesService } from '../core/files/files-service';
+import { navigationRoots } from '../core/files/roots';
 import { DiffService } from '../core/git/diff';
 import { GitRunner } from '../core/git/git-runner';
 import { KeyedMutex } from '../core/git/repo-mutex';
@@ -141,6 +143,13 @@ async function boot(): Promise<void> {
 
   const diff = new DiffService({ model, git, fs, os: platform.os, log: log.child('diff') });
 
+  const files = new FilesService({
+    fs,
+    os: platform.os,
+    log: log.child('files'),
+    roots: () => navigationRoots(model.raw),
+  });
+
   await executions.reconcileWithHost().catch((err: unknown) => log.error('host.reconcile_failed', { err }));
   executions.resumePendingSwitches();
   const residues = await findOrphanLeases(
@@ -223,6 +232,7 @@ async function boot(): Promise<void> {
     workspace,
     executions,
     diff,
+    files,
     model,
     bridge,
     closeFlow,

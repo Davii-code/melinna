@@ -1,0 +1,20 @@
+Add the read-only file explorer over workspaces and agent worktrees
+
+New iles namespace in the preload contract: roots(), list(path) and
+read(path), all read-only in this slice.
+
+- Roots are the repository of every open workspace plus the worktree of
+  every prepared execution, so the tree can show what an agent has, not
+  just the user's checkout.
+- Every requested path is canonicalised with realpath before the
+  containment check: a symlink or junction pointing outside a root is
+  refused with FILE_OUTSIDE_ROOT instead of being followed.
+- Limits: 5.000 entries per folder (reported as truncated), 5 MB per read
+  (content clipped and flagged), binary files detected by a NUL byte and
+  returned without content. Entries are measured in batches of 64 to keep
+  handle usage bounded.
+- Sidebar switches between Workspaces and Arquivos; the tree loads one
+  folder per click and previews a file in a modal.
+
+Spec of the slice in specs/002-explorador-arquivos/spec.md, contract in
+contracts/ipc.md. Unit tests: 274 (24 new), lint, typecheck and arch green.

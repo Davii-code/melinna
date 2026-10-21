@@ -383,7 +383,168 @@ button:focus-visible {
   flex: none;
   border-right: 1px solid var(--border-weak);
   background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar > .tree {
+  flex: 1;
   overflow: auto;
+}
+
+/* Alternância entre a árvore de workspaces e o explorador de arquivos */
+.sidebar-views {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--field);
+  border: 1px solid var(--border-weak);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.sidebar-views button {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  color: var(--prism);
+}
+
+.sidebar-views button[aria-selected='true'] {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+/* Explorador de arquivos (somente leitura nesta fatia) */
+.files {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.files-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.files-root {
+  flex: 1;
+  min-width: 0;
+  background: var(--field);
+  color: var(--text);
+  border: 1px solid var(--border-weak);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.files-context {
+  padding: 0 10px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--prism);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.files-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 12px;
+}
+
+.files-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 10px 3px 8px;
+  font-size: 12px;
+  color: var(--text);
+  text-align: left;
+}
+
+.files-row:hover {
+  background: var(--surface-raised);
+}
+
+.files-caret {
+  width: 10px;
+  flex: none;
+  color: var(--prism);
+  font-size: 10px;
+}
+
+.files-icon {
+  width: 12px;
+  flex: none;
+  color: var(--prism);
+}
+
+.files-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-size {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--prism);
+}
+
+.files-message {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--prism);
+}
+
+.files-message.error {
+  color: var(--danger);
+}
+
+.files-preview {
+  width: min(920px, calc(100vw - 48px));
+}
+
+.files-preview-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.files-preview-meta {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--prism);
+}
+
+.files-preview-body {
+  max-height: 60vh;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  background: var(--field);
+  border: 1px solid var(--border-weak);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre;
 }
 
 .tree ul {

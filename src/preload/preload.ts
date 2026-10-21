@@ -40,6 +40,7 @@ export function buildApi(): MelinnaApi {
     executions: group(CHANNELS.executions),
     terminal: group(CHANNELS.terminal),
     layout: group(CHANNELS.layout),
+    files: group(CHANNELS.files),
     app: {
       ...group(CHANNELS.app),
       onCloseRequested: (fn) => subscribe(EVENTS.closeRequested, fn),

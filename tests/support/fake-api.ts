@@ -71,6 +71,11 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
     },
     terminal: { open: vi.fn(() => okR({ channelId: 'c1' })), close: vi.fn(() => okR(undefined)) },
     layout: { get: vi.fn(() => okR(snapshot().layout)), set: vi.fn(() => okR(undefined)) },
+    files: {
+      roots: vi.fn(() => okR([])),
+      list: vi.fn(() => okR({ path: '/r', entries: [], truncated: false })),
+      read: vi.fn(() => okR({ path: '/r/a.txt', content: '', size: 0, binary: false, truncated: false })),
+    },
     app: {
       onCloseRequested: vi.fn((fn: (i: { liveCount: number }) => void) => {
         closeListeners.add(fn);

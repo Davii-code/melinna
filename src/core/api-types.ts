@@ -98,3 +98,41 @@ export interface FileDiff {
 export interface DiffResult {
   files: FileDiff[];
 }
+
+export type FileEntryKind = 'file' | 'directory';
+
+/** Entrada de uma pasta do workspace, como o explorador de arquivos mostra. */
+export interface FileEntry {
+  name: string;
+  /** Caminho absoluto. */
+  path: string;
+  kind: FileEntryKind;
+  size: number;
+}
+
+export interface DirectoryListing {
+  path: string;
+  entries: FileEntry[];
+  /** Verdadeiro quando a pasta tinha mais entradas do que o limite de listagem. */
+  truncated: boolean;
+}
+
+/** Conteúdo textual de um arquivo, para leitura no explorador. */
+export interface FileText {
+  path: string;
+  /** Vazio quando `binary` ou quando o arquivo passa do limite. */
+  content: string;
+  size: number;
+  binary: boolean;
+  /** Verdadeiro quando o conteúdo foi cortado no limite de leitura. */
+  truncated: boolean;
+}
+
+/** Raiz navegável: o repositório de um workspace ou o worktree de uma execução. */
+export interface FileRoot {
+  path: string;
+  label: string;
+  kind: 'workspace' | 'worktree';
+  /** Presente quando `kind` é `worktree`. */
+  execId?: string;
+}

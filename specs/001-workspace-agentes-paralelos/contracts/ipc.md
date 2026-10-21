@@ -44,6 +44,11 @@ interface MelinnaApi {
     get(): Promise<Result<LayoutState>>;
     set(state: LayoutState): Promise<Result<void>>;
   };
+  files: {
+    roots(): Promise<Result<FileRoot[]>>;              // workspace (repositório) e worktrees das execuções
+    list(path: string): Promise<Result<DirectoryListing>>;
+    read(path: string): Promise<Result<FileText>>;     // somente leitura nesta fatia
+  };
   app: {
     onCloseRequested(fn: (info: { liveCount: number }) => void): Unsubscribe;
     answerClose(choice: 'keep-running' | 'stop-all' | 'cancel'): Promise<Result<void>>;
@@ -67,3 +72,11 @@ interface MelinnaApi {
 `RemovalCheck = { uncommittedFiles: number; unmergedCommits: number; branch: string }` — `unmergedCommits` conta commits da branch da execução que não estão em `baseRef`.
 
 Limites validados no principal: `prompt` de 0 a 100.000 caracteres (vazio = agente sem enunciado); `name`/`title` conforme data-model; `input` por mensagem ≤ 64 KB; `cols` 20–1000, `rows` 5–500; `picks` ≤ vagas livres.
+
+## Navegação de arquivos (`files`)
+
+- **Raízes**: `roots()` devolve o repositório de cada workspace aberto (`Group.repoPath`) e o worktree de cada execução com `worktreePath` preenchido; execução não preparada não aparece. Caminho repetido aparece uma vez só.
+- **Contenção**: `list` e `read` resolvem o caminho com `realpath` **antes** de conferir se está dentro de alguma raiz. Link simbólico que aponte para fora é recusado com `FILE_OUTSIDE_ROOT`, não seguido.
+- **Limites**: 5.000 entradas por listagem (`truncated: true` acima disso) e 5 MB por leitura (conteúdo cortado, `truncated: true`). Arquivo binário (byte nulo nos primeiros 8 KB) volta com `binary: true` e `content` vazio.
+- **Erros**: `INPUT_INVALID` (argumento malformado ou pasta em vez de arquivo), `FILE_OUTSIDE_ROOT`, `FILE_UNREADABLE` (não existe, sumiu ou falhou leitura).
+- **Somente leitura**: nesta fatia não há escrita; salvar arquivo entra na fatia do editor e exige a exceção registrada no Princípio II (só por ação explícita do usuário, com hash antes/depois e conflito recusado).

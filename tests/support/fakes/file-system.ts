@@ -22,6 +22,8 @@ const encoder = new TextEncoder();
 export class MemoryFileSystem implements FileSystem {
   readonly files = new Map<string, Uint8Array>();
   readonly dirs = new Set<string>();
+  /** Links simbólicos encenados: caminho absoluto → destino absoluto. */
+  readonly links = new Map<string, string>();
   private injections: Injection[] = [];
   fsyncCount = 0;
 
@@ -185,5 +187,26 @@ export class MemoryFileSystem implements FileSystem {
     this.check('fsyncFile', abs);
     if (!this.files.has(abs)) throw fsError('ENOENT', abs);
     this.fsyncCount++;
+  }
+
+  /** Registra um link simbólico `from` → `to` para exercitar a recusa de fuga por link. */
+  seedLink(from: string, to: string): void {
+    this.links.set(resolve(from), resolve(to));
+  }
+
+  async realpath(p: string): Promise<string> {
+    const abs = resolve(p);
+    this.check('realpath', abs);
+    const seen = new Set<string>();
+    let current = abs;
+    for (;;) {
+      const target = this.links.get(current);
+      if (target === undefined) break;
+      if (seen.has(current)) throw fsError('ELOOP', current);
+      seen.add(current);
+      current = target;
+    }
+    if (!this.files.has(current) && !this.dirs.has(current)) throw fsError('ENOENT', current);
+    return current;
   }
 }

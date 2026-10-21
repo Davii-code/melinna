@@ -3,6 +3,10 @@ import type {
   AgentPick,
   DetectResult,
   DiffResult,
+  DirectoryListing,
+  FileEntry,
+  FileRoot,
+  FileText,
   LaunchResult,
   RemovalCheck,
   RepoInspection,
@@ -22,6 +26,10 @@ export type {
   CatalogIssue,
   DetectResult,
   DiffResult,
+  DirectoryListing,
+  FileEntry,
+  FileRoot,
+  FileText,
   Group,
   LaunchResult,
   LayoutState,
@@ -105,6 +113,12 @@ export interface MelinnaApi {
     get(): Promise<Result<LayoutState>>;
     set(state: LayoutState): Promise<Result<void>>;
   };
+  files: {
+    /** Raízes navegáveis: repositórios de workspaces abertos e worktrees das execuções. */
+    roots(): Promise<Result<FileRoot[]>>;
+    list(path: string): Promise<Result<DirectoryListing>>;
+    read(path: string): Promise<Result<FileText>>;
+  };
   app: {
     onCloseRequested(fn: (info: { liveCount: number }) => void): Unsubscribe;
     answerClose(choice: CloseChoice): Promise<Result<void>>;
@@ -139,6 +153,7 @@ export const CHANNELS = {
   },
   terminal: { open: 'terminal:open', close: 'terminal:close' },
   layout: { get: 'layout:get', set: 'layout:set' },
+  files: { roots: 'files:roots', list: 'files:list', read: 'files:read' },
   app: { answerClose: 'app:answerClose', openExternal: 'app:openExternal' },
 } as const;
 
