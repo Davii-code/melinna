@@ -96,7 +96,7 @@ de nível se o anterior provar valor.
 | B. Abrir fora | botões "Abrir no VS Code" / "Abrir no IntelliJ" no workspace e no arquivo, na linha certa | baixo | linha de comando das IDEs |
 | C. Editor de verdade | busca em todos os arquivos, ir para definição, erros e autocompletar | médio a alto | servidores de linguagem (LSP) por linguagem |
 | D. Depurar | pontos de parada, passo a passo, variáveis | alto | protocolo de depuração (DAP) e um adaptador por linguagem |
-| E. Git visual | stage, commit, diff e histórico pela interface | médio | o app já lê o status do git |
+| E. Git visual | commit, push, pull, fetch, merge, branches e histórico pela interface | médio | ver bloco 5 |
 
 Sugestão para a v2: **A + B + E**, com C só para busca global. **D** fica para uma v3 ou é coberto pelo
 "Abrir no VS Code/IntelliJ", que já depuram bem Java/Spring e Node.
@@ -112,12 +112,95 @@ Sugestão para a v2: **A + B + E**, com C só para busca global. **D** fica para
 
 ---
 
+## 4. Imagens no chat do terminal (v2)
+
+### Ideia
+Colar (Ctrl+V), arrastar ou anexar imagens — prints de tela, mockups, erros — direto no terminal do
+agente, como já se faz no Claude Code rodando num terminal comum.
+
+### Validação
+**Viável e de custo baixo a médio.** Um terminal só transporta texto: a imagem não "entra" no PTY. Os
+agentes resolvem isso de dois jeitos, e o Melinna pode aproveitar os dois:
+
+1. **O agente lê a área de transferência sozinho.** O Claude Code, ao receber a tecla de colar, busca a
+   imagem na área de transferência do sistema. Hoje o painel do Melinna trata o Ctrl+V como colagem de
+   texto (xterm.js) e a imagem se perde. Basta deixar a tecla chegar ao agente quando a área de
+   transferência tiver imagem e nenhum texto.
+2. **O agente recebe o caminho do arquivo.** Para colar, arrastar ou anexar: o Melinna grava a imagem num
+   arquivo (por exemplo, `userData/anexos/<sessão>/<data>.png`) e digita o caminho entre aspas no
+   prompt. Claude Code, Codex e Gemini aceitam caminho de imagem no prompt (no Gemini com `@caminho`);
+   o formato fica declarado por agente no catálogo.
+
+### Escopo
+- Colar imagem no painel (Ctrl+V) e arrastar arquivos de imagem para o painel. Inclui print de tela:
+  PrtSc ou Win+Shift+S no Windows (e a captura do sistema no Linux) põem a imagem na área de
+  transferência, e o Ctrl+V no painel a envia ao agente.
+- Botão de anexar no painel ou na linha da execução, com o diálogo de arquivo.
+- Prévia pequena da imagem anexada antes de enviar, com opção de cancelar.
+- Catálogo: campo opcional por agente dizendo como ele recebe imagem (tecla de colar, caminho simples,
+  `@caminho`); agentes sem suporte mostram aviso em vez de colar lixo no terminal.
+- Limpeza dos anexos quando a sessão é removida.
+
+### Decisões em aberto
+- Onde guardar os anexos: pasta do app (privada) ou dentro do projeto (por exemplo, `.melinna/anexos`)?
+- Limite de tamanho e formatos aceitos (PNG, JPG, GIF, WebP, PDF?).
+
+### Riscos
+- Comportamento de colar muda entre versões dos agentes e entre Windows e Linux: precisa de teste por
+  agente e por sistema.
+- Imagens podem conter dados sensíveis: os anexos não devem ir para o git do projeto sem o usuário querer.
+
+---
+
+## 5. Git na interface, no estilo do IntelliJ (v2)
+
+### Ideia
+Fazer commit, push, pull, fetch, merge e trocar de branch sem sair do Melinna, com uma janela de commit
+como a do IntelliJ: lista de arquivos alterados com caixas de seleção, campo de mensagem e botões
+"Commit" e "Commit and Push".
+
+### Validação
+**Plugin do IntelliJ: não é viável.** Plugins do IntelliJ são feitos em Java/Kotlin para a plataforma da
+JetBrains e só rodam dentro das IDEs dela; o Melinna é Electron, não tem como carregá-los. Plugins do
+VS Code também não rodam fora do VS Code sem reimplementar a API dele.
+
+**Git próprio: viável e de custo médio.** O app já chama o `git` da máquina com segurança (sem shell) e já
+lê o status por arquivo para decorar o explorador. O caminho é construir a interface em cima disso, usando
+o git instalado e as credenciais que o usuário já configurou (Git Credential Manager no Windows, SSH etc.).
+
+### Escopo
+- **Janela de commit**: arquivos alterados agrupados por pasta, caixa de seleção por arquivo (stage),
+  diff ao clicar no arquivo, campo de mensagem, "Commit" e "Commit and Push", opção de "amend".
+- **Barra de git** no workspace: branch atual, commits à frente/atrás do remoto, botões de fetch, pull e
+  push com o resultado visível (e o erro do git, quando houver).
+- **Branches**: listar, criar, trocar e mesclar (merge) uma branch na atual; conflitos listados por arquivo,
+  com "abrir no editor" e "marcar como resolvido".
+- **Histórico**: lista de commits da branch com autor, data e arquivos de cada um.
+- **Integração com os agentes**: botão "pedir mensagem de commit ao agente" usando o diff selecionado.
+- Workspace multiprojeto (bloco 1): uma barra de git por pasta do workspace.
+
+### Decisões em aberto
+- Pull com merge ou com rebase por padrão?
+- Push direto para a branch principal: permitir, avisar ou bloquear?
+- Resolver conflitos dentro do Melinna (editor de 3 vias) ou só listar e abrir no editor / IntelliJ?
+
+### Riscos
+- Credenciais e autenticação variam (HTTPS com token, SSH, 2FA): o app deve deixar o git do sistema
+  pedir credenciais, nunca guardá-las.
+- Operações destrutivas (reset, force push, descartar alterações) precisam de confirmação explícita.
+- Agentes rodando na mesma pasta podem estar alterando arquivos durante o commit: avisar quando houver
+  execução viva no workspace.
+
+---
+
 ## Ordem sugerida para o `/planejar`
 
 1. `003-workspace-multiprojeto`: bloco 1 (pequeno, desbloqueia tarefas entre projetos).
 2. `004-orquestrador-prompts`: bloco 2, itens 1 a 3 primeiro; pipelines numa segunda fatia.
-3. `005-ide-rodar-e-git`: bloco 3, níveis A, B e E.
-4. Depois de usar: decidir sobre LSP (nível C) e depuração (nível D).
+3. `005-imagens-no-terminal`: bloco 4 (pequeno e de uso diário; pode vir antes do orquestrador).
+4. `006-git-na-interface`: bloco 5 (commit, push, pull, fetch, merge e branches).
+5. `007-ide-rodar`: bloco 3, níveis A e B.
+6. Depois de usar: decidir sobre LSP (nível C) e depuração (nível D).
 
 Antes de planejar, vale validar no MVP: o fluxo direto na pasta, o "+" de sessão, o redimensionamento e o
 AppImage no Linux.

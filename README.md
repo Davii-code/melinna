@@ -97,17 +97,29 @@ Detalhes e validação manual no [quickstart](specs/001-workspace-agentes-parale
 
 ### Empacotamento para Linux
 
-O AppImage precisa ser gerado num Linux (ou no WSL2): o node-pty não traz binário pronto para Linux e é compilado no `npm ci`. Clone o projeto dentro do Linux, sem reaproveitar o `node_modules` do Windows.
+O pacote para Linux precisa ser gerado num Linux (ou no WSL2): o node-pty não traz binário pronto para Linux e é compilado no `npm ci`. Clone o projeto dentro do Linux, sem reaproveitar o `node_modules` do Windows. Precisa do Node 24.
 
 ```bash
 sudo apt install -y build-essential python3 git
 git clone https://github.com/Davii-code/melinna.git ~/melinna && cd ~/melinna
 npm ci
-npm run dist
-chmod +x dist/melinna.AppImage && ./dist/melinna.AppImage
+npm run dist:linux
 ```
 
-Precisa do Node 24. Em distribuições recentes, se o AppImage reclamar de FUSE, instale `libfuse2`.
+Saem dois arquivos em `dist/`:
+
+| Arquivo | Para quem |
+|---|---|
+| `melinna-linux-x64.tar.gz` | pacote para distribuir: descompactar e rodar `./install.sh` (qualquer distribuição x64, sem sudo, sem FUSE) |
+| `melinna.AppImage` | executável único; precisa de `libfuse2` em distribuições recentes |
+
+Instalação a partir do pacote:
+
+```bash
+tar -xzf melinna-linux-x64.tar.gz && cd melinna-linux-x64 && ./install.sh
+```
+
+O `install.sh` copia o app para `~/.local/opt/melinna`, cria os comandos `melinna` e `melinna-uninstall` em `~/.local/bin` e o atalho no menu de aplicativos. No Ubuntu 23.10+, que restringe o sandbox do Electron, ele oferece instalar um perfil do AppArmor (sudo uma vez) ou, se recusado, abre o app com `--no-sandbox`. Os scripts ficam em [`scripts/linux/`](scripts/linux/); `npm run test:linux-install` testa a instalação e a remoção num HOME temporário, sem sudo.
 
 ### Independência de código e de marca
 

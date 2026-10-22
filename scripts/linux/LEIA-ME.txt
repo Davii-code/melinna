@@ -1,0 +1,61 @@
+MELINNA PARA LINUX (x64)
+========================
+
+Vários agentes de código em paralelo, cada um num terminal vivo, direto na pasta do seu projeto.
+Funciona em Ubuntu, Debian, Fedora, Arch, openSUSE e outras distribuições x64 com ambiente gráfico.
+
+
+INSTALAR
+--------
+
+  tar -xzf melinna-linux-x64.tar.gz
+  cd melinna-linux-x64
+  ./install.sh
+
+Não precisa de sudo. Ele copia o app para ~/.local/opt/melinna, cria o comando "melinna" e o atalho
+no menu de aplicativos.
+
+No Ubuntu 23.10 ou mais novo, o instalador oferece instalar um perfil do AppArmor (pede a senha de sudo
+uma vez). É o que deixa o Electron usar o isolamento de segurança dele. Se você recusar, o app abre com
+--no-sandbox, com menos isolamento.
+
+Opções:
+  ./install.sh --yes                 aceita as sugestões sem perguntar
+  ./install.sh --sandbox=off         abre sempre com --no-sandbox, sem pedir sudo
+  ./install.sh --help
+
+
+ABRIR
+-----
+
+Pelo menu de aplicativos (Melinna) ou no terminal:
+
+  melinna
+
+Se o comando não for encontrado, acrescente ~/.local/bin ao PATH:
+
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.profile
+
+e abra um terminal novo.
+
+
+ATUALIZAR
+---------
+
+Baixe o pacote novo, descompacte e rode ./install.sh de novo. Os seus workspaces e o histórico dos
+terminais são mantidos.
+
+
+REMOVER
+-------
+
+  melinna-uninstall              remove o app, o comando e o atalho
+  melinna-uninstall --purge      remove também os dados (~/.config/Melinna)
+
+
+REQUISITOS
+----------
+
+- git (para pastas que são repositórios)
+- ao menos um agente de CLI instalado e autenticado: Claude Code, Codex ou Gemini
+  (sem eles, o Melinna abre só os shells do sistema, como bash e zsh)
