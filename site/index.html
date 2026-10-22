@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Melinna — vários agentes de código, um só lugar</title>
+<meta name="description" content="Melinna é um workspace desktop local-first para rodar Claude Code, Codex, Gemini e shells em paralelo, cada um num terminal vivo, direto na pasta do seu projeto." />
+<meta property="og:title" content="Melinna" />
+<meta property="og:description" content="Um feixe entra. Seis saem. Vários agentes de código em paralelo, cada um num terminal vivo." />
+<meta property="og:image" content="assets/avatar.jpg" />
+<meta name="theme-color" content="#050506" />
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #050506;
+    --bg-2: #0a0b0e;
+    --panel: #0e1014;
+    --panel-2: #13161c;
+    --line: #1c1f26;
+    --line-2: #282c35;
+    --text: #f2f3f5;
+    --muted: #9198a5;
+    --faint: #5f6673;
+    --accent: #4f8cff;
+    --b1: #ff3b30; --b2: #ff9f0a; --b3: #ffd60a; --b4: #34c759; --b5: #0a84ff; --b6: #bf5af2;
+    --spectrum: linear-gradient(90deg, var(--b1), var(--b2), var(--b3), var(--b4), var(--b5), var(--b6));
+    --display: 'Anton', 'Impact', 'Arial Narrow', sans-serif;
+    --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  img { max-width: 100%; display: block; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { width: min(1180px, 100%); margin: 0 auto; padding-inline: 24px; }
+  .mono { font-family: var(--mono); }
+
+  /* ---------- Navegação ---------- */
+  .nav { position: sticky; top: 0; z-index: 60; padding-top: env(safe-area-inset-top, 0px); background: rgba(5,5,6,.78); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
+  .nav .wrap { display: flex; align-items: center; gap: 28px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: 14px; }
+  .brand img { width: 26px; height: 26px; border-radius: 6px; }
+  .nav .links { display: flex; gap: 26px; margin-inline: auto; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .nav .links a:hover { color: var(--text); }
+  .nav .right { display: flex; gap: 10px; align-items: center; margin-left: auto; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 999px; font-weight: 600; font-size: 14px; border: 1px solid var(--line-2); background: var(--panel); color: var(--text); transition: transform .2s, background .2s, border-color .2s; white-space: nowrap; }
+  .pill:hover { transform: translateY(-1px); border-color: #3a3f4a; }
+  .pill.light { background: #f2f3f5; color: #0b0c0f; border-color: #f2f3f5; }
+  .pill.light:hover { background: #fff; }
+  .pill.big { height: 48px; padding: 0 22px; font-size: 15px; }
+  .pill svg { width: 16px; height: 16px; }
+
+  /* ---------- Hero ---------- */
+  .hero { position: relative; overflow: hidden; isolation: isolate; padding: 72px 0 0; text-align: center; }
+  .hero .figure { position: absolute; left: 50%; top: 0; width: min(880px, 120vw); height: 760px; transform: translateX(-50%); z-index: -1; pointer-events: none;
+    -webkit-mask-image: radial-gradient(ellipse 55% 60% at 50% 42%, #000 45%, transparent 78%); mask-image: radial-gradient(ellipse 55% 60% at 50% 42%, #000 45%, transparent 78%); }
+  .hero .figure video { display: none; }
+  .hero .figure canvas { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; opacity: .55; filter: grayscale(.35) contrast(1.15); }
+  .agent-icons { display: inline-flex; gap: 10px; margin-bottom: 26px; }
+  .agent-icons span { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; border: 1px solid var(--line-2); background: rgba(14,16,20,.85); font-family: var(--mono); font-weight: 700; font-size: 13px; color: var(--c); }
+  .mega { font-family: var(--display); text-transform: uppercase; line-height: .86; letter-spacing: .005em; margin: 0; font-weight: 400; font-size: clamp(84px, 17vw, 228px); }
+  .mega .solid { display: block; color: var(--text); }
+  .mega .outline { display: block; color: transparent; -webkit-text-stroke: 2px var(--text); }
+  .hero .tagline { margin: 34px auto 10px; max-width: 760px; font-size: clamp(26px, 3.6vw, 40px); font-weight: 700; letter-spacing: -.03em; line-height: 1.12; }
+  .hero .tagline .grad { background: var(--spectrum); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero .lead { margin: 0 auto 30px; max-width: 600px; color: var(--muted); font-size: 18px; }
+  .hero .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .hero .also { margin-top: 14px; font-size: 13px; color: var(--faint); font-family: var(--mono); }
+
+  /* ---------- Abas + janela ---------- */
+  .stage { margin-top: 60px; }
+  .tabs { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-2); margin-bottom: 18px; flex-wrap: wrap; justify-content: center; }
+  .tabs button { font: 500 14px var(--sans); color: var(--muted); background: none; border: 0; padding: 8px 14px; border-radius: 9px; cursor: pointer; transition: color .2s, background .2s; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button[aria-selected='true'] { color: var(--text); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+  .window { text-align: left; border-radius: 14px; overflow: hidden; border: 1px solid var(--line-2); background: var(--bg-2); box-shadow: 0 60px 140px -40px rgba(0,0,0,.95), 0 0 160px -60px rgba(79,140,255,.4); }
+  .titlebar { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 14px; background: var(--panel); border-bottom: 1px solid var(--line); font: 12px var(--mono); color: var(--muted); }
+  .titlebar .dots { display: flex; gap: 6px; }
+  .titlebar .dots i { width: 10px; height: 10px; border-radius: 50%; background: #2a2e38; display: block; }
+  .titlebar .t-brand { display: flex; align-items: center; gap: 6px; color: var(--text); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+  .titlebar .t-brand img { width: 15px; height: 15px; border-radius: 3px; }
+  .titlebar .slots { margin-left: auto; }
+  .titlebar .new { padding: 3px 10px; border-radius: 6px; background: var(--accent); color: #fff; font-family: var(--sans); font-weight: 600; }
+  .app { display: grid; grid-template-columns: 220px 1fr; height: 380px; }
+  .side { border-right: 1px solid var(--line); background: var(--panel); padding: 12px 10px; font-size: 12.5px; overflow: hidden; }
+  .side .vt { display: flex; gap: 4px; margin-bottom: 12px; }
+  .side .vt span { font: 600 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 4px 7px; border-radius: 5px; border: 1px solid var(--line-2); color: var(--faint); }
+  .side .vt span.on { color: var(--text); background: var(--panel-2); }
+  .side .ws { display: flex; align-items: center; gap: 7px; font-weight: 700; margin: 4px 0 6px; }
+  .side .ws::before { content: ''; width: 3px; height: 13px; border-radius: 2px; background: var(--c, var(--b1)); }
+  .side .ws .plus { margin-left: auto; color: var(--faint); font-weight: 400; }
+  .side .ss { color: var(--muted); margin: 4px 0 2px 6px; display: flex; }
+  .side .ss .plus { margin-left: auto; color: var(--faint); }
+  .side .ex { display: flex; align-items: center; gap: 7px; margin: 1px 0 1px 10px; padding: 4px 7px; border-radius: 6px; }
+  .side .ex.on { background: var(--panel-2); }
+  .side .ex i { width: 3px; height: 13px; border-radius: 2px; display: block; background: var(--c); }
+  .side .ex b { font-weight: 600; }
+  .side .ex small { margin-left: auto; font: 10.5px var(--mono); color: var(--faint); }
+  .side .ex small.run { color: #4ade80; }
+  .view { position: relative; background: var(--bg); }
+  .scene { position: absolute; inset: 0; padding: 8px; display: none; gap: 8px; }
+  .scene.on { display: grid; }
+  .scene.panes-3 { grid-template-columns: repeat(3, 1fr); }
+  .scene.panes-4 { grid-template-columns: 1.35fr 1fr; grid-template-rows: 1fr 1fr; }
+  .scene.panes-4 .pane:first-child { grid-row: span 2; }
+  .scene.split { grid-template-columns: 1fr 1fr; }
+  .pane { position: relative; border: 1px solid var(--line); border-radius: 8px; background: #030304; padding: 11px 12px; font: 11.5px/1.7 var(--mono); color: #c9cdd6; overflow: hidden; }
+  .pane::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--c); }
+  .pane .hd { color: var(--c); font-weight: 700; margin-bottom: 6px; display: flex; gap: 8px; }
+  .pane .hd small { color: var(--faint); font-weight: 400; }
+  .dim { color: #555c69; }
+  .ok { color: #4ade80; }
+  .warn { color: var(--b2); }
+  .kw { color: #c586c0; } .str { color: #ce9178; } .fn { color: #dcdcaa; } .ty { color: #4ec9b0; } .cm { color: #6a9955; }
+  .cursor { display: inline-block; width: 7px; height: 13px; background: var(--c, var(--text)); vertical-align: -2px; animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .typed { white-space: pre-wrap; }
+  .tree-list { font: 12px/1.9 var(--mono); color: var(--muted); }
+  .tree-list .f { color: var(--text); }
+  .tree-list .m { color: var(--b2); }
+  .tree-list .a { color: var(--b4); }
+
+  /* ---------- Faixa de prompt ---------- */
+  .runbar { display: flex; align-items: center; justify-content: center; gap: 22px; margin: 28px 0 0; font: 12.5px var(--mono); color: var(--muted); flex-wrap: wrap; }
+  .runbar i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; }
+  .prompt { margin: 22px auto 0; max-width: 620px; display: flex; align-items: center; gap: 10px; padding: 14px 18px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); font: 15px var(--mono); text-align: left; box-shadow: 0 20px 60px -30px rgba(79,140,255,.5); }
+  .prompt b { color: var(--b3); }
+
+  /* ---------- Faixa de marcas/agentes ---------- */
+  .strip { padding: 90px 0 30px; text-align: center; }
+  .strip p { font: 13px var(--mono); color: var(--faint); letter-spacing: .1em; text-transform: uppercase; margin: 0 0 26px; }
+  .strip .row { display: flex; gap: 46px; justify-content: center; align-items: center; flex-wrap: wrap; font-weight: 700; font-size: 22px; color: #6f7684; letter-spacing: -.02em; }
+
+  /* ---------- Seções ---------- */
+  section.block { padding: 120px 0 40px; }
+  .kicker { font: 12px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--faint); margin: 0 0 14px; }
+  .kicker b { color: var(--accent); font-weight: 500; }
+  h2 { margin: 0 0 14px; font-size: clamp(34px, 5vw, 56px); line-height: 1.04; letter-spacing: -.04em; font-weight: 800; }
+  h2.display { font-family: var(--display); font-weight: 400; text-transform: uppercase; letter-spacing: .005em; line-height: .95; font-size: clamp(44px, 7vw, 88px); }
+  .sub { color: var(--muted); font-size: 18px; max-width: 620px; margin: 0; }
+  .head { margin-bottom: 48px; }
+  .head.center { text-align: center; }
+  .head.center .sub { margin-inline: auto; }
+
+  /* Grade com linhas finas */
+  .bento { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+  .cell { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 28px 26px 24px; display: flex; flex-direction: column; gap: 6px; background: linear-gradient(180deg, rgba(14,16,20,.6), transparent 60%); transition: background .3s; }
+  .cell:hover { background: linear-gradient(180deg, rgba(20,23,30,.9), rgba(14,16,20,.3)); }
+  .cell .lab { font: 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--c); display: flex; align-items: center; gap: 8px; }
+  .cell .lab::before { content: ''; width: 7px; height: 7px; border-radius: 2px; background: var(--c); }
+  .cell h3 { margin: 6px 0 2px; font-size: 21px; letter-spacing: -.02em; }
+  .cell p { margin: 0 0 18px; color: var(--muted); font-size: 15px; }
+  .mini { margin-top: auto; border: 1px solid var(--line-2); border-radius: 9px; background: #030304; overflow: hidden; font: 11.5px/1.7 var(--mono); }
+  .mini .bar { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+  .mini .bar i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+  .mini .bar .tag { color: var(--faint); border: 1px solid var(--line-2); border-radius: 5px; padding: 0 6px; }
+  .mini .bar .st { margin-left: auto; color: #4ade80; }
+  .mini .body { padding: 9px 11px; color: #c9cdd6; min-height: 74px; }
+  .layout-demo { display: grid; grid-template-columns: 1.3fr 1fr; gap: 5px; padding: 9px; height: 92px; }
+  .layout-demo span { border: 1px solid var(--line-2); border-radius: 5px; position: relative; overflow: hidden; }
+  .layout-demo span::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--c); }
+  .layout-demo .handle { position: absolute; }
+  .rail-demo { display: flex; height: 92px; padding: 9px; gap: 6px; }
+  .rail-demo .r { width: 14px; border: 1px solid var(--line-2); border-radius: 4px; display: grid; place-items: center; color: var(--faint); font-size: 10px; }
+  .rail-demo .m { flex: 1; border: 1px dashed var(--line-2); border-radius: 5px; display: grid; place-items: center; color: var(--faint); font-size: 11px; }
+
+  /* Agentes */
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 900px; margin: 0 auto; }
+  .chip { display: inline-flex; align-items: center; gap: 9px; height: 38px; padding: 0 15px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel); font-size: 14px; font-weight: 500; }
+  .chip i { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font: 700 10px var(--mono); font-style: normal; color: #000; background: var(--c); }
+  .chip.ghost { color: var(--muted); border-style: dashed; background: none; }
+
+  /* Etapas */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .steps > div { padding: 30px 28px; border-right: 1px solid var(--line); }
+  .steps > div:last-child { border-right: 0; }
+  .steps .n { font-family: var(--display); font-size: 64px; line-height: 1; color: transparent; -webkit-text-stroke: 1.5px var(--c); margin-bottom: 16px; }
+  .steps h3 { margin: 0 0 6px; font-size: 20px; }
+  .steps p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  /* Roadmap */
+  .road { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .road .card { border: 1px solid var(--line); border-radius: 14px; padding: 26px; background: var(--panel); position: relative; overflow: hidden; }
+  .road .card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--c); }
+  .road .when { font: 12px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--c); display: flex; justify-content: space-between; }
+  .road .when em { font-style: normal; color: var(--faint); letter-spacing: 0; text-transform: none; }
+  .road h3 { margin: 12px 0 8px; font-size: 21px; letter-spacing: -.02em; }
+  .road p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
+  .road ul { margin: 0; padding: 0; list-style: none; font: 13px/2 var(--mono); color: var(--muted); }
+  .road li::before { content: '› '; color: var(--c); }
+
+  /* CTA final */
+  .final { position: relative; text-align: center; padding: 130px 0 120px; overflow: hidden; }
+  .final .ghostword { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-family: var(--display); text-transform: uppercase; font-size: clamp(120px, 26vw, 360px); line-height: 1; color: transparent; -webkit-text-stroke: 1px #1d2028; white-space: nowrap; z-index: -1; user-select: none; }
+  .final h2 { margin-bottom: 18px; }
+  .final .sub { margin: 0 auto 30px; }
+  .build { display: grid; grid-template-columns: repeat(2, minmax(0, 330px)); gap: 12px; justify-content: center; margin: 0 auto 30px; text-align: left; }
+  .build div { border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); padding: 16px 18px; }
+  .build b { display: block; margin-bottom: 4px; }
+  .build .soon { display: inline-block; font: 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--b3); border: 1px solid color-mix(in srgb, var(--b3) 40%, transparent); border-radius: 999px; padding: 2px 10px; }
+  .build small { display: block; color: var(--faint); font-size: 13px; margin-top: 4px; }
+
+  footer { border-top: 1px solid var(--line); padding: 34px 0 calc(34px + env(safe-area-inset-bottom, 0px)); font: 13px var(--mono); color: var(--faint); }
+  footer .wrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  footer .spec { width: 120px; height: 3px; border-radius: 2px; background: var(--spectrum); }
+  footer .r { margin-left: auto; }
+  footer a:hover { color: var(--text); }
+
+  .reveal { opacity: 0; transform: translateY(16px); transition: opacity .7s ease, transform .7s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (max-width: 960px) {
+    .bento, .road { grid-template-columns: 1fr 1fr; }
+    .steps { grid-template-columns: 1fr; }
+    .steps > div { border-right: 0; border-bottom: 1px solid var(--line); }
+    .steps > div:last-child { border-bottom: 0; }
+    .app { grid-template-columns: 1fr; height: 340px; }
+    .side { display: none; }
+    .nav .links { display: none; }
+  }
+  @media (max-width: 640px) {
+    .bento, .road, .build { grid-template-columns: 1fr; }
+    .scene.panes-3, .scene.panes-4, .scene.split { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+    .scene .pane:not(:first-child) { display: none; }
+    .scene.panes-4 .pane:first-child { grid-row: auto; }
+    .mega .outline { -webkit-text-stroke-width: 1.5px; }
+    .titlebar .slots, .titlebar .t-tag { display: none; }
+    .strip .row { gap: 22px; font-size: 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    .reveal { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="#topo"><img src="assets/logo.svg" alt="" />Melinna</a>
+    <div class="links">
+      <a href="#recursos">recursos</a>
+      <a href="#agentes">agentes</a>
+      <a href="#como">como funciona</a>
+      <a href="#roadmap">roadmap</a>
+    </div>
+    <div class="right">
+      <a class="pill light" href="#baixar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        Em breve
+      </a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="topo">
+  <div class="figure" aria-hidden="true">
+    <video src="assets/background.mp4" muted loop playsinline preload="auto"></video>
+    <canvas width="140" height="140"></canvas>
+  </div>
+  <div class="wrap">
+    <div class="agent-icons" aria-hidden="true">
+      <span style="--c: var(--b1)">C</span>
+      <span style="--c: var(--b2)">X</span>
+      <span style="--c: var(--b4)">G</span>
+      <span style="--c: var(--b5)">&gt;_</span>
+    </div>
+    <h1 class="mega"><span class="solid">Melinna</span><span class="outline">Agentes</span></h1>
+    <p class="tagline">Um feixe entra. <span class="grad">Seis agentes saem.</span></p>
+    <p class="lead">Rode Claude Code, Codex, Gemini e o seu terminal lado a lado — cada um num terminal vivo, direto na pasta do seu projeto.</p>
+    <div class="cta">
+      <a class="pill light big" href="#baixar">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.1 10.4 4v7.2H3zm0 13.8 7.4 1.1v-7.1H3zM11.3 3.9 21 2.5v8.7h-9.7zm0 16.2L21 21.5v-8.6h-9.7z"/></svg>
+        Windows · em breve
+      </a>
+      <a class="pill big" href="#baixar">Linux · em breve</a>
+    </div>
+    <p class="also">download chegando em breve</p>
+
+    <div class="stage reveal">
+      <div class="tabs" role="tablist" aria-label="O que o Melinna faz">
+        <button role="tab" aria-selected="true" data-scene="paralelo">Agentes em paralelo</button>
+        <button role="tab" aria-selected="false" data-scene="sessoes">Sessões</button>
+        <button role="tab" aria-selected="false" data-scene="arquivos">Arquivos</button>
+        <button role="tab" aria-selected="false" data-scene="shell">Shell + agente</button>
+      </div>
+      <div class="window" role="img" aria-label="Janela do Melinna">
+        <div class="titlebar">
+          <div class="dots"><i></i><i></i><i></i></div>
+          <span class="t-brand"><img src="assets/logo.svg" alt="" />melinna</span>
+          <span class="t-tag">um feixe entra. seis saem.</span>
+          <span class="slots">9 vagas</span>
+          <span class="new">Nova tarefa</span>
+        </div>
+        <div class="app">
+          <aside class="side">
+            <div class="vt"><span class="on">workspaces</span><span>arquivos</span></div>
+            <div class="ws" style="--c: var(--b1)">portal-api <span class="plus">+</span></div>
+            <div class="ss">Login com SSO <span class="plus">+</span></div>
+            <div class="ex on" style="--c: var(--b1)"><i></i><b>Claude Code</b><small class="run">rodando</small></div>
+            <div class="ex" style="--c: var(--b2)"><i></i><b>Codex CLI</b><small>ocioso</small></div>
+            <div class="ss">Testes de carga <span class="plus">+</span></div>
+            <div class="ex" style="--c: var(--b4)"><i></i><b>Gemini CLI</b><small class="run">rodando</small></div>
+            <div class="ws" style="--c: var(--b5); margin-top: 14px">web-widgets <span class="plus">+</span></div>
+            <div class="ss">Sessão <span class="plus">+</span></div>
+            <div class="ex" style="--c: var(--b5)"><i></i><b>PowerShell</b><small>ocioso</small></div>
+          </aside>
+          <div class="view">
+            <div class="scene panes-3 on" data-scene="paralelo">
+              <div class="pane" style="--c: var(--b1)"><div class="hd">claude <small>~/portal-api</small></div><div class="typed" data-type="› implemente login com SSO&#10;lendo src/auth/…&#10;+ sso.controller.ts&#10;~ auth.module.ts&#10;✓ 12 testes passando"></div><span class="cursor"></span></div>
+              <div class="pane" style="--c: var(--b2)"><div class="hd">codex <small>~/portal-api</small></div><div class="typed" data-type="› revise o módulo de auth&#10;3 sugestões&#10;! token sem expiração&#10;✓ corrigido em jwt.ts"></div><span class="cursor"></span></div>
+              <div class="pane" style="--c: var(--b4)"><div class="hd">gemini <small>~/portal-api</small></div><div class="typed" data-type="› gere testes de carga&#10;+ k6/login.js&#10;rodando 60s…&#10;✓ 200 req/s, 0 erros"></div><span class="cursor"></span></div>
+            </div>
+            <div class="scene panes-4" data-scene="sessoes">
+              <div class="pane" style="--c: var(--b1)"><div class="hd">claude <small>Login com SSO</small></div><span class="dim">› adicione refresh token</span><br />lendo auth.service.ts<br /><span class="ok">✓ refresh implementado</span><br /><span class="dim">› agora documente no README</span><br />editando README.md<span class="cursor"></span></div>
+              <div class="pane" style="--c: var(--b2)"><div class="hd">codex <small>+ terminal na sessão</small></div><span class="dim">aberto pelo “+” da sessão</span><br /><span class="ok">✓ pronto na mesma pasta</span></div>
+              <div class="pane" style="--c: var(--b6)"><div class="hd">bash <small>Testes de carga</small></div>$ npm run test:load<br /><span class="ok">✓ p95 182ms</span></div>
+            </div>
+            <div class="scene split" data-scene="arquivos">
+              <div class="pane" style="--c: var(--b5)"><div class="hd">arquivos <small>portal-api</small></div>
+                <div class="tree-list">▾ src<br />&nbsp;&nbsp;▾ auth<br />&nbsp;&nbsp;&nbsp;&nbsp;<span class="m">M</span> <span class="f">auth.module.ts</span><br />&nbsp;&nbsp;&nbsp;&nbsp;<span class="a">A</span> <span class="f">sso.controller.ts</span><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jwt.ts<br />&nbsp;&nbsp;▸ users<br />&nbsp;&nbsp;main.ts<br />package.json</div>
+              </div>
+              <div class="pane" style="--c: var(--b5)"><div class="hd">sso.controller.ts <small>Ctrl+S salva</small></div>
+<span class="kw">import</span> { Controller, Get } <span class="kw">from</span> <span class="str">'@nestjs/common'</span>;<br /><br /><span class="cm">// login único pelo provedor da empresa</span><br />@<span class="fn">Controller</span>(<span class="str">'sso'</span>)<br /><span class="kw">export class</span> <span class="ty">SsoController</span> {<br />&nbsp;&nbsp;@<span class="fn">Get</span>(<span class="str">'callback'</span>)<br />&nbsp;&nbsp;<span class="fn">callback</span>() { … }<br />}</div>
+            </div>
+            <div class="scene split" data-scene="shell">
+              <div class="pane" style="--c: var(--b1)"><div class="hd">claude <small>web-widgets</small></div><span class="dim">› ajuste o serviço de clientes</span><br />editando clientes.service.js<br /><span class="ok">✓ filtro por documento</span><span class="cursor"></span></div>
+              <div class="pane" style="--c: var(--b5)"><div class="hd">powershell <small>web-widgets</small></div>PS&gt; mvn -q package<br /><span class="ok">BUILD SUCCESS</span><br />PS&gt; <span class="cursor"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="runbar"><span><i style="background: var(--b4)"></i>3 rodando</span><span><i style="background: var(--b3)"></i>1 ocioso</span><span>direto na pasta · sem worktree</span></div>
+      <div class="prompt"><b>›</b> <span class="typed-loop" data-items="crie um micro-SaaS de agendamento|revise o PR e aponte riscos|escreva os testes do serviço de pedidos|migre o dataset para a API nova"></span><span class="cursor" style="--c: var(--b3)"></span></div>
+    </div>
+  </div>
+</header>
+
+<section class="strip">
+  <div class="wrap">
+    <p>roda os agentes que você já usa</p>
+    <div class="row"><span>Claude Code</span><span>Codex</span><span>Gemini</span><span>PowerShell</span><span>Bash</span></div>
+  </div>
+</section>
+
+<section class="block" id="recursos">
+  <div class="wrap">
+    <div class="head reveal">
+      <p class="kicker"><b>01</b> · recursos</p>
+      <h2 class="display">Seu terminal,<br />multiplicado.</h2>
+      <p class="sub">Tudo o que o MVP já entrega para trabalhar com vários agentes de código ao mesmo tempo.</p>
+    </div>
+    <div class="bento">
+      <div class="cell reveal" style="--c: var(--b1)">
+        <span class="lab">terminal vivo</span>
+        <h3>PTY de verdade</h3>
+        <p>Cores, prompts interativos e redesenho de tela. A conversa continua sem relançar.</p>
+        <div class="mini"><div class="bar"><i></i>claude <span class="tag">portal-api</span><span class="st">● rodando</span></div><div class="body">› rode a suíte<br /><span class="ok">✓ 142 testes</span><br /><span class="dim">aguardando…</span></div></div>
+      </div>
+      <div class="cell reveal" style="--c: var(--b2)">
+        <span class="lab">histórico</span>
+        <h3>Feche e volte</h3>
+        <p>Os agentes seguem rodando com o app fechado e os painéis voltam com todo o scrollback.</p>
+        <div class="mini"><div class="bar"><i></i>codex <span class="st">● reanexado</span></div><div class="body"><span class="dim">── reaberto às 09:42 ──</span><br />› continue de onde parou<br /><span class="ok">✓ contexto mantido</span></div></div>
+      </div>
+      <div class="cell reveal" style="--c: var(--b3)">
+        <span class="lab">direto na pasta</span>
+        <h3>Qualquer pasta</h3>
+        <p>Git ou não. O agente roda no projeto e enxerga o histórico de conversas dele.</p>
+        <div class="mini"><div class="bar"><i></i>workspace</div><div class="body">📁 C:\workspace\portal-api<br /><span class="dim">remover sessão nunca apaga a pasta</span></div></div>
+      </div>
+      <div class="cell reveal" style="--c: var(--b4)">
+        <span class="lab">sessões</span>
+        <h3>“+” escolhe a IA</h3>
+        <p>Mais um terminal na sessão ou uma sessão nova no workspace, escolhendo o agente num clique.</p>
+        <div class="mini"><div class="bar"><i></i>Login com SSO <span class="st">+</span></div><div class="body">Claude Code<br />Codex CLI<br />Gemini CLI</div></div>
+      </div>
+      <div class="cell reveal" style="--c: var(--b5)">
+        <span class="lab">layout</span>
+        <h3>Grade ajustável</h3>
+        <p>Divisórias arrastáveis entre painéis, barra lateral redimensionável e escondível.</p>
+        <div class="mini"><div class="layout-demo"><span style="--c: var(--b1)"></span><span style="--c: var(--b4)"></span></div></div>
+      </div>
+      <div class="cell reveal" style="--c: var(--b6)">
+        <span class="lab">editor</span>
+        <h3>Arquivos com realce</h3>
+        <p>Navegue pelo projeto, edite com realce de sintaxe em tema escuro e salve com Ctrl+S.</p>
+        <div class="mini"><div class="bar"><i></i>jwt.ts</div><div class="body"><span class="kw">export function</span> <span class="fn">sign</span>(<span class="ty">user</span>) {<br />&nbsp;&nbsp;<span class="kw">return</span> jwt.<span class="fn">sign</span>(user, <span class="str">'…'</span>);<br />}</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="agentes">
+  <div class="wrap">
+    <div class="head center reveal">
+      <p class="kicker"><b>02</b> · agentes</p>
+      <h2>Traga o seu agente.</h2>
+      <p class="sub">O Melinna lança executáveis, não importa SDKs. Cada agente é uma entrada num catálogo — acrescentar um novo é editar um JSON.</p>
+    </div>
+    <div class="chips reveal">
+      <span class="chip" style="--c: var(--b1)"><i>C</i>Claude Code</span>
+      <span class="chip" style="--c: var(--b2)"><i>X</i>Codex CLI</span>
+      <span class="chip" style="--c: var(--b4)"><i>G</i>Gemini CLI</span>
+      <span class="chip" style="--c: var(--b5)"><i>&gt;</i>PowerShell 7</span>
+      <span class="chip" style="--c: var(--b5)"><i>&gt;</i>Windows PowerShell</span>
+      <span class="chip" style="--c: var(--b3)"><i>$</i>Git Bash</span>
+      <span class="chip" style="--c: var(--b3)"><i>&gt;</i>Prompt de Comando</span>
+      <span class="chip" style="--c: var(--b6)"><i>$</i>Bash</span>
+      <span class="chip" style="--c: var(--b6)"><i>%</i>Zsh</span>
+      <span class="chip ghost">qualquer outro agente de CLI</span>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="como">
+  <div class="wrap">
+    <div class="head reveal">
+      <p class="kicker"><b>03</b> · como funciona</p>
+      <h2>Três passos até o primeiro agente.</h2>
+    </div>
+    <div class="steps reveal">
+      <div style="--c: var(--b1)"><div class="n">01</div><h3>Abra uma pasta</h3><p>“Novo terminal” ou “Abrir workspace”. Qualquer pasta vira workspace e fica nos recentes.</p></div>
+      <div style="--c: var(--b3)"><div class="n">02</div><h3>Escolha a IA</h3><p>O agente abre num terminal real, já na pasta certa, com modelo e modo padrão do catálogo.</p></div>
+      <div style="--c: var(--b5)"><div class="n">03</div><h3>Converse em paralelo</h3><p>Abra quantos precisar, redimensione a grade e acompanhe todos de uma vez.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="roadmap">
+  <div class="wrap">
+    <div class="head reveal">
+      <p class="kicker"><b>04</b> · roadmap</p>
+      <h2>Para onde o Melinna vai.</h2>
+      <p class="sub">Do painel de agentes ao ambiente de desenvolvimento orquestrado por IA.</p>
+    </div>
+    <div class="road">
+      <div class="card reveal" style="--c: var(--b4)"><div class="when">mvp <em>disponível</em></div><h3>Painel de agentes</h3><p>Vários agentes em paralelo, cada um num terminal vivo, direto na pasta.</p><ul><li>sessões e workspaces</li><li>grade redimensionável</li><li>editor de arquivos</li><li>Windows e Linux</li></ul></div>
+      <div class="card reveal" style="--c: var(--b5)"><div class="when">v1.x <em>próximo</em></div><h3>Workspace multiprojeto</h3><p>Vários projetos num workspace: o agente conversa com front, back e bibliotecas juntos.</p><ul><li>pasta principal + extras</li><li>explorador com várias raízes</li></ul></div>
+      <div class="card reveal" style="--c: var(--b6)"><div class="when">v2 <em>planejado</em></div><h3>Orquestrador e IDE</h3><p>Biblioteca de prompts, envio para várias sessões e pipelines — mais rodar o projeto e git visual.</p><ul><li>prompts com variáveis</li><li>pipelines entre agentes</li><li>rodar, git e abrir na IDE</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<section class="final" id="baixar">
+  <div class="ghostword" aria-hidden="true">Melinna</div>
+  <div class="wrap">
+    <p class="kicker reveal"><b>05</b> · download</p>
+    <h2 class="display reveal">Em breve para baixar.</h2>
+    <p class="sub reveal">O Melinna está em validação. Os instaladores para Windows e Linux chegam aqui assim que a primeira versão for liberada.</p>
+    <div class="build reveal">
+      <div><b>Windows</b><span class="soon">em breve</span><small>instalador .exe · Windows 10 1809+</small></div>
+      <div><b>Linux</b><span class="soon">em breve</span><small>AppImage · x64</small></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="spec" aria-hidden="true"></span>
+    <span>melinna · workspace local-first para agentes de código</span>
+    <span class="r">feito por <a href="https://github.com/Davii-code">@Davii-code</a></span>
+  </div>
+</footer>
+
+<script>
+  var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Figura do topo: o vídeo da marca redesenhado numa grade pequena, ampliada sem suavização.
+  (function () {
+    var host = document.querySelector('.hero .figure');
+    var video = host.querySelector('video');
+    var canvas = host.querySelector('canvas');
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    var COLUMNS = 140;
+    var frame = 0;
+    function draw() {
+      if (video.readyState < 2) return;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    }
+    function loop() { draw(); frame = requestAnimationFrame(loop); }
+    function start() {
+      canvas.width = COLUMNS;
+      canvas.height = video.videoWidth ? Math.max(1, Math.round(COLUMNS * video.videoHeight / video.videoWidth)) : COLUMNS;
+      cancelAnimationFrame(frame);
+      if (still) { video.pause(); draw(); return; }
+      var p = video.play();
+      if (p && p.catch) p.catch(function () {});
+      loop();
+    }
+    video.addEventListener('loadeddata', start);
+    if (video.readyState >= 2) start();
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { cancelAnimationFrame(frame); video.pause(); } else if (!still) start();
+    });
+  })();
+
+  // Abas sobre a janela.
+  (function () {
+    var tabs = document.querySelectorAll('.tabs [data-scene]');
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        tabs.forEach(function (t) { t.setAttribute('aria-selected', String(t === tab)); });
+        document.querySelectorAll('.scene').forEach(function (s) { s.classList.toggle('on', s.getAttribute('data-scene') === tab.getAttribute('data-scene')); });
+      });
+    });
+  })();
+
+  // Terminais digitando.
+  (function () {
+    document.querySelectorAll('.typed').forEach(function (el, i) {
+      var text = el.getAttribute('data-type') || '';
+      if (still) { el.textContent = text; return; }
+      var n = 0;
+      function tick() {
+        n += 1;
+        el.textContent = text.slice(0, n);
+        if (n < text.length) setTimeout(tick, text[n - 1] === '\n' ? 380 : 24 + Math.random() * 36);
+        else setTimeout(function () { n = 0; tick(); }, 4500);
+      }
+      setTimeout(tick, 500 + i * 650);
+    });
+  })();
+
+  // Prompt que escreve e apaga.
+  (function () {
+    var el = document.querySelector('.typed-loop');
+    if (!el) return;
+    var items = (el.getAttribute('data-items') || '').split('|');
+    if (still) { el.textContent = items[0]; return; }
+    var i = 0, n = 0, back = false;
+    function tick() {
+      var word = items[i];
+      n += back ? -1 : 1;
+      el.textContent = word.slice(0, n);
+      if (!back && n === word.length) { back = true; return setTimeout(tick, 1800); }
+      if (back && n === 0) { back = false; i = (i + 1) % items.length; return setTimeout(tick, 350); }
+      setTimeout(tick, back ? 18 : 45 + Math.random() * 40);
+    }
+    tick();
+  })();
+
+  // Seções aparecem ao rolar.
+  (function () {
+    var items = document.querySelectorAll('.reveal');
+    if (!('IntersectionObserver' in window)) { items.forEach(function (el) { el.classList.add('in'); }); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.1 });
+    items.forEach(function (el) { io.observe(el); });
+  })();
+</script>
+</body>
+</html>
