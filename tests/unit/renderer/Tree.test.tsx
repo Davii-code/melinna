@@ -217,4 +217,14 @@ describe('Tree', () => {
     ).toBe(true);
     expect(screen.queryByRole('button', { name: /nova sessão em/i })).toBeNull();
   });
+
+  it('opens the panel when the execution row itself is clicked, but not when a button in it is', () => {
+    const props = setup();
+    fireEvent.click(within(row('e2')).getByText('Codex CLI'));
+    expect(props.onOpen).toHaveBeenCalledWith('e2');
+    (props.onOpen as ReturnType<typeof vi.fn>).mockClear();
+    fireEvent.click(within(row('e2')).getByRole('button', { name: /relançar/i }));
+    expect(props.onRelaunch).toHaveBeenCalledWith('e2');
+    expect(props.onOpen).not.toHaveBeenCalled();
+  });
 });

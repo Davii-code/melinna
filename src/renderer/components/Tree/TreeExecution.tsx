@@ -34,7 +34,14 @@ export function TreeExecution(p: TreeExecutionProps) {
       data-testid={`tree-exec-${e.id}`}
       aria-current={p.open ? 'true' : undefined}
     >
-      <div className="tree-row tree-exec-row">
+      {/* Clicar na linha (fora dos botões) abre ou foca o painel, como o botão ▣. */}
+      <div
+        className="tree-row tree-exec-row"
+        title={p.open ? 'Focar o painel' : 'Abrir o painel'}
+        onClick={(ev) => {
+          if (!(ev.target as HTMLElement).closest('button')) p.onOpen(e.id);
+        }}
+      >
         <span className="band" style={{ background: color }} aria-hidden="true" />
         {number && (
           <span className="band-number" style={{ color }} data-testid="band-number">

@@ -869,6 +869,10 @@ button:focus-visible {
   color: var(--text);
 }
 
+.tree-exec-row {
+  cursor: pointer;
+}
+
 .tree-exec-row:hover,
 .tree-exec[aria-current='true'] > .tree-exec-row {
   background: var(--surface-raised);
