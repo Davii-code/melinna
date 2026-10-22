@@ -68,9 +68,15 @@ export class ExecutionService {
 
   /**
    * Lança uma execução por agente. Os worktrees são preparados em série; cada processo inicia assim que o seu
-   * worktree fica pronto. Falhas são isoladas por execução.
+   * worktree fica pronto. Falhas são isoladas por execução. Cada processo recebe o enunciado da tarefa,
+   * exceto com `withPrompt: false` (terminal a mais numa sessão que já existe).
    */
-  async launch(taskId: string, picks: AgentPick[], size: TermSize): Promise<LaunchResult[]> {
+  async launch(
+    taskId: string,
+    picks: AgentPick[],
+    size: TermSize,
+    opts: { withPrompt?: boolean } = {},
+  ): Promise<LaunchResult[]> {
     const task = this.ctx.model.task(taskId);
     if (!task) throw new MelinnaError('INPUT_INVALID', { userMessage: 'Tarefa não encontrada.' });
     if (picks.length === 0)
@@ -90,7 +96,12 @@ export class ExecutionService {
       }
       const current = this.ctx.model.execution(exec.id) ?? exec;
       results.push(
-        startExecution(this.ctx, current, size, { prompt: task.prompt }).then(
+        startExecution(
+          this.ctx,
+          current,
+          size,
+          opts.withPrompt === false ? {} : { prompt: task.prompt },
+        ).then(
           (): LaunchResult => ({ execId: exec.id, agentId: exec.agentId, ok: true }),
           (err: unknown): LaunchResult => ({
             execId: exec.id,

@@ -63,6 +63,7 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
     },
     tasks: {
       createAndLaunch: vi.fn(() => okR({ taskId: 't1', results: [] })),
+      addExecution: vi.fn(() => okR([{ execId: 'e-novo', agentId: 'claude', ok: true as const }])),
       remove: vi.fn(() => okR(undefined)),
       removeWorkspace: vi.fn(() => okR(undefined)),
     },

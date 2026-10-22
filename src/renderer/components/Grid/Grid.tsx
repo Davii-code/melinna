@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { computeAuto } from '../../../core/layout/auto';
-import { computeCustom } from '../../../core/layout/custom';
+import { computeCustom, fitGrid } from '../../../core/layout/custom';
 import { computeSidebar } from '../../../core/layout/sidebar';
 import { computeSpotlight } from '../../../core/layout/spotlight';
 import { minPanelSize, type Area, type LayoutResult } from '../../../core/layout/types';
@@ -73,8 +73,11 @@ export function Grid({
     return observeResize(el, measure);
   }, [observeResize]);
 
-  const grid = preview ?? custom;
-  const layout = computeLayout(mode, ids, area, focusedId, grid);
+  // No automático com quem guarde as proporções, a grade é redimensionável: divisórias entre os painéis.
+  const resizable = mode === 'auto' && onCustomChange !== undefined;
+  const effectiveMode: LayoutMode = resizable ? 'custom' : mode;
+  const grid = preview ?? (resizable ? fitGrid(custom, ids) : custom);
+  const layout = computeLayout(effectiveMode, ids, area, focusedId, grid);
   const visibleKey = `${mode}|${layout.rects.map((r) => r.id).join(',')}`;
   const relayoutRef = useRef(onRelayout);
   relayoutRef.current = onRelayout;
@@ -112,7 +115,7 @@ export function Grid({
               {renderPanel(id)}
             </div>
           ))}
-        {mode === 'custom' && onCustomChange && (
+        {effectiveMode === 'custom' && onCustomChange && (
           <Dividers
             grid={grid}
             area={area}

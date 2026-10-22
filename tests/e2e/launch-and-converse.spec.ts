@@ -32,7 +32,7 @@ test('launch fake and fake-pty, type in each panel and see the echo', async () =
 
   const panels = page.locator('section.panel');
   await expect(panels).toHaveCount(2);
-  await expect(page.getByTestId('panel-status').first()).toHaveText(/rodando|ocioso/);
+  await expect(page.locator('[data-testid^="tree-exec-status-"]').first()).toHaveText(/rodando|ocioso/);
 
   // cada execução recebeu o enunciado (argumento ou PTY)
   await waitFor(() => {

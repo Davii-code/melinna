@@ -1,7 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { DivergenceBadge } from '../../../src/renderer/components/DivergenceBadge';
-import { PanelHeader } from '../../../src/renderer/components/Panel/PanelHeader';
 import { TreeExecution } from '../../../src/renderer/components/Tree/TreeExecution';
 import { agentDef, execution } from '../../support/renderer-fixtures';
 
@@ -20,10 +19,9 @@ describe('DivergenceBadge', () => {
     expect(screen.getByTestId('divergence').textContent).toBe('base avançou 3 commits');
   });
 
-  it('appears in the panel header and in the tree row', () => {
+  it('appears in the tree row', () => {
     render(
       <>
-        <PanelHeader execution={execution('e1')} agent={agentDef('claude')} onClose={noop} baseAdvancedBy={2} />
         <ul>
           <TreeExecution
             execution={execution('e2')}
@@ -37,9 +35,6 @@ describe('DivergenceBadge', () => {
           />
         </ul>
       </>,
-    );
-    expect(within(screen.getByTestId('panel-header')).getByTestId('divergence').textContent).toBe(
-      'base avançou 2 commits',
     );
     expect(within(screen.getByTestId('tree-exec-e2')).getByTestId('divergence').textContent).toBe(
       'base avançou 5 commits',

@@ -1,5 +1,6 @@
 import { LIMITS, type Execution, type Task } from '../../../shared/ipc-contract';
 import { isLiveStatus } from '../../labels';
+import { AgentMenu } from './AgentMenu';
 import { InlineEdit, type TreeProps } from './Tree';
 import { TreeExecution } from './TreeExecution';
 
@@ -23,6 +24,13 @@ export function TreeTask(props: TreeTaskProps) {
         />
         <span className="spacer" />
         <span className="tree-actions">
+          {props.onAddTerminal && (
+            <AgentMenu
+              label={`Novo terminal na sessão ${task.title}`}
+              agents={props.launchable ?? []}
+              onPick={(agentId) => props.onAddTerminal?.(task.id, agentId)}
+            />
+          )}
           <button
             type="button"
             className="icon-button"
@@ -43,6 +51,8 @@ export function TreeTask(props: TreeTaskProps) {
               execution={e}
               agent={props.agents.get(e.agentId)}
               open={props.openIds.includes(e.id)}
+              tools={props.openIds.includes(e.id) ? props.execTools?.(e) : undefined}
+              stopping={props.stoppingIds?.includes(e.id) ?? false}
               baseAdvancedBy={props.divergence?.get(e.id) ?? 0}
               onOpen={props.onOpen}
               onStop={props.onStop}

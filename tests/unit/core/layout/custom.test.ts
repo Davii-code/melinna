@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeCustom, gridFor, moveDivider } from '../../../../src/core/layout/custom';
+import { computeCustom, fitGrid, gridFor, moveDivider } from '../../../../src/core/layout/custom';
 import type { CustomGrid } from '../../../../src/core/persistence/state-schema';
 
 const AREA = { width: 1000, height: 800 };
@@ -68,7 +68,9 @@ describe('moveDivider', () => {
   });
 
   it('respects the minimum on both sides', () => {
-    expect(moveDivider(grid, 'col', 0, 0.5, 0.1).columns.map((x) => Number(x.toFixed(6)))).toEqual([0.7, 0.1, 0.2]);
+    expect(moveDivider(grid, 'col', 0, 0.5, 0.1).columns.map((x) => Number(x.toFixed(6)))).toEqual([
+      0.7, 0.1, 0.2,
+    ]);
     expect(moveDivider(grid, 'col', 1, -0.9, 0.15).columns.map((x) => Number(x.toFixed(6)))).toEqual([
       0.5, 0.15, 0.35,
     ]);
@@ -80,5 +82,20 @@ describe('moveDivider', () => {
     expect(() => moveDivider(g, 'row', 1, 0.1, 0.1)).toThrow(RangeError);
     expect(() => moveDivider(g, 'col', 0, 0.1, 0.1)).toThrow(RangeError);
     expect(() => moveDivider(g, 'row', -1, 0.1, 0.1)).toThrow(RangeError);
+  });
+});
+
+describe('fitGrid', () => {
+  it('keeps saved proportions while there is one cell per open panel in reading order', () => {
+    const saved = moveDivider(gridFor(['a', 'b']), 'col', 0, 0.2, 0.08);
+    expect(fitGrid(saved, ['a', 'b'])).toBe(saved);
+  });
+
+  it('starts over with even tracks when panels open, close or change order', () => {
+    const saved = moveDivider(gridFor(['a', 'b']), 'col', 0, 0.2, 0.08);
+    expect(fitGrid(saved, ['a', 'b', 'c'])).toEqual(gridFor(['a', 'b', 'c']));
+    expect(fitGrid(saved, ['a'])).toEqual(gridFor(['a']));
+    expect(fitGrid(saved, ['b', 'a'])).toEqual(gridFor(['b', 'a']));
+    expect(fitGrid({ columns: [1], rows: [1], cells: {} }, ['a', 'b'])).toEqual(gridFor(['a', 'b']));
   });
 });

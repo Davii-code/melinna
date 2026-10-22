@@ -25,6 +25,8 @@ import type { HostRegistry } from './registry';
 
 export const ACTIVITY_INTERVAL_MS = 250;
 const MAX_OUTPUT_CHUNK = 512 * 1024;
+/** Intervalo até o segundo Ctrl+C ao parar: curto o bastante para o agente tratá-lo como confirmação. */
+export const SECOND_CTRL_C_MS = 400;
 const encoder = new TextEncoder();
 
 export interface Subscriber {
@@ -259,12 +261,20 @@ export class PtySupervisor {
     const p = this.procs.get(execId);
     if (!p?.alive || !p.pty) throw new MelinnaError('EXECUTION_NOT_RUNNING');
     const exited = this.waitExit(p);
-    try {
-      p.pty.write(new Uint8Array([0x03]));
-    } catch {
-      // PTY já fechado
-    }
-    const graceful = await Promise.race([exited.then(() => true), sleep(graceMs).then(() => false)]);
+    const ctrlC = () => {
+      try {
+        p.pty?.write(new Uint8Array([0x03]));
+      } catch {
+        // PTY já fechado
+      }
+    };
+    ctrlC();
+    // Agentes como o Claude Code só saem com um segundo Ctrl+C logo depois do primeiro.
+    const second = Math.min(SECOND_CTRL_C_MS, graceMs);
+    const early = await Promise.race([exited.then(() => true), sleep(second).then(() => false)]);
+    if (!early && p.alive) ctrlC();
+    const graceful =
+      early || (await Promise.race([exited.then(() => true), sleep(graceMs - second).then(() => false)]));
     if (!graceful && p.alive) {
       this.deps.log.info('pty.force_kill', { execId });
       await killTree(p.pid, () => p.alive);

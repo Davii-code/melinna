@@ -94,4 +94,33 @@ describe('tasks IPC', () => {
     expect((await rec.call('tasks:remove', 'nao-existe')).error?.code).toBe('INPUT_INVALID');
     expect((await rec.call('tasks:removeWorkspace', 'nao-existe')).error?.code).toBe('INPUT_INVALID');
   });
+
+  it('adds one more terminal to a session, in the same folder and without the session prompt', async () => {
+    const { rec, core, input } = await setup();
+    const r = await rec.call('tasks:createAndLaunch', input);
+    const { taskId } = r.value as { taskId: string };
+    const added = await rec.call(
+      'tasks:addExecution',
+      taskId,
+      { agentId: 'fake', model: 'esperto' },
+      input.size,
+    );
+    expect(added.ok).toBe(true);
+    expect((added.value as { ok: boolean }[]).map((x) => x.ok)).toEqual([true]);
+    const execs = core.workspace.snapshot().executions.filter((e) => e.taskId === taskId);
+    expect(execs).toHaveLength(2);
+    expect(execs[1]).toMatchObject({ worktreePath: '/repo', bandIndex: 1 });
+    expect(core.host.spawns[1]?.args).toEqual(['--model', 'esperto']);
+    expect(core.host.spawns[1]?.cwd).toBe('/repo');
+  });
+
+  it('validates addExecution', async () => {
+    const { rec, input } = await setup();
+    const r = await rec.call('tasks:createAndLaunch', input);
+    const { taskId } = r.value as { taskId: string };
+    const bad = async (...args: unknown[]) => (await rec.call('tasks:addExecution', ...args)).error?.code;
+    expect(await bad('nao-existe', { agentId: 'fake' }, input.size)).toBe('INPUT_INVALID');
+    expect(await bad(taskId, { agentId: 'Mau' }, input.size)).toBe('INPUT_INVALID');
+    expect(await bad(taskId, { agentId: 'fake' }, { cols: 1, rows: 1 })).toBe('INPUT_INVALID');
+  });
 });

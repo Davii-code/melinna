@@ -61,8 +61,10 @@ test('keep running on close, kill one agent outside, reopen with history, reatta
   await expect(reopened.locator('section.panel')).toHaveCount(2);
   const keepPanel = reopened.getByTestId(`panel-${keep!.id}`);
   const victimPanel = reopened.getByTestId(`panel-${victim!.id}`);
-  await expect(keepPanel.getByTestId('panel-status')).toHaveText(/rodando|ocioso/);
-  await expect(victimPanel.getByTestId('panel-status')).toHaveText('encerrado (sinal SIGKILL)');
+  await expect(reopened.getByTestId(`tree-exec-status-${keep!.id}`)).toHaveText(/rodando|ocioso/);
+  await expect(reopened.getByTestId(`tree-exec-status-${victim!.id}`)).toHaveText(
+    'encerrado (sinal SIGKILL)',
+  );
 
   // histórico nos dois painéis, vindo do disco e emendado ao vivo
   await expect(keepPanel.locator('.xterm-rows')).toContainText('pronto');

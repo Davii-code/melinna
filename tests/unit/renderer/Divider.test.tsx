@@ -73,3 +73,31 @@ describe('Grid reorder by dragging the header', () => {
     expect(onReorder).toHaveBeenCalledWith('a', 'b');
   });
 });
+
+describe('Grid in automatic mode', () => {
+  it('shows dividers between panels and saves the proportions with one cell per panel', () => {
+    const onCustomChange = vi.fn();
+    render(
+      <Grid
+        ids={['a', 'b']}
+        renderPanel={(id) => <span>painel {id}</span>}
+        observeResize={() => () => undefined}
+        mode="auto"
+        onCustomChange={onCustomChange}
+      />,
+    );
+    const handle = screen.getByTestId('divider-col-0');
+    expect(screen.queryByTestId('divider-row-0')).toBeNull();
+    fireEvent.pointerDown(handle, { clientX: 0, clientY: 0, pointerId: 1 });
+    fireEvent.pointerUp(window, { clientX: 0, clientY: 0, pointerId: 1 });
+    expect(onCustomChange).toHaveBeenCalledTimes(1);
+    expect(Object.keys(onCustomChange.mock.calls[0]?.[0].cells ?? {}).sort()).toEqual(['a', 'b']);
+  });
+
+  it('has no dividers when nobody stores the proportions', () => {
+    render(
+      <Grid ids={['a', 'b']} renderPanel={() => null} observeResize={() => () => undefined} mode="auto" />,
+    );
+    expect(screen.queryAllByRole('separator')).toHaveLength(0);
+  });
+});

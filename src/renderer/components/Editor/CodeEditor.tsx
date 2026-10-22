@@ -6,12 +6,13 @@ import { json } from '@codemirror/lang-json';
 import { markdown } from '@codemirror/lang-markdown';
 import {
   bracketMatching,
-  defaultHighlightStyle,
   foldGutter,
   foldKeymap,
+  HighlightStyle,
   indentOnInput,
   syntaxHighlighting,
 } from '@codemirror/language';
+import { tags as t } from '@lezer/highlight';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { EditorState, type Extension } from '@codemirror/state';
 import {
@@ -59,6 +60,25 @@ export function languageFor(path: string): Extension {
       return [];
   }
 }
+
+/** Cores de sintaxe para fundo escuro, na linha do Dark+ do VS Code. */
+export const darkHighlightStyle = HighlightStyle.define([
+  { tag: [t.keyword, t.controlKeyword, t.moduleKeyword, t.operatorKeyword], color: '#c586c0' },
+  { tag: [t.definitionKeyword, t.modifier, t.bool, t.null, t.self], color: '#569cd6' },
+  { tag: [t.typeName, t.className, t.namespace], color: '#4ec9b0' },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: '#dcdcaa' },
+  { tag: [t.variableName, t.propertyName, t.attributeName], color: '#9cdcfe' },
+  { tag: [t.string, t.special(t.string), t.regexp], color: '#ce9178' },
+  { tag: [t.number, t.unit], color: '#b5cea8' },
+  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: '#6a9955', fontStyle: 'italic' },
+  { tag: [t.tagName, t.angleBracket], color: '#569cd6' },
+  { tag: [t.heading], color: '#569cd6', fontWeight: 'bold' },
+  { tag: [t.emphasis], fontStyle: 'italic' },
+  { tag: [t.strong], fontWeight: 'bold' },
+  { tag: [t.link, t.url], color: '#4fc1ff', textDecoration: 'underline' },
+  { tag: [t.operator, t.punctuation, t.bracket], color: '#d4d4d4' },
+  { tag: [t.invalid], color: '#f44747' },
+]);
 
 /** Tema do editor montado a partir dos tokens do app: nada de cor fixa no componente. */
 const appTheme = EditorView.theme(
@@ -111,7 +131,7 @@ export function CodeEditor({ path, value, onChange, onSave }: CodeEditorProps) {
           indentOnInput(),
           bracketMatching(),
           foldGutter(),
-          syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+          syntaxHighlighting(darkHighlightStyle),
           highlightSelectionMatches(),
           keymap.of([
             {

@@ -48,6 +48,21 @@ describe('kill', () => {
     expect((await exitOf(c, 'k1')).exitCode).toBe(130);
   });
 
+  it('sends a second Ctrl+C for agents that ask to confirm, so they exit gracefully', async () => {
+    const c = await th.connect();
+    const col = collector();
+    await c.spawn(fakeSpawn('k3', cwd));
+    await c.attach('k3', 0, col.sink);
+    await col.waitFor('pronto');
+    c.write('k3', enc('double-ctrl-c\r'));
+    await col.waitFor('double-ctrl-c');
+    const started = Date.now();
+    await c.kill('k3', { graceMs: 5000 });
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect((await exitOf(c, 'k3')).exitCode).toBe(130);
+    expect(col.text()).toContain('press-ctrl-c-again');
+  });
+
   it('forces the tree (agent and grandchild) after graceMs when Ctrl+C is ignored', async () => {
     const c = await th.connect();
     const col = collector();

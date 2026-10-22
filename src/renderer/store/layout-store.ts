@@ -108,7 +108,9 @@ export function createLayoutStore(
     async load() {
       const r = await api.layout.get();
       if (r.ok) {
-        state = r.value;
+        // Sem seletor de modo na interface, o layout é sempre o automático redimensionável: um modo
+        // salvo antes (spotlight, sidebar, personalizado) deixaria os painéis sem divisórias.
+        state = { ...r.value, mode: 'auto' };
         for (const fn of listeners) fn();
       }
       return state;

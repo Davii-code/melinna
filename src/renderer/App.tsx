@@ -19,18 +19,17 @@ import { CloseDialog } from './components/CloseDialog';
 import { DiffView } from './components/DiffView/DiffView';
 import { EditorPane } from './components/Editor/EditorPane';
 import { FileExplorer } from './components/Files/FileExplorer';
-import { Home } from './components/Home/Home';
+import { defaultPick, Home } from './components/Home/Home';
 import { NewTaskDialog } from './components/NewTaskDialog';
 import { ExecutionTabs } from './components/Panel/ExecutionTabs';
 import { Panel } from './components/Panel/Panel';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { ScrollbackBanner } from './components/Panel/ScrollbackBanner';
 import { RemoveExecutionDialog } from './components/RemoveExecutionDialog';
+import { SidebarResizer, storedSidebarWidth, storeSidebarWidth } from './components/SidebarResizer';
 import { RemoveFromListDialog, type RemoveTarget } from './components/RemoveFromListDialog';
 import { ResidueDialog } from './components/ResidueDialog';
 import { Tree, type TreeActions } from './components/Tree/Tree';
-import { ModelSelect } from './components/ModelSelect';
-import { PermissionSelect } from './components/PermissionSelect';
 import { TerminalDepsContext, type TerminalDeps, type TerminalHandle } from './components/TerminalView';
 import { TopBar } from './components/TopBar';
 import { useLayout, type LayoutStore } from './store/layout-store';
@@ -112,12 +111,14 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const [showNewTask, setShowNewTask] = useState(false);
   const [closeAsk, setCloseAsk] = useState<{ liveCount: number } | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [stopping, setStopping] = useState<string[]>([]);
   const [removingFromList, setRemovingFromList] = useState<RemoveTarget | null>(null);
   const [residue, setResidue] = useState<{ path: string; message: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
   const [showHome, setShowHome] = useState(false);
   const [sidebarView, setSidebarView] = useState<'workspaces' | 'files'>('workspaces');
+  const [sidebarWidth, setSidebarWidth] = useState(() => storedSidebarWidth());
   const [showQuickOpen, setShowQuickOpen] = useState(false);
   const [fileRoots, setFileRoots] = useState<FileRoot[]>([]);
 
@@ -173,6 +174,10 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   }, [layout, layoutStore]);
 
   const agentsById = useMemo(() => new Map(catalog.agents.map((a) => [a.id, a])), [catalog.agents]);
+  const launchable = useMemo(
+    () => catalog.agents.filter((a) => catalog.detect[a.id]?.installed),
+    [catalog.agents, catalog.detect],
+  );
   const execById = useMemo(() => new Map((snapshot?.executions ?? []).map((e) => [e.id, e])), [snapshot]);
   const paneIds = useMemo(() => layout.panes.map((pane) => pane.id), [layout.panes]);
   const openExecIds = useMemo(
@@ -227,7 +232,11 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
       setShowHome(false);
       layoutStore.open(id);
     },
-    onStop: (id) => void run(api.executions.stop(id)),
+    // A parada pode levar alguns segundos (Ctrl+C e, sem resposta, encerramento forçado): a árvore mostra "parando…".
+    onStop: (id) => {
+      setStopping((s) => (s.includes(id) ? s : [...s, id]));
+      void run(api.executions.stop(id)).finally(() => setStopping((s) => s.filter((x) => x !== id)));
+    },
     onRelaunch: (id) => {
       layoutStore.open(id);
       void run(api.executions.relaunch(id, DEFAULT_TERM_SIZE));
@@ -243,6 +252,65 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
       const group = snapshot?.groups.find((g) => g.id === id);
       if (group) setRemovingFromList({ kind: 'workspace', group });
     },
+  };
+  /** Fecha o painel (ou a aba) da execução; o processo continua. */
+  const closePanelOf = (execId: string) => {
+    for (const pane of layout.panes) {
+      if (pane.kind !== 'executions') continue;
+      const index = pane.execIds.indexOf(execId);
+      if (index < 0) continue;
+      if (pane.execIds.length === 1) layoutStore.close(pane.id);
+      else layoutStore.closeTab(pane.id, index);
+      return;
+    }
+  };
+  const execTools = (exec: Execution) => (
+    <>
+      {exec.branch !== '' && (
+        <button
+          type="button"
+          className="icon-button"
+          title="Ver o que este agente mudou"
+          aria-label="Ver diff"
+          onClick={() => setDiffFor(exec.id)}
+        >
+          ±
+        </button>
+      )}
+      <button
+        type="button"
+        className="icon-button"
+        title="Fechar painel (o processo continua)"
+        aria-label="Fechar painel"
+        onClick={() => closePanelOf(exec.id)}
+      >
+        ×
+      </button>
+    </>
+  );
+  /** "+" da sessão: mais um terminal nela, com a IA escolhida e os padrões do catálogo. */
+  const addTerminal = async (taskId: string, agentId: string) => {
+    const agent = agentsById.get(agentId);
+    if (!agent) return;
+    const r = await api.tasks.addExecution(taskId, defaultPick(agent), DEFAULT_TERM_SIZE);
+    if (!r.ok) return showError(r.error);
+    onLaunched(taskId, r.value);
+  };
+  /** "+" do workspace: nova sessão na pasta dele, com a IA escolhida. */
+  const newSession = async (groupId: string, agentId: string) => {
+    const agent = agentsById.get(agentId);
+    const group = snapshot?.groups.find((g) => g.id === groupId);
+    if (!agent || !group?.repoPath) return;
+    const r = await api.tasks.createAndLaunch({
+      groupId,
+      repoPath: group.repoPath,
+      baseRef: 'HEAD',
+      prompt: '',
+      picks: [defaultPick(agent)],
+      size: DEFAULT_TERM_SIZE,
+    });
+    if (!r.ok) return showError(r.error);
+    onLaunched(r.value.taskId, r.value.results);
   };
   const removingExec = removing ? execById.get(removing) : undefined;
   const diffExec = diffFor ? execById.get(diffFor) : undefined;
@@ -292,33 +360,9 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
             if (h) terminalHandles.current.set(exec.id, h);
             else terminalHandles.current.delete(exec.id);
           }}
-          onHeaderDragStart={(e) => {
-            e.dataTransfer.effectAllowed = 'move';
-          }}
           visible
           focused={layout.focusedPaneId === pane.id}
-          onClose={() => layoutStore.close(pane.id)}
           onFocus={() => layoutStore.focus(pane.id)}
-          baseAdvancedBy={divergence.get(exec.id) ?? 0}
-          headerExtras={
-            <>
-              <ModelSelect execution={exec} agent={agentsById.get(exec.agentId)} />
-              <PermissionSelect execution={exec} agent={agentsById.get(exec.agentId)} />
-            </>
-          }
-          actions={
-            exec.branch !== '' && (
-              <button
-                type="button"
-                className="icon-button"
-                title="Ver o que este agente mudou"
-                aria-label="Ver diff"
-                onClick={() => setDiffFor(exec.id)}
-              >
-                ±
-              </button>
-            )
-          }
           banner={
             <>
               <FailureBanner execution={exec} />
@@ -376,7 +420,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
           )}
           <div className="body">
             {snapshot && (
-              <aside className="sidebar">
+              <aside className="sidebar" style={{ width: sidebarWidth }}>
                 <div className="sidebar-header">
                   <div className="sidebar-views" role="tablist" aria-label="Visão da barra lateral">
                     <button
@@ -425,10 +469,25 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                     agents={agentsById}
                     openIds={openExecIds}
                     divergence={divergence}
+                    execTools={execTools}
+                    stoppingIds={stopping}
+                    launchable={launchable}
+                    onAddTerminal={(taskId, agentId) => void addTerminal(taskId, agentId)}
+                    onNewSession={(groupId, agentId) => void newSession(groupId, agentId)}
                     {...treeActions}
                   />
                 )}
               </aside>
+            )}
+            {snapshot && (
+              <SidebarResizer
+                width={sidebarWidth}
+                onChange={setSidebarWidth}
+                onCommit={(w) => {
+                  setSidebarWidth(w);
+                  storeSidebarWidth(w);
+                }}
+              />
             )}
             <main className="workspace">
               {snapshot && (paneIds.length === 0 || showHome) ? (
