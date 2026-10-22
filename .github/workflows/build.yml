@@ -1,0 +1,87 @@
+# Gera os instaladores do Melinna nos servidores do GitHub:
+#   - Windows: melinna.exe
+#   - Linux:   melinna-linux-x64.tar.gz (pacote com install.sh) e melinna.AppImage
+#
+# Como usar: aba Actions -> "Gerar instaladores" -> Run workflow (escolha a branch).
+# Ao terminar, os arquivos ficam para baixar em "Artifacts", no fim da página da execução.
+# Também roda sozinho ao enviar uma tag v* (por exemplo, v0.2.0).
+name: Gerar instaladores
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows (melinna.exe)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Compilar e empacotar
+        run: |
+          npx electron-vite build
+          npx electron-builder --win --publish never
+
+      - name: Publicar o instalador como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: melinna-windows
+          path: dist/melinna.exe
+          if-no-files-found: error
+          retention-days: 30
+
+  linux:
+    name: Linux (tar.gz e AppImage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # O node-pty não traz binário pronto para Linux: é compilado no npm ci.
+      - name: Ferramentas de compilação
+        run: sudo apt-get update && sudo apt-get install -y build-essential python3
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Testar os scripts de instalação
+        run: bash scripts/linux/test-install.sh
+
+      - name: Compilar e empacotar
+        run: |
+          npx electron-vite build
+          npx electron-builder --linux --publish never
+          bash scripts/linux/package.sh
+
+      - name: Publicar o pacote como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: melinna-linux
+          path: |
+            dist/melinna-linux-x64.tar.gz
+            dist/melinna.AppImage
+          if-no-files-found: error
+          retention-days: 30

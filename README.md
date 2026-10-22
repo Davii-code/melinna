@@ -95,6 +95,10 @@ Comandos:
 
 Detalhes e validação manual no [quickstart](specs/001-workspace-agentes-paralelos/quickstart.md).
 
+### Instaladores pelo GitHub Actions
+
+O workflow [`build.yml`](.github/workflows/build.yml) gera os instaladores nos servidores do GitHub, sem precisar de Linux na sua máquina: aba **Actions** → **Gerar instaladores** → **Run workflow**. Em cerca de 10 minutos, a página da execução mostra para baixar `melinna-windows` (`melinna.exe`) e `melinna-linux` (`melinna-linux-x64.tar.gz` e `melinna.AppImage`). Também roda sozinho ao enviar uma tag `v*`.
+
 ### Empacotamento para Linux
 
 O pacote para Linux precisa ser gerado num Linux (ou no WSL2): o node-pty não traz binário pronto para Linux e é compilado no `npm ci`. Clone o projeto dentro do Linux, sem reaproveitar o `node_modules` do Windows. Precisa do Node 24.
