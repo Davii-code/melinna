@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 128" width="560" height="128" role="img" aria-label="Melinna">
+  <title>Melinna</title>
+  <desc>Marca horizontal: prisma dispersando um feixe em seis faixas, ao lado do nome.</desc>
+
+  <defs>
+    <linearGradient id="wmBeam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e6e9ef" stop-opacity="0"/>
+      <stop offset="45%" stop-color="#e6e9ef" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="wmPrism" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8b95a5" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#4f8cff" stop-opacity="0.08"/>
+    </linearGradient>
+    <filter id="wmGlow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g transform="translate(8, 14)">
+    <!-- faixas -->
+    <g filter="url(#wmGlow)" stroke-linecap="round" opacity="0.95">
+      <line x1="62" y1="48" x2="118" y2="54" stroke="#ff3b30" stroke-width="5"/>
+      <line x1="62" y1="48" x2="117" y2="62" stroke="#ff9f0a" stroke-width="5"/>
+      <line x1="62" y1="48" x2="115" y2="70" stroke="#ffd60a" stroke-width="5"/>
+      <line x1="62" y1="48" x2="112" y2="77" stroke="#34c759" stroke-width="5"/>
+      <line x1="62" y1="48" x2="108" y2="84" stroke="#0a84ff" stroke-width="5"/>
+      <line x1="62" y1="48" x2="103" y2="90" stroke="#bf5af2" stroke-width="5"/>
+    </g>
+
+    <!-- feixe de entrada -->
+    <line x1="0" y1="48" x2="38" y2="48" stroke="url(#wmBeam)" stroke-width="6"
+          stroke-linecap="round" filter="url(#wmGlow)"/>
+
+    <!-- prisma -->
+    <path d="M 50 14 L 84 76 L 16 76 Z" fill="url(#wmPrism)"
+          stroke="#e6e9ef" stroke-width="2.5" stroke-linejoin="round" opacity="0.92"/>
+    <circle cx="38" cy="48" r="3" fill="#ffffff" filter="url(#wmGlow)"/>
+  </g>
+
+  <text x="160" y="80" font-family="'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif"
+        font-size="58" font-weight="600" letter-spacing="2" fill="#e6e9ef">melinna</text>
+</svg>
