@@ -47,7 +47,7 @@
   .brand img { width: 26px; height: 26px; border-radius: 6px; }
   .nav .links { display: flex; gap: 26px; margin-inline: auto; font-family: var(--mono); font-size: 13px; color: var(--muted); }
   .nav .links a:hover { color: var(--text); }
-  .nav .right { display: flex; gap: 10px; align-items: center; }
+  .nav .right { display: flex; gap: 10px; align-items: center; margin-left: auto; }
   .pill { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 999px; font-weight: 600; font-size: 14px; border: 1px solid var(--line-2); background: var(--panel); color: var(--text); transition: transform .2s, background .2s, border-color .2s; white-space: nowrap; }
   .pill:hover { transform: translateY(-1px); border-color: #3a3f4a; }
   .pill.light { background: #f2f3f5; color: #0b0c0f; border-color: #f2f3f5; }
@@ -202,7 +202,7 @@
   .build { display: grid; grid-template-columns: repeat(2, minmax(0, 330px)); gap: 12px; justify-content: center; margin: 0 auto 30px; text-align: left; }
   .build div { border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); padding: 16px 18px; }
   .build b { display: block; margin-bottom: 4px; }
-  .build code { font: 13px var(--mono); color: var(--b3); }
+  .build .soon { display: inline-block; font: 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--b3); border: 1px solid color-mix(in srgb, var(--b3) 40%, transparent); border-radius: 999px; padding: 2px 10px; }
   .build small { display: block; color: var(--faint); font-size: 13px; margin-top: 4px; }
 
   footer { border-top: 1px solid var(--line); padding: 34px 0 calc(34px + env(safe-area-inset-bottom, 0px)); font: 13px var(--mono); color: var(--faint); }
@@ -229,7 +229,6 @@
     .scene .pane:not(:first-child) { display: none; }
     .scene.panes-4 .pane:first-child { grid-row: auto; }
     .mega .outline { -webkit-text-stroke-width: 1.5px; }
-    .nav .gh { display: none; }
     .titlebar .slots, .titlebar .t-tag { display: none; }
     .strip .row { gap: 22px; font-size: 18px; }
   }
@@ -251,13 +250,9 @@
       <a href="#roadmap">roadmap</a>
     </div>
     <div class="right">
-      <a class="pill gh" href="https://github.com/Davii-code/melinna">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.7 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"/></svg>
-        GitHub
-      </a>
       <a class="pill light" href="#baixar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-        Baixar
+        Em breve
       </a>
     </div>
   </div>
@@ -281,11 +276,11 @@
     <div class="cta">
       <a class="pill light big" href="#baixar">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.1 10.4 4v7.2H3zm0 13.8 7.4 1.1v-7.1H3zM11.3 3.9 21 2.5v8.7h-9.7zm0 16.2L21 21.5v-8.6h-9.7z"/></svg>
-        Baixar para Windows
+        Windows · em breve
       </a>
-      <a class="pill big" href="https://github.com/Davii-code/melinna">Ver no GitHub</a>
+      <a class="pill big" href="#baixar">Linux · em breve</a>
     </div>
-    <p class="also">também para Linux (AppImage)</p>
+    <p class="also">download chegando em breve</p>
 
     <div class="stage reveal">
       <div class="tabs" role="tablist" aria-label="O que o Melinna faz">
@@ -455,14 +450,13 @@
 <section class="final" id="baixar">
   <div class="ghostword" aria-hidden="true">Melinna</div>
   <div class="wrap">
-    <p class="kicker reveal"><b>05</b> · baixar</p>
-    <h2 class="display reveal">Comece a orquestrar.</h2>
-    <p class="sub reveal">Releases prontas para download chegam em breve. Por enquanto, gere o instalador a partir do código-fonte.</p>
+    <p class="kicker reveal"><b>05</b> · download</p>
+    <h2 class="display reveal">Em breve para baixar.</h2>
+    <p class="sub reveal">O Melinna está em validação. Os instaladores para Windows e Linux chegam aqui assim que a primeira versão for liberada.</p>
     <div class="build reveal">
-      <div><b>Windows</b><code>npm run dist</code><small>gera dist/melinna.exe</small></div>
-      <div><b>Linux</b><code>npm run dist</code><small>gera dist/melinna.AppImage — rode no Linux ou WSL2</small></div>
+      <div><b>Windows</b><span class="soon">em breve</span><small>instalador .exe · Windows 10 1809+</small></div>
+      <div><b>Linux</b><span class="soon">em breve</span><small>AppImage · x64</small></div>
     </div>
-    <a class="pill light big reveal" href="https://github.com/Davii-code/melinna">Ver o código no GitHub</a>
   </div>
 </section>
 
