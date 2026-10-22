@@ -158,4 +158,63 @@ describe('Tree', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remover workspace Segundo' }));
     expect(props.onRemoveGroup).toHaveBeenCalledWith('g2');
   });
+
+  it('shows the tools only under executions with an open panel', () => {
+    setup({ execTools: (e) => <button type="button">ferramentas de {e.id}</button> });
+    expect(within(row('e1')).getByRole('button', { name: 'ferramentas de e1' })).toBeTruthy();
+    expect(within(row('e2')).queryByRole('button', { name: /ferramentas/ })).toBeNull();
+  });
+
+  it('shows "parando…" and blocks a second stop while the stop is in progress', () => {
+    setup({ stoppingIds: ['e1'] });
+    expect(screen.getByTestId('tree-exec-status-e1').textContent).toBe('parando…');
+    expect((within(row('e1')).getByRole('button', { name: /parar/i }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+  });
+
+  it('"+" on a session lists the installed AIs and adds a terminal with the chosen one', () => {
+    const onAddTerminal = vi.fn();
+    setup({
+      launchable: [agentDef('claude'), agentDef('codex', { displayName: 'Codex CLI' })],
+      onAddTerminal,
+    });
+    const plus = screen.getByRole('button', { name: 'Novo terminal na sessão Login' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    fireEvent.click(plus);
+    const menu = screen.getByRole('menu', { name: 'Novo terminal na sessão Login' });
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((b) => b.textContent),
+    ).toEqual(['Claude Code', 'Codex CLI']);
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Codex CLI' }));
+    expect(onAddTerminal).toHaveBeenCalledWith('t2', 'codex');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('"+" on a workspace opens a new session, and the menu closes with Esc', () => {
+    const onNewSession = vi.fn();
+    setup({
+      groups: [{ id: 'w1', name: 'site', order: 0, repoPath: '/repos/site' }],
+      tasks: [],
+      executions: [],
+      launchable: [agentDef('claude')],
+      onNewSession,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Nova sessão em site' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Nova sessão em site' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Claude Code' }));
+    expect(onNewSession).toHaveBeenCalledWith('w1', 'claude');
+  });
+
+  it('disables "+" when no AI is installed and hides it without a handler', () => {
+    setup({ launchable: [], onAddTerminal: vi.fn() });
+    expect(
+      (screen.getByRole('button', { name: 'Novo terminal na sessão Login' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(screen.queryByRole('button', { name: /nova sessão em/i })).toBeNull();
+  });
 });

@@ -7,7 +7,7 @@
 
 **Um feixe entra. Seis saem.**<br />
 Workspace desktop local-first para rodar vários agentes de código de CLI em paralelo,
-cada um num terminal PTY vivo e isolado no seu próprio git worktree.
+cada um num terminal PTY vivo, direto na pasta do seu projeto.
 
 <br />
 
@@ -17,7 +17,7 @@ cada um num terminal PTY vivo e isolado no seu próprio git worktree.
 <br />
 
 ![status](https://img.shields.io/badge/status-primeira%20fatia-4f8cff?style=flat-square&labelColor=07080b)
-![plataforma](https://img.shields.io/badge/Windows-primeiro-34c759?style=flat-square&labelColor=07080b)
+![plataforma](https://img.shields.io/badge/Windows%20%C2%B7%20Linux-34c759?style=flat-square&labelColor=07080b)
 ![stack](https://img.shields.io/badge/Electron%20%C2%B7%20node--pty%20%C2%B7%20xterm.js-bf5af2?style=flat-square&labelColor=07080b)
 
 </div>
@@ -26,9 +26,9 @@ cada um num terminal PTY vivo e isolado no seu próprio git worktree.
 
 ## O que é
 
-Você escreve uma tarefa, escolhe quais agentes devem tentar, e o Melinna cria uma branch e um git worktree isolado para cada um antes de lançá-los ao mesmo tempo. Cada execução é um terminal real e interativo, não um log morto: você conversa com cada agente no seu painel, compara o que cada um produziu e escolhe qual aproveitar.
+Você abre uma pasta (qualquer pasta, git ou não) e o Melinna vira o seu painel de agentes: cada terminal roda o agente escolhido direto naquela pasta, então ele enxerga os seus arquivos e o histórico de conversas do agente para aquele projeto. Cada execução é um terminal real e interativo, não um log morto: você conversa com cada agente no seu painel e acompanha vários ao mesmo tempo.
 
-A árvore de trabalho principal do seu repositório nunca é escrita nem tem a branch trocada.
+Sessões criadas por versões anteriores, que rodavam num git worktree isolado, continuam funcionando como antes.
 
 ## Funcionalidades da primeira versão
 
@@ -36,10 +36,10 @@ A árvore de trabalho principal do seu repositório nunca é escrita nem tem a b
 |:-:|---|---|
 | 🟥 | **Terminal PTY vivo por execução** | prompts interativos, cores e redesenho de tela funcionam; a conversa continua sem relançar |
 | 🟧 | **Scrollback persistido e reanexação** | feche e reabra o app: os agentes continuam rodando e os painéis voltam com o histórico |
-| 🟨 | **Isolamento por worktree** | uma branch e um worktree por execução, fora do seu repositório, removíveis sem deixar resíduo |
-| 🟩 | **Grade de painéis** | modos Automático, Spotlight, Sidebar e Grade personalizada, com arrastar e soltar |
-| 🟦 | **Modelo e permissão por painel** | troca em voo quando o agente suporta; aviso claro quando não suporta |
-| 🟪 | **Comparação de diffs** | lado a lado ou unificado, por execução |
+| 🟨 | **Direto na pasta** | qualquer pasta vira workspace; o terminal roda nela, com o histórico do agente daquele projeto |
+| 🟩 | **Grade de painéis redimensionável** | divisórias arrastáveis entre os painéis e na barra lateral, arrastar e soltar para reordenar |
+| 🟦 | **Sessões e workspaces** | "+" para abrir mais um terminal escolhendo a IA; remover sessão ou workspace sem apagar a pasta |
+| 🟪 | **Editor de arquivos** | aba Arquivos com editor de código, realce de sintaxe em tema escuro e Ctrl+S |
 
 Agentes iniciais: Claude Code, Codex CLI e Gemini CLI, mais os shells do sistema. Os agentes vivem num catálogo declarativo: acrescentar um agente é acrescentar uma entrada, sem mexer no motor.
 
@@ -56,7 +56,7 @@ A lista completa está na [constitution](.specify/memory/constitution.md).
 
 ## Status
 
-A primeira fatia está implementada (feature 001), especificada com o [GitHub Spec Kit](https://github.com/github/spec-kit). Windows 10 1809+ é a plataforma validada; macOS e Linux compilam, com validação completa na fatia seguinte. O instalador ainda não é assinado.
+A primeira fatia está implementada (feature 001), especificada com o [GitHub Spec Kit](https://github.com/github/spec-kit). Windows 10 1809+ é a plataforma validada; o Linux gera um AppImage (veja [Empacotamento para Linux](#empacotamento-para-linux)), ainda em validação; o macOS compila. O instalador ainda não é assinado.
 
 | Artefato | Caminho |
 |---|---|
@@ -91,9 +91,23 @@ Comandos:
 | `npm run test:perf` | metas de desempenho (lançamento, eco, reanexação) |
 | `npm run test:e2e` | fluxos ponta a ponta com o Playwright |
 | `npm run icons` | gera os ícones a partir de `docs/brand/logo.svg` |
-| `npm run dist` | gera o instalador em `dist/` |
+| `npm run dist` | gera o instalador da plataforma atual em `dist/`: `melinna.exe` no Windows, `melinna.AppImage` no Linux |
 
 Detalhes e validação manual no [quickstart](specs/001-workspace-agentes-paralelos/quickstart.md).
+
+### Empacotamento para Linux
+
+O AppImage precisa ser gerado num Linux (ou no WSL2): o node-pty não traz binário pronto para Linux e é compilado no `npm ci`. Clone o projeto dentro do Linux, sem reaproveitar o `node_modules` do Windows.
+
+```bash
+sudo apt install -y build-essential python3 git
+git clone https://github.com/Davii-code/melinna.git ~/melinna && cd ~/melinna
+npm ci
+npm run dist
+chmod +x dist/melinna.AppImage && ./dist/melinna.AppImage
+```
+
+Precisa do Node 24. Em distribuições recentes, se o AppImage reclamar de FUSE, instale `libfuse2`.
 
 ### Independência de código e de marca
 

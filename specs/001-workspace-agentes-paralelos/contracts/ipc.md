@@ -23,6 +23,7 @@ interface MelinnaApi {
     createAndLaunch(input: { groupId: string; repoPath: string; baseRef: string; prompt: string; title?: string;
       picks: AgentPick[]; size: TermSize }): Promise<Result<{ taskId: string; results: LaunchResult[] }>>;
       // a tarefa é criada em execução direta: o processo roda na própria pasta (repoPath), sem worktree
+    addExecution(taskId: string, pick: AgentPick, size: TermSize): Promise<Result<LaunchResult[]>>; // mais um terminal na sessão, sem o enunciado
     remove(taskId: string): Promise<Result<void>>;            // sessão e execuções (paradas); a pasta não é tocada
     removeWorkspace(groupId: string): Promise<Result<void>>;  // tira o workspace da lista com as sessões (paradas)
   };

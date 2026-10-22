@@ -99,6 +99,8 @@ export interface MelinnaApi {
       input: CreateAndLaunchInput,
     ): Promise<Result<{ taskId: string; results: LaunchResult[] }>>;
     /** Remove a sessão e as execuções dela (paradas); a pasta no disco não é tocada. */
+    /** Abre mais um terminal na sessão, com o agente escolhido e sem o enunciado da sessão. */
+    addExecution(taskId: string, pick: AgentPick, size: TermSize): Promise<Result<LaunchResult[]>>;
     remove(taskId: string): Promise<Result<void>>;
     /** Tira o workspace da lista com as sessões dele (paradas); a pasta no disco não é tocada. */
     removeWorkspace(groupId: string): Promise<Result<void>>;
@@ -154,6 +156,7 @@ export const CHANNELS = {
   },
   tasks: {
     createAndLaunch: 'tasks:createAndLaunch',
+    addExecution: 'tasks:addExecution',
     remove: 'tasks:remove',
     removeWorkspace: 'tasks:removeWorkspace',
   },

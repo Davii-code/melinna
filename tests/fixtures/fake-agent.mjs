@@ -5,6 +5,19 @@ const out = (s) => process.stdout.write(s);
 const size = () => out(`size=${process.stdout.columns ?? 0}x${process.stdout.rows ?? 0}\r\n`);
 
 let ignoreSigint = false;
+/** Ctrl+C seguidos (até 1 s entre eles) para sair: 2 imita o Claude Code. */
+let ctrlCToExit = 1;
+let ctrlCCount = 0;
+let lastCtrlC = 0;
+
+function onCtrlC() {
+  if (ignoreSigint) return;
+  const now = Date.now();
+  ctrlCCount = now - lastCtrlC <= 1000 ? ctrlCCount + 1 : 1;
+  lastCtrlC = now;
+  if (ctrlCCount >= ctrlCToExit) process.exit(130);
+  out('press-ctrl-c-again\r\n');
+}
 let pendingCpr = null;
 let line = '';
 
@@ -13,9 +26,7 @@ size();
 out('\x1b[32mpronto\x1b[0m\r\n');
 
 process.stdout.on('resize', size);
-process.on('SIGINT', () => {
-  if (!ignoreSigint) process.exit(130);
-});
+process.on('SIGINT', onCtrlC);
 process.on('SIGTERM', () => {
   if (!ignoreSigint) process.exit(143);
 });
@@ -35,7 +46,7 @@ process.stdin.on('data', (buf) => {
   }
   for (const ch of text) {
     if (ch === '\x03') {
-      if (!ignoreSigint) process.exit(130);
+      onCtrlC();
       continue;
     }
     if (ch === '\r' || ch === '\n') {
@@ -114,6 +125,10 @@ async function handle(cmd) {
       out(`child=${child.pid}\r\n`);
       return;
     }
+    case 'double-ctrl-c':
+      ctrlCToExit = 2;
+      out('double-ctrl-c\r\n');
+      return;
     case 'ignore-sigint':
       ignoreSigint = true;
       out('ignoring-sigint\r\n');

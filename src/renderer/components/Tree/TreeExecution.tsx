@@ -1,14 +1,18 @@
+import type { ReactNode } from 'react';
 import type { AgentDefinition, Execution } from '../../../shared/ipc-contract';
-import { isLiveStatus, statusLabel } from '../../labels';
+import { isLiveStatus, modelLabel, statusLabel } from '../../labels';
 import { bandColor, bandLabel } from '../../theme/bands';
 import { DivergenceBadge } from '../DivergenceBadge';
-import { modelLabel } from '../Panel/PanelHeader';
 
 export interface TreeExecutionProps {
   execution: Execution;
   agent: AgentDefinition | undefined;
   open: boolean;
   baseAdvancedBy: number;
+  /** Parada pedida e ainda em curso (Ctrl+C e, após o prazo, encerramento forçado). */
+  stopping?: boolean;
+  /** Botões extras da execução com painel aberto (diff, fechar painel), antes dos demais. */
+  tools?: ReactNode;
   onOpen: (execId: string) => void;
   onStop: (execId: string) => void;
   onRelaunch: (execId: string) => void;
@@ -22,7 +26,7 @@ export function TreeExecution(p: TreeExecutionProps) {
   const number = bandLabel(e.bandIndex);
   const model = modelLabel(p.agent, e.model);
   const live = isLiveStatus(e.status);
-  const canStop = live && e.status !== 'preparing';
+  const canStop = live && e.status !== 'preparing' && !p.stopping;
   return (
     <li
       role="treeitem"
@@ -39,10 +43,13 @@ export function TreeExecution(p: TreeExecutionProps) {
         )}
         <span className="agent-name">{name}</span>
         {model && <span className="meta">{model}</span>}
-        <span className={`status status-${e.status}`}>{statusLabel(e)}</span>
+        <span className={`status status-${e.status}`} data-testid={`tree-exec-status-${e.id}`}>
+          {p.stopping && live ? 'parando…' : statusLabel(e)}
+        </span>
         <DivergenceBadge count={p.baseAdvancedBy} />
         <span className="spacer" />
         <span className="tree-actions">
+          {p.tools}
           <button
             type="button"
             className="icon-button"

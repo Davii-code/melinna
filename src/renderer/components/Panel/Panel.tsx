@@ -1,7 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { AgentDefinition, Execution } from '../../../shared/ipc-contract';
 import { TerminalView, type TerminalHandle } from '../TerminalView';
-import { PanelHeader } from './PanelHeader';
 import { isSearchShortcut, TerminalSearch } from './TerminalSearch';
 
 export interface PanelProps {
@@ -9,17 +8,16 @@ export interface PanelProps {
   agent: AgentDefinition | undefined;
   visible: boolean;
   focused: boolean;
-  onClose: () => void;
   onFocus: () => void;
-  headerExtras?: ReactNode;
-  actions?: ReactNode;
   banner?: ReactNode;
   overlay?: ReactNode;
   onTerminalReady?: (h: TerminalHandle | null) => void;
-  onHeaderDragStart?: (e: React.DragEvent) => void;
-  baseAdvancedBy?: number;
 }
 
+/**
+ * Painel de uma execução: só o terminal, sem cabeçalho. Agente, estado, modelo, modo e fechar ficam na
+ * linha da execução na árvore.
+ */
 export function Panel(p: PanelProps) {
   const handle = useRef<TerminalHandle | null>(null);
   const [searching, setSearching] = useState(false);
@@ -40,17 +38,6 @@ export function Panel(p: PanelProps) {
       onKeyDownCapture={onKeyDownCapture}
       aria-label={`Painel ${p.agent?.displayName ?? p.execution.agentId}`}
     >
-      <PanelHeader
-        execution={p.execution}
-        agent={p.agent}
-        actions={p.actions}
-        onClose={p.onClose}
-        draggable={Boolean(p.onHeaderDragStart)}
-        baseAdvancedBy={p.baseAdvancedBy ?? 0}
-        {...(p.onHeaderDragStart ? { onDragStart: p.onHeaderDragStart } : {})}
-      >
-        {p.headerExtras}
-      </PanelHeader>
       {p.banner}
       <div className="panel-body">
         <TerminalView

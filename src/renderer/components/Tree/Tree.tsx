@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { AgentDefinition, Execution, Group, Task } from '../../../shared/ipc-contract';
 import { TreeGroup } from './TreeGroup';
 
@@ -23,6 +23,16 @@ export interface TreeProps extends TreeActions {
   openIds: readonly string[];
   /** Commits que a base avançou, por execução (selo de divergência). */
   divergence?: ReadonlyMap<string, number>;
+  /** Botões extras da execução com painel aberto (diff, fechar painel). */
+  execTools?: (execution: Execution) => ReactNode;
+  /** Execuções com parada em curso. */
+  stoppingIds?: readonly string[];
+  /** IAs instaladas, oferecidas pelo "+" da sessão e do workspace. */
+  launchable?: readonly AgentDefinition[];
+  /** Mais um terminal na sessão, com a IA escolhida. */
+  onAddTerminal?: (taskId: string, agentId: string) => void;
+  /** Nova sessão no workspace, com a IA escolhida. */
+  onNewSession?: (groupId: string, agentId: string) => void;
 }
 
 /** Árvore de três níveis: grupos (pela ordem), tarefas (pela criação) e execuções (pela faixa). */

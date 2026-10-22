@@ -9,9 +9,12 @@ files:
   - out/**
   - catalog/**
   - package.json
+# O hospedeiro roda fora do asar e importa os pedaços que divide com o principal (out/chunks): sem eles
+# desempacotados, ele morre ao iniciar ("hospedeiro de terminais não respondeu em 5 segundos").
 asarUnpack:
   - node_modules/node-pty/**
   - out/host/**
+  - out/chunks/**
 extraResources:
   - from: catalog
     to: catalog
@@ -35,7 +38,7 @@ nsis:
   uninstallDisplayName: Melinna
   runAfterFinish: true
   deleteAppDataOnUninstall: false
-  artifactName: Melinna-Setup-${version}.${ext}
+  artifactName: melinna.${ext}
   installerLanguages: [pt_BR]
   language: '1046'
 mac:
@@ -44,3 +47,5 @@ mac:
 linux:
   target: AppImage
   icon: build/icons/icon.png
+  category: Development
+  artifactName: melinna.${ext}

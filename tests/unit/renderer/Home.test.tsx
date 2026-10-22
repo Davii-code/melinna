@@ -1,18 +1,52 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiContext } from '../../../src/renderer/api';
-import { greeting, Home } from '../../../src/renderer/components/Home/Home';
-import type { Group, WorkspaceSnapshot } from '../../../src/shared/ipc-contract';
+import { defaultAgent, greeting, Home } from '../../../src/renderer/components/Home/Home';
+import type {
+  AgentDefinition,
+  DetectResult,
+  Group,
+  WorkspaceSnapshot,
+} from '../../../src/shared/ipc-contract';
 import { fakeApi, okR, snapshot } from '../../support/fake-api';
 import { agentDef, shellDef } from '../../support/renderer-fixtures';
 
 const WS: Group[] = [
-  { id: 'w1', name: 'site', order: 0, repoPath: '/repos/site', colorIndex: 0, lastOpenedAt: '2026-10-20T10:00:00.000Z' },
-  { id: 'w2', name: 'api', order: 1, repoPath: '/repos/api', colorIndex: 1, lastOpenedAt: '2026-10-21T08:00:00.000Z' },
+  {
+    id: 'w1',
+    name: 'site',
+    order: 0,
+    repoPath: '/repos/site',
+    colorIndex: 0,
+    lastOpenedAt: '2026-10-20T10:00:00.000Z',
+  },
+  {
+    id: 'w2',
+    name: 'api',
+    order: 1,
+    repoPath: '/repos/api',
+    colorIndex: 1,
+    lastOpenedAt: '2026-10-21T08:00:00.000Z',
+  },
   { id: 'g3', name: 'Só grupo', order: 2 },
 ];
 
-function setup(snap: WorkspaceSnapshot = snapshot({ groups: WS })) {
+const AGENTS: AgentDefinition[] = [
+  agentDef('claude'),
+  agentDef('codex', { displayName: 'Codex CLI' }),
+  shellDef('bash', 'Git Bash'),
+];
+const DETECT: Record<string, DetectResult> = {
+  claude: { installed: true, searched: 'claude' },
+  codex: { installed: false, searched: 'codex' },
+  bash: { installed: true, searched: 'bash' },
+};
+
+function setup(
+  snap: WorkspaceSnapshot = snapshot({ groups: WS }),
+  agents: AgentDefinition[] = AGENTS,
+  detect: Record<string, DetectResult> = DETECT,
+) {
   const api = fakeApi();
   const onLaunched = vi.fn();
   const onRemoveWorkspace = vi.fn();
@@ -20,16 +54,8 @@ function setup(snap: WorkspaceSnapshot = snapshot({ groups: WS })) {
     <ApiContext.Provider value={api}>
       <Home
         snapshot={snap}
-        agents={[
-          agentDef('claude'),
-          agentDef('codex', { displayName: 'Codex CLI' }),
-          shellDef('bash', 'Git Bash'),
-        ]}
-        detect={{
-          claude: { installed: true, searched: 'claude' },
-          codex: { installed: false, searched: 'codex' },
-          bash: { installed: true, searched: 'bash' },
-        }}
+        agents={agents}
+        detect={detect}
         size={{ cols: 100, rows: 30 }}
         now={new Date('2026-10-21T09:20:00')}
         onLaunched={onLaunched}
@@ -40,7 +66,7 @@ function setup(snap: WorkspaceSnapshot = snapshot({ groups: WS })) {
   return { api, onLaunched, onRemoveWorkspace };
 }
 
-const prompt = () => screen.getByRole('textbox', { name: /o que você quer construir/i });
+const recentList = () => screen.getByRole('list', { name: /workspaces recentes/i });
 
 describe('greeting', () => {
   it('follows the time of day', () => {
@@ -51,111 +77,92 @@ describe('greeting', () => {
   });
 });
 
+describe('defaultAgent', () => {
+  it('prefers the first installed agent and falls back to a shell', () => {
+    expect(defaultAgent(AGENTS, DETECT)?.id).toBe('claude');
+    expect(defaultAgent(AGENTS, { ...DETECT, claude: { installed: false, searched: 'claude' } })?.id).toBe(
+      'bash',
+    );
+    expect(defaultAgent(AGENTS, {})).toBeUndefined();
+  });
+});
+
 describe('Home', () => {
-  it('greets with the avatar and lists only installed agents', () => {
+  it('shows only the two actions, without the prompt bar, over the pixel backdrop', () => {
     setup();
     expect(screen.getByRole('heading', { name: 'Bom dia' })).toBeTruthy();
-    expect(screen.getByRole('img', { name: /melinna/i })).toBeTruthy();
-    const agents = screen.getByRole('combobox', { name: 'Agente' }) as HTMLSelectElement;
-    expect(Array.from(agents.options).map((o) => o.textContent)).toEqual(['Claude Code', 'Git Bash']);
-    expect(agents.value).toBe('claude');
+    expect(screen.getByRole('button', { name: /novo terminal/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /abrir workspace/i })).toBeTruthy();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.getByTestId('pixel-backdrop').querySelector('canvas')).toBeTruthy();
+    expect(screen.getByText(/abre claude code na pasta escolhida/i)).toBeTruthy();
   });
 
-  it('selects the most recent workspace and shows recent workspaces as cards', () => {
-    setup();
-    const ws = screen.getByRole('combobox', { name: 'Workspace' }) as HTMLSelectElement;
-    expect(ws.value).toBe('w2');
-    expect(Array.from(ws.options).map((o) => o.textContent)).toEqual(['api', 'site', 'Abrir pasta…']);
-    const recent = screen.getByRole('list', { name: /workspaces recentes/i });
-    expect(within(recent).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      expect.stringContaining('/repos/api'),
-      expect.stringContaining('/repos/site'),
-    ]);
-    fireEvent.click(within(recent).getByRole('button', { name: /^site/ }));
-    expect(ws.value).toBe('w1');
-  });
-
-  it('launches the agent with the prompt in the selected workspace', async () => {
-    const { api, onLaunched } = setup();
-    fireEvent.change(prompt(), { target: { value: 'Crie a página de login' } });
-    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
+  it('"Novo terminal" works with no workspace: asks for a folder and opens the default agent there', async () => {
+    const { api, onLaunched } = setup(snapshot());
+    fireEvent.click(screen.getByRole('button', { name: /novo terminal/i }));
     await waitFor(() => expect(api.tasks.createAndLaunch).toHaveBeenCalled());
-    expect(api.workspace.pickRepository).not.toHaveBeenCalled();
+    expect(api.workspace.pickRepository).toHaveBeenCalledWith(undefined);
+    expect(api.workspace.openWorkspace).toHaveBeenCalledWith('/escolhido');
     expect(api.tasks.createAndLaunch.mock.calls[0]?.[0]).toEqual({
-      groupId: 'w2',
-      repoPath: '/repos/api',
+      groupId: 'ws-new',
+      repoPath: '/escolhido',
       baseRef: 'HEAD',
-      prompt: 'Crie a página de login',
+      prompt: '',
       picks: [{ agentId: 'claude', model: 'sonnet', permission: 'manual' }],
       size: { cols: 100, rows: 30 },
     });
     await waitFor(() => expect(onLaunched).toHaveBeenCalled());
   });
 
-  it('Enter sends and Shift+Enter breaks the line', async () => {
-    const { api } = setup();
-    fireEvent.change(prompt(), { target: { value: 'linha' } });
-    fireEvent.keyDown(prompt(), { key: 'Enter', shiftKey: true });
-    expect(api.tasks.createAndLaunch).not.toHaveBeenCalled();
-    fireEvent.keyDown(prompt(), { key: 'Enter' });
-    await waitFor(() => expect(api.tasks.createAndLaunch).toHaveBeenCalled());
-  });
-
-  it('"Novo terminal" asks for the folder, starting at the current workspace, and opens the agent there', async () => {
-    const { api } = setup();
-    fireEvent.change(screen.getByRole('combobox', { name: 'Agente' }), { target: { value: 'bash' } });
-    expect(screen.queryByRole('combobox', { name: 'Modo' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /novo terminal/i }));
-    await waitFor(() => expect(api.tasks.createAndLaunch).toHaveBeenCalled());
-    expect(api.workspace.pickRepository).toHaveBeenCalledWith('/repos/api');
-    expect(api.workspace.openWorkspace).toHaveBeenCalledWith('/escolhido');
-    expect(api.tasks.createAndLaunch.mock.calls[0]?.[0]).toMatchObject({
-      groupId: 'ws-new',
-      repoPath: '/escolhido',
-      prompt: '',
-      picks: [{ agentId: 'bash' }],
-    });
-  });
-
-  it('"Novo terminal" does nothing when the folder dialog is canceled', async () => {
+  it('"Novo terminal" starts the folder dialog at the most recent workspace and does nothing when canceled', async () => {
     const { api } = setup();
     api.workspace.pickRepository.mockImplementation(() => okR<string | null>(null));
     fireEvent.click(screen.getByRole('button', { name: /novo terminal/i }));
-    await waitFor(() => expect(api.workspace.pickRepository).toHaveBeenCalled());
+    await waitFor(() => expect(api.workspace.pickRepository).toHaveBeenCalledWith('/repos/api'));
     expect(api.workspace.openWorkspace).not.toHaveBeenCalled();
     expect(api.tasks.createAndLaunch).not.toHaveBeenCalled();
   });
 
-  it('asks to remove a recent workspace from the list', () => {
-    const { onRemoveWorkspace, onLaunched } = setup();
-    fireEvent.click(screen.getByRole('button', { name: 'Remover site dos recentes' }));
-    expect(onRemoveWorkspace).toHaveBeenCalledWith(expect.objectContaining({ id: 'w1' }));
-    expect(onLaunched).not.toHaveBeenCalled();
-    expect((screen.getByRole('combobox', { name: 'Workspace' }) as HTMLSelectElement).value).toBe('w2');
-  });
-
-  it('opens a folder as a workspace and selects it', async () => {
+  it('"Abrir workspace" only opens the folder as a workspace', async () => {
     const { api } = setup();
     fireEvent.click(screen.getByRole('button', { name: /abrir workspace/i }));
     await waitFor(() => expect(api.workspace.openWorkspace).toHaveBeenCalledWith('/escolhido'));
+    expect(api.tasks.createAndLaunch).not.toHaveBeenCalled();
   });
 
-  it('asks for a folder when there is no workspace yet', async () => {
-    const { api } = setup(snapshot());
-    expect(screen.getByText(/abra uma pasta para começar/i)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /novo terminal/i }));
-    await waitFor(() => expect(api.workspace.pickRepository).toHaveBeenCalled());
-    await waitFor(() => expect(api.workspace.openWorkspace).toHaveBeenCalledWith('/escolhido'));
-    await waitFor(() => expect(api.tasks.createAndLaunch).toHaveBeenCalled());
-    expect(api.tasks.createAndLaunch.mock.calls[0]?.[0]).toMatchObject({ groupId: 'ws-new', repoPath: '/escolhido' });
-  });
-
-  it('confirms a dangerous mode before launching', async () => {
+  it('lists recent workspaces and opens a terminal in one with a click', async () => {
     const { api } = setup();
-    fireEvent.change(screen.getByRole('combobox', { name: 'Modo' }), { target: { value: 'bypass' } });
-    fireEvent.click(screen.getByRole('button', { name: /novo terminal/i }));
+    expect(
+      within(recentList())
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual([expect.stringContaining('/repos/api'), expect.stringContaining('/repos/site')]);
+    fireEvent.click(within(recentList()).getByRole('button', { name: /^site/ }));
+    await waitFor(() => expect(api.tasks.createAndLaunch).toHaveBeenCalled());
+    expect(api.workspace.pickRepository).not.toHaveBeenCalled();
+    expect(api.tasks.createAndLaunch.mock.calls[0]?.[0]).toMatchObject({
+      groupId: 'w1',
+      repoPath: '/repos/site',
+    });
+  });
+
+  it('asks to remove a recent workspace from the list', () => {
+    const { onRemoveWorkspace, api } = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Remover site dos recentes' }));
+    expect(onRemoveWorkspace).toHaveBeenCalledWith(expect.objectContaining({ id: 'w1' }));
+    expect(api.tasks.createAndLaunch).not.toHaveBeenCalled();
+  });
+
+  it('confirms before launching when the default mode is dangerous', async () => {
+    const risky = agentDef('claude');
+    const agents = [{ ...risky, permission: { ...risky.permission!, default: 'bypass' } }];
+    const { api } = setup(snapshot({ groups: WS }), agents, DETECT);
+    fireEvent.click(within(recentList()).getByRole('button', { name: /^api/ }));
     const dialog = await screen.findByRole('alertdialog');
-    expect(dialog.textContent).toMatch(/direto na pasta /escolhido e na máquina/);
+    expect(dialog.textContent).toMatch(/direto na pasta \/repos\/api e na máquina/);
+    expect(api.tasks.createAndLaunch).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /lançar sem confirmações/i }));
     await waitFor(() =>
       expect(api.tasks.createAndLaunch.mock.calls[0]?.[0].picks).toEqual([
@@ -164,12 +171,18 @@ describe('Home', () => {
     );
   });
 
+  it('disables launching without an installed agent', () => {
+    setup(snapshot({ groups: WS }), AGENTS, {});
+    expect((screen.getByRole('button', { name: /novo terminal/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/nenhum agente instalado/i)).toBeTruthy();
+  });
+
   it('shows launch errors', async () => {
     const { api } = setup();
     api.tasks.createAndLaunch.mockImplementation(() =>
       Promise.resolve({ ok: false, error: { code: 'LIMIT_REACHED', message: 'Há só 0 vaga(s).' } }),
     );
-    fireEvent.click(screen.getByRole('button', { name: /novo terminal/i }));
+    fireEvent.click(within(recentList()).getByRole('button', { name: /^api/ }));
     expect(await screen.findByText('Há só 0 vaga(s).')).toBeTruthy();
   });
 });

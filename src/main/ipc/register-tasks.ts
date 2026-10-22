@@ -4,7 +4,7 @@ import type { Logger } from '../../core/ports/logger';
 import type { WorkspaceService } from '../../core/workspace/workspace-service';
 import { CHANNELS } from '../../shared/ipc-contract';
 import { handler, type Handle } from './result';
-import { parseCreateAndLaunch, parseGroupId, parseTaskId } from './validate-tasks';
+import { parseAddExecution, parseCreateAndLaunch, parseGroupId, parseTaskId } from './validate-tasks';
 
 export function registerTasks(
   handle: Handle,
@@ -35,6 +35,15 @@ export function registerTasks(
         const results = await executions.launch(task.id, input.picks, input.size);
         return { taskId: task.id, results };
       },
+    ),
+  );
+  handle(
+    C.addExecution,
+    handler(
+      log,
+      C.addExecution,
+      parseAddExecution(taskExists, () => freeSlots(executions.liveCount())),
+      (taskId, p, size) => executions.launch(taskId, [p], size, { withPrompt: false }),
     ),
   );
   handle(

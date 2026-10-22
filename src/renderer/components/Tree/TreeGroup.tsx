@@ -1,6 +1,7 @@
 import { LIMITS, type Group, type Task } from '../../../shared/ipc-contract';
 import { isLiveStatus } from '../../labels';
 import { bandColor } from '../../theme/bands';
+import { AgentMenu } from './AgentMenu';
 import { InlineEdit, type TreeProps } from './Tree';
 import { TreeTask } from './TreeTask';
 
@@ -32,6 +33,13 @@ export function TreeGroup(props: TreeGroupProps) {
         />
         <span className="spacer" />
         <span className="tree-actions">
+          {props.onNewSession && group.repoPath && (
+            <AgentMenu
+              label={`Nova sessão em ${group.name}`}
+              agents={props.launchable ?? []}
+              onPick={(agentId) => props.onNewSession?.(group.id, agentId)}
+            />
+          )}
           <button
             type="button"
             className="icon-button"

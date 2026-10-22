@@ -29,6 +29,25 @@ export function gridFor(ids: readonly string[]): CustomGrid {
   return { columns: even(cols), rows: even(rows), cells };
 }
 
+/**
+ * Grade redimensionável do modo automático: reaproveita as proporções salvas enquanto ela tiver
+ * exatamente uma célula por painel aberto, no formato de `gridFor`; abrir ou fechar painel recomeça
+ * com faixas iguais.
+ */
+export function fitGrid(grid: CustomGrid, ids: readonly string[]): CustomGrid {
+  const fresh = gridFor(ids);
+  const sameShape =
+    grid.columns.length === fresh.columns.length &&
+    grid.rows.length === fresh.rows.length &&
+    Object.keys(grid.cells).length === ids.length &&
+    ids.every((id) => {
+      const a = grid.cells[id];
+      const b = fresh.cells[id];
+      return a !== undefined && b !== undefined && a.col === b.col && a.row === b.row;
+    });
+  return sameShape ? grid : fresh;
+}
+
 /** Verdadeiro se as células livres da grade bastam para os painéis abertos que ainda não têm célula. */
 export function hasRoomFor(grid: CustomGrid, ids: readonly string[]): boolean {
   const assigned = ids.filter((id) => grid.cells[id]);

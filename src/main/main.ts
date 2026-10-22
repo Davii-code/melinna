@@ -46,7 +46,8 @@ import { claimSingleInstance } from './single-instance';
 import { createMainWindow } from './window';
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } },
+  // `stream` deixa o <video> do fundo da tela inicial tocar a partir do esquema app://.
+  { scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
 ]);
 
 const override = userDataOverride(process.env);

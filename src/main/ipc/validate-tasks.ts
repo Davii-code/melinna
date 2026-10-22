@@ -5,7 +5,7 @@ import { existing, invalid, isObj, optStr, str, termSize } from './validate-comm
 
 const AGENT_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
-function pick(v: unknown): AgentPick {
+export function pick(v: unknown): AgentPick {
   if (!isObj(v) || typeof v.agentId !== 'string' || !AGENT_ID.test(v.agentId)) throw invalid('agente');
   const out: AgentPick = { agentId: v.agentId };
   if (v.model !== undefined)
@@ -47,4 +47,16 @@ export function parseTaskId(taskExists: (id: string) => boolean) {
 
 export function parseGroupId(groupExists: (id: string) => boolean) {
   return (args: unknown[]): [string] => [existing(args[0], 'Workspace', groupExists)];
+}
+
+export function parseAddExecution(taskExists: (id: string) => boolean, freeSlots: () => number) {
+  return (args: unknown[]): [string, AgentPick, { cols: number; rows: number }] => {
+    const taskId = existing(args[0], 'Sessão', taskExists);
+    const p = pick(args[1]);
+    const size = termSize(args[2]);
+    if (freeSlots() < 1) {
+      throw new MelinnaError('LIMIT_REACHED', { userMessage: 'Não há vagas para mais uma execução viva.' });
+    }
+    return [taskId, p, size];
+  };
 }
