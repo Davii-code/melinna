@@ -5,8 +5,11 @@ import {
   SIDEBAR_DEFAULT,
   SIDEBAR_MAX,
   SIDEBAR_MIN,
+  SidebarRail,
   SidebarResizer,
+  storedSidebarCollapsed,
   storedSidebarWidth,
+  storeSidebarCollapsed,
   storeSidebarWidth,
 } from '../../../src/renderer/components/SidebarResizer';
 
@@ -61,5 +64,30 @@ describe('SidebarResizer', () => {
     fireEvent.keyDown(handle, { key: 'ArrowRight' });
     fireEvent.keyDown(handle, { key: 'ArrowLeft' });
     expect(onCommit.mock.calls.map((c) => c[0])).toEqual([296, 264]);
+  });
+});
+
+describe('collapsed sidebar', () => {
+  it('remembers whether the sidebar was hidden', () => {
+    const storage = memoryStorage();
+    expect(storedSidebarCollapsed(storage)).toBe(false);
+    storeSidebarCollapsed(true, storage);
+    expect(storedSidebarCollapsed(storage)).toBe(true);
+    storeSidebarCollapsed(false, storage);
+    expect(storedSidebarCollapsed(storage)).toBe(false);
+    expect(
+      storedSidebarCollapsed({
+        getItem: () => {
+          throw new Error('bloqueado');
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('shows a rail with a button that brings the sidebar back', () => {
+    const onExpand = vi.fn();
+    render(<SidebarRail onExpand={onExpand} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar barra lateral' }));
+    expect(onExpand).toHaveBeenCalledTimes(1);
   });
 });

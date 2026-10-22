@@ -4,6 +4,7 @@ export const SIDEBAR_MIN = 200;
 export const SIDEBAR_MAX = 640;
 export const SIDEBAR_DEFAULT = 280;
 const STORAGE_KEY = 'melinna.sidebarWidth';
+const COLLAPSED_KEY = 'melinna.sidebarCollapsed';
 const KEY_STEP = 16;
 
 export function clampSidebar(width: number): number {
@@ -32,6 +33,45 @@ export function storeSidebarWidth(
   } catch {
     // armazenamento indisponível: a largura vale só nesta sessão
   }
+}
+
+/** Se a barra lateral estava escondida na última vez. */
+export function storedSidebarCollapsed(
+  storage: Pick<Storage, 'getItem'> | undefined = globalThis.localStorage,
+): boolean {
+  try {
+    return storage?.getItem(COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function storeSidebarCollapsed(
+  collapsed: boolean,
+  storage: Pick<Storage, 'setItem'> | undefined = globalThis.localStorage,
+): void {
+  try {
+    storage?.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
+  } catch {
+    // armazenamento indisponível: vale só nesta sessão
+  }
+}
+
+/** Faixa estreita no lugar da barra lateral escondida, com o botão para mostrá-la de novo. */
+export function SidebarRail({ onExpand }: { onExpand: () => void }) {
+  return (
+    <div className="sidebar-rail">
+      <button
+        type="button"
+        className="icon-button"
+        aria-label="Mostrar barra lateral"
+        title="Mostrar barra lateral (Ctrl+Shift+B)"
+        onClick={onExpand}
+      >
+        »
+      </button>
+    </div>
+  );
 }
 
 export interface SidebarResizerProps {
