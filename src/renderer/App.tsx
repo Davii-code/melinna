@@ -26,7 +26,14 @@ import { Panel } from './components/Panel/Panel';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { ScrollbackBanner } from './components/Panel/ScrollbackBanner';
 import { RemoveExecutionDialog } from './components/RemoveExecutionDialog';
-import { SidebarResizer, storedSidebarWidth, storeSidebarWidth } from './components/SidebarResizer';
+import {
+  SidebarRail,
+  SidebarResizer,
+  storedSidebarCollapsed,
+  storedSidebarWidth,
+  storeSidebarCollapsed,
+  storeSidebarWidth,
+} from './components/SidebarResizer';
 import { RemoveFromListDialog, type RemoveTarget } from './components/RemoveFromListDialog';
 import { ResidueDialog } from './components/ResidueDialog';
 import { Tree, type TreeActions } from './components/Tree/Tree';
@@ -119,6 +126,13 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const [showHome, setShowHome] = useState(false);
   const [sidebarView, setSidebarView] = useState<'workspaces' | 'files'>('workspaces');
   const [sidebarWidth, setSidebarWidth] = useState(() => storedSidebarWidth());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => storedSidebarCollapsed());
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((v) => {
+      storeSidebarCollapsed(!v);
+      return !v;
+    });
+  }, []);
   const [showQuickOpen, setShowQuickOpen] = useState(false);
   const [fileRoots, setFileRoots] = useState<FileRoot[]>([]);
 
@@ -152,7 +166,8 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
     };
   }, [api, snapshot]);
 
-  // Ctrl+P abre o "ir para arquivo"; Ctrl+W fecha a aba do painel em foco.
+  // Ctrl+P abre o "ir para arquivo"; Ctrl+W fecha a aba do painel em foco; Ctrl+Shift+B esconde ou mostra a barra lateral
+  // (Ctrl+B sozinho fica com o terminal: o Claude Code usa para mandar tarefas para o segundo plano).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
@@ -160,6 +175,11 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
       if (key === 'p') {
         e.preventDefault();
         setShowQuickOpen(true);
+        return;
+      }
+      if (key === 'b' && e.shiftKey) {
+        e.preventDefault();
+        toggleSidebar();
         return;
       }
       if (key === 'w') {
@@ -171,7 +191,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [layout, layoutStore]);
+  }, [layout, layoutStore, toggleSidebar]);
 
   const agentsById = useMemo(() => new Map(catalog.agents.map((a) => [a.id, a])), [catalog.agents]);
   const launchable = useMemo(
@@ -419,7 +439,8 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
             </div>
           )}
           <div className="body">
-            {snapshot && (
+            {snapshot && sidebarCollapsed && <SidebarRail onExpand={toggleSidebar} />}
+            {snapshot && !sidebarCollapsed && (
               <aside className="sidebar" style={{ width: sidebarWidth }}>
                 <div className="sidebar-header">
                   <div className="sidebar-views" role="tablist" aria-label="Visão da barra lateral">
@@ -452,6 +473,15 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                       ＋
                     </button>
                   ) : null}
+                  <button
+                    type="button"
+                    className="icon-button"
+                    title="Esconder barra lateral (Ctrl+Shift+B)"
+                    aria-label="Esconder barra lateral"
+                    onClick={toggleSidebar}
+                  >
+                    «
+                  </button>
                 </div>
                 {sidebarView === 'files' ? (
                   <FileExplorer
@@ -479,7 +509,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                 )}
               </aside>
             )}
-            {snapshot && (
+            {snapshot && !sidebarCollapsed && (
               <SidebarResizer
                 width={sidebarWidth}
                 onChange={setSidebarWidth}
