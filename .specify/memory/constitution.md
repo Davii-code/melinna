@@ -1,17 +1,6 @@
-<!--
-Sync Impact Report
-- 1.1.0 → 1.2.0: Princípio IX passa a autorizar a leitura do repositório de referência para análise de comportamento (mantidas as proibições de cópia, paráfrase de implementação, símbolos e estrutura de arquivos) e ganha regra de higiene do clone. Princípio II ganha exceção estreita para escrita do usuário pelo editor, com quatro guardas verificáveis.
-- 1.0.0 → 1.1.0: Princípio IX ganha exceção registrada para verificação dos bloqueantes técnicos da feature 001 no repositório de referência, sem cópia de código.
-- Version change: (template) → 1.0.0
-- Principles added: I–X (all new)
-- Sections added: Restrições técnicas, Fluxo de desenvolvimento, Governança
-- Templates requiring updates: none (plan/spec/tasks templates are generic and compatible)
-- Follow-up TODOs: registrar no plan da próxima feature a lista fechada de dependências do editor (Princípio VII) antes de qualquer código.
--->
-
 # Constitution do Melinna Desk
 
-Workspace desktop local-first para rodar vários agentes de código de CLI em paralelo, cada um num terminal PTY vivo e isolado num git worktree próprio. Pacote e binário: `melinna-desk`. Marca: Melinna. Tagline: "Um feixe entra. Seis saem."
+Workspace desktop local-first para rodar vários agentes de código de CLI em paralelo, cada um num terminal PTY vivo, direto na pasta do projeto. Pacote e binário: `melinna-desk`. Marca: Melinna. Tagline: "Um feixe entra. Seis saem."
 
 ## Princípios
 
@@ -19,16 +8,34 @@ Workspace desktop local-first para rodar vários agentes de código de CLI em pa
 
 Um agente é um executável externo lançado num PTY. O app não importa SDK nem biblioteca de nenhum agente. Os agentes vivem num catálogo declarativo (dados), que define o executável, os argumentos, como passar o modelo, como passar o modo de permissão, como trocar o modelo em voo e como detectar a instalação. Acrescentar um agente é acrescentar uma entrada no catálogo; o motor não muda. Se um agente novo exigir mudança no motor, a mudança tem de ser genérica (uma nova capacidade declarável no catálogo) e não um caso especial por nome de agente.
 
-### II. Isolamento por worktree (INEGOCIÁVEL)
+### II. Trabalho na pasta do usuário, com controle explícito (INEGOCIÁVEL)
 
-Todo trabalho de agente acontece numa branch e num git worktree próprios, criados antes do lançamento. A árvore de trabalho principal do repositório do usuário nunca é escrita, nunca tem arquivos criados, nunca recebe stash, reset, checkout ou troca de branch, em nenhum fluxo. Leituras do repositório principal usam comandos que não tocam o índice (`git --no-optional-locks`). A remoção de um worktree não deixa diretório, registro em `git worktree list` nem branch órfã, exceto quando o usuário escolhe manter a branch.
+Sessões novas de agente rodam direto na pasta escolhida pelo usuário, seja ela um repositório git ou
+não: o diretório de trabalho do processo é a própria pasta. Sessões antigas criadas num git worktree
+continuam suportadas como legado até serem removidas, com as regras de remoção que já valiam (sem
+diretório, registro em `git worktree list` nem branch órfã, exceto quando o usuário escolhe manter a
+branch). O agente escreve na pasta porque o usuário o lançou ali; o app, por si, não.
 
-**Exceção registrada (v1.2.0, 2026-10-21, autorizada pelo dono do projeto):** o editor de arquivos pode gravar na árvore de trabalho principal, porque quem escreve é o humano e não o agente. A exceção é estreita e verificável:
+- **O app não escreve por conta própria.** Escrita do app na pasta do usuário só acontece por ação
+  explícita do usuário: salvar no editor ou uma operação de git confirmada. Nada de salvamento
+  automático, formatação ao salvar, correção de fim de linha ou escrita em massa.
+- **Editor (mantido da v1.2.0).** Só o salvar explícito grava; toda escrita registra caminho, tamanho
+  e hash antes e depois no log estruturado; recusa gravar se o arquivo mudou em disco desde que foi
+  aberto (conflito é reportado, nunca sobrescrito em silêncio); só dentro de uma raiz registrada e
+  nunca em `.git/`.
+- **Git na interface.** Stage, commit, push, pull, fetch, merge e troca de branch só por ação
+  explícita do usuário. Operações que podem perder trabalho (descartar alterações, reset, force push,
+  checkout com alterações pendentes, merge com conflito) exigem confirmação explícita que mostra o
+  que será afetado. O app nunca guarda credenciais: delega ao git e ao gerenciador de credenciais do
+  sistema.
+- **Remover não apaga.** Remover sessão ou workspace nunca apaga a pasta do usuário nem os seus
+  arquivos; sai só o registro do app (e, nas sessões legadas, o worktree do app).
+- **Leitura sem efeito colateral.** Leituras de status usam comandos que não tocam o índice
+  (`git --no-optional-locks`).
 
-- Só uma ação explícita de salvar do usuário escreve. O app nunca grava por conta própria: sem salvamento automático, sem formatação ao salvar, sem refactor, sem correção de fim de linha e sem escrita em massa.
-- Agente continua proibido de escrever na árvore principal, em qualquer fluxo, inclusive o de orquestração.
-- Toda escrita registra caminho, tamanho e hash antes e depois, no log estruturado, e recusa gravar se o arquivo mudou em disco desde que foi aberto (conflito é reportado, nunca sobrescrito em silêncio).
-- A escrita só ocorre dentro de uma raiz registrada (o repositório de um workspace aberto ou o worktree de uma execução) e nunca em `.git/`.
+Razão: o agente precisa enxergar o projeto real e o histórico de conversas da pasta; o controle
+continua com o usuário porque toda escrita do app e toda operação de git arriscada passam por uma
+ação explícita dele.
 
 ### III. O PTY é a fonte da verdade da sessão
 
@@ -87,4 +94,4 @@ A interface usa exclusivamente a marca Melinna definida em `docs/brand/` (`logo.
 
 Esta constitution prevalece sobre qualquer outra prática do projeto. Emendas exigem justificativa escrita, aprovação do dono do projeto e incremento de versão semântico: MAJOR para remoção ou redefinição incompatível de princípio, MINOR para princípio ou seção nova, PATCH para esclarecimento. Plans e revisões verificam conformidade com cada princípio; violação só entra registrada em "Complexity Tracking" do plan, com motivo e alternativa rejeitada.
 
-**Version**: 1.2.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-21
+**Version**: 2.0.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-22
