@@ -25,7 +25,22 @@ export class NodeFileSystem implements FileSystem {
   }
   async stat(p: string): Promise<FileStat> {
     const s = await fsp.stat(p);
-    return { size: s.size, isFile: s.isFile(), isDirectory: s.isDirectory() };
+    return {
+      size: s.size,
+      isFile: s.isFile(),
+      isDirectory: s.isDirectory(),
+      mtimeMs: s.mtimeMs,
+      mode: s.mode,
+    };
+  }
+  async lstat(p: string): Promise<FileStat> {
+    const s = await fsp.lstat(p);
+    return {
+      size: s.size,
+      isFile: s.isFile(),
+      isDirectory: s.isDirectory(),
+      isSymbolicLink: s.isSymbolicLink(),
+    };
   }
   async exists(p: string): Promise<boolean> {
     try {

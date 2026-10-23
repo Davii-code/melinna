@@ -11,6 +11,20 @@
   de anexos da sessão como pasta extra do agente (capacidade `extraDirs` da feature 003); (2) gravar
   os anexos em `.melinna/anexos` dentro do projeto (toca o Princípio II; exige aprovação explícita e
   `.gitignore` sugerido ao usuário, nunca escrito pelo app).
+- **Conferência (T001, 2026-10-23)**: máquina de desenvolvimento só tem o Claude Code 2.1.220; Codex CLI e
+  Gemini CLI não estão instalados. Conferir se um agente lê imagem fora do cwd exige uma sessão interativa
+  com o modelo (consome API e depende de resposta do agente), então **não foi executada pelo Claude**; a
+  tabela abaixo registra o que foi decidido e o que ainda precisa de confirmação manual.
+
+  | Agente | Versão | Formato | Lê fora do cwd | Decisão no catálogo |
+  |---|---|---|---|---|
+  | Claude Code | 2.1.220 | caminho puro, aspas quando há espaço | **a confirmar** (pode pedir permissão de leitura uma vez) | `images: { template: "{path}", quote: "when-needed" }` |
+  | Gemini CLI | não instalado | `@{path}` | a confirmar | sem `images` até a conferência |
+  | Codex CLI | não instalado | a confirmar | a confirmar | sem `images` até a conferência |
+
+  Para confirmar no Claude Code: colar um print no Melinna, enviar e perguntar "o que tem nesta imagem?";
+  se o agente pedir permissão para ler `userData/attachments/...`, aplicar a contingência (1) (a pasta de
+  anexos da sessão como pasta extra do agente) — decisão do dono, já aprovada em princípio no plan.md.
 - **Forma de escrever**: digitação comum (texto simples no PTY), não colagem entre marcadores
   (bracketed paste): a referência é uma linha curta e alguns agentes tratam a colagem como bloco de
   texto, o que impediria reconhecer o caminho como imagem.

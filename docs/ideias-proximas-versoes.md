@@ -6,7 +6,9 @@ os terminais rodam direto nela.
 
 ---
 
-## 1. Workspace com vários projetos (v1.x, próxima feature)
+## 1. Workspace com vários projetos (v1.x, planejado na feature 003)
+
+> **Planejado:** especificação, plano e tarefas em `specs/003-workspace-multiprojeto/`.
 
 ### Ideia
 Criar um workspace com nome próprio e várias pastas (projetos). Um agente aberto nesse workspace enxerga
@@ -82,6 +84,10 @@ interativos continuam sendo o lugar de conversar e de intervir.
 ---
 
 ## 3. IDE: rodar, depurar e trabalhar no projeto (v2)
+
+> **Planejado:** `specs/007-rodar-projeto-ide/` entrega o nível A como barra de execução (configurações
+> detectadas e personalizadas, no estilo do IntelliJ) e quatro mapas de atalhos (Windows, IntelliJ,
+> Eclipse, VS Code). O nível B (abrir no VS Code/IntelliJ) e a edição de atalhos individuais ficam para depois.
 
 ### Ideia
 Ter no Melinna o ciclo do VS Code: editar, rodar o projeto, depurar, ver erros, sem trocar de ferramenta.

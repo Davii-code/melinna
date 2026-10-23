@@ -6,7 +6,7 @@ import {
   type RemoveTarget,
 } from '../../../src/renderer/components/RemoveFromListDialog';
 import type { Group, Task } from '../../../src/shared/ipc-contract';
-import { fakeApi } from '../../support/fake-api';
+import { fakeApi, okR } from '../../support/fake-api';
 import { execution } from '../../support/renderer-fixtures';
 
 const group: Group = { id: 'w1', name: 'site', order: 0, repoPath: '/repos/site' };
@@ -99,5 +99,59 @@ describe('RemoveFromListDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     expect(onCancel).toHaveBeenCalled();
     expect(api.tasks.remove).not.toHaveBeenCalled();
+  });
+});
+
+describe('RemoveFromListDialog: prompts do workspace', () => {
+  function setupWithPrompts(count: number | 'erro', target: RemoveTarget = { kind: 'workspace', group }) {
+    const api = fakeApi();
+    api.prompts.countForGroup.mockImplementation(() =>
+      count === 'erro'
+        ? Promise.resolve({ ok: false as const, error: { code: 'INTERNAL' as const, message: 'falhou' } })
+        : okR(count),
+    );
+    render(
+      <ApiContext.Provider value={api}>
+        <RemoveFromListDialog
+          target={target}
+          tasks={tasks}
+          executions={executions}
+          onDone={vi.fn()}
+          onCancel={vi.fn()}
+        />
+      </ApiContext.Provider>,
+    );
+    return api;
+  }
+
+  it('says how many prompts of the workspace will be removed with it', async () => {
+    const api = setupWithPrompts(2);
+    expect(await screen.findByText('2 prompts deste workspace serão removidos.')).toBeTruthy();
+    expect(api.prompts.countForGroup).toHaveBeenCalledWith('w1');
+  });
+
+  it('uses the singular for one prompt', async () => {
+    setupWithPrompts(1);
+    expect(await screen.findByText('1 prompt deste workspace será removido.')).toBeTruthy();
+  });
+
+  it('says nothing when the workspace has no prompts', async () => {
+    const api = setupWithPrompts(0);
+    await waitFor(() => expect(api.prompts.countForGroup).toHaveBeenCalled());
+    expect(screen.getByRole('alertdialog').textContent).not.toMatch(/prompt/);
+  });
+
+  it('still allows removing when the count cannot be read', async () => {
+    const api = setupWithPrompts('erro');
+    await waitFor(() => expect(api.prompts.countForGroup).toHaveBeenCalled());
+    expect(screen.getByRole('alertdialog').textContent).not.toMatch(/prompts? deste/);
+    expect((screen.getByRole('button', { name: 'Remover' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('does not look at prompts when removing a single session', async () => {
+    const api = setupWithPrompts(3, { kind: 'task', task: tasks[0]! });
+    await Promise.resolve();
+    expect(api.prompts.countForGroup).not.toHaveBeenCalled();
+    expect(screen.getByRole('alertdialog').textContent).not.toMatch(/prompt/);
   });
 });

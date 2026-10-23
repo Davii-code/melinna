@@ -44,7 +44,16 @@ export interface WorkspaceSnapshot {
   scrollbackPaused: readonly { execId: string; reason: 'DISK_FULL' | 'IO_ERROR' }[];
   /** Execuções com saída nos últimos 1,5 s. */
   busy: readonly string[];
+  /** Disponibilidade de cada pasta de workspace (por id), calculada na leitura; ausente = disponível. */
+  folderAvailability: Record<string, boolean>;
 }
+
+/** Uma mudança por chamada de `updateWorkspace`. */
+export type WorkspaceChange =
+  | { kind: 'rename'; name: string }
+  | { kind: 'addFolders'; folders: string[] }
+  | { kind: 'removeFolder'; folderId: string }
+  | { kind: 'setPrimary'; folderId: string };
 
 export interface RemovalCheck {
   uncommittedFiles: number;
@@ -91,6 +100,8 @@ export interface FileDiff {
   oldPath?: string;
   change: FileChange;
   binary?: { oldSize: number | null; newSize: number | null };
+  /** Diff grande demais para mostrar (acima de 1 MB): `hunks` vem vazio. */
+  tooLarge?: boolean;
   hunks: Hunk[];
   lineCount: number;
 }
@@ -144,4 +155,10 @@ export interface FileRoot {
   kind: 'workspace' | 'worktree';
   /** Presente quando `kind` é `worktree`. */
   execId?: string;
+  /** Workspace de várias pastas a que a raiz pertence (ausente em workspace de uma pasta). */
+  workspaceId?: string;
+  /** Pasta principal do workspace de várias pastas. */
+  primary?: boolean;
+  /** `false` quando a pasta do workspace não está acessível; ausente = disponível. */
+  available?: boolean;
 }

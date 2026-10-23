@@ -64,6 +64,33 @@ describe('StateStore', () => {
     expect(JSON.parse(fs.readText('/data/state.json')).schemaVersion).toBe(99);
   });
 
+  it('copies a v2 file to state.v2.json.bak before the first v3 write, once', async () => {
+    const { fs, clock, store } = setup();
+    const v2 = JSON.stringify({ ...emptyState(), schemaVersion: 2 });
+    fs.seed('/data/state.json', v2);
+    const r = await store.load();
+    expect(r.readOnly).toBe(false);
+    expect(await fs.exists('/data/state.v2.json.bak')).toBe(false);
+    store.save({ ...r.state, groups: [{ id: 'g1', name: 'A', order: 0 }] });
+    clock.advance(300);
+    await store.flush();
+    expect(fs.readText('/data/state.v2.json.bak')).toBe(v2);
+    expect(JSON.parse(fs.readText('/data/state.json')).schemaVersion).toBe(3);
+    store.save({ ...r.state, groups: [{ id: 'g2', name: 'B', order: 0 }] });
+    await store.flush();
+    expect(fs.readText('/data/state.v2.json.bak')).toBe(v2);
+  });
+
+  it('does not create a backup when the file is already v3', async () => {
+    const { fs, clock, store } = setup();
+    fs.seed('/data/state.json', JSON.stringify(emptyState()));
+    const r = await store.load();
+    store.save(r.state);
+    clock.advance(300);
+    await store.flush();
+    expect(await fs.exists('/data/state.v2.json.bak')).toBe(false);
+  });
+
   it('keeps the previous file when a save fails', async () => {
     const { fs, store, log } = setup();
     fs.seed('/data/state.json', JSON.stringify(emptyState()));

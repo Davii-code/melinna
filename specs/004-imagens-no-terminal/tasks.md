@@ -8,16 +8,16 @@ pendente); `[simples]` delegável ao implementer.
 
 ## Phase 1: Setup
 
-- [ ] T001 Verificação que decide o fluxo (bloqueia US1): nas versões instaladas do Claude Code, Gemini CLI e Codex CLI, conferir (a) o formato de referência de imagem no prompt interativo (caminho puro, aspas, `@caminho`) e (b) se o agente lê uma imagem **fora da pasta do projeto** (em `userData/attachments`) sem erro; se pede permissão, se `--add-dir` resolve. Entregável: tabela agente × versão × formato × lê fora do cwd em `specs/004-imagens-no-terminal/research.md` (R1) e, se algum agente não ler, a escolha da contingência registrada para aprovação do dono no plan.md
+- [X] T001 Verificação que decide o fluxo (bloqueia US1): nas versões instaladas do Claude Code, Gemini CLI e Codex CLI, conferir (a) o formato de referência de imagem no prompt interativo (caminho puro, aspas, `@caminho`) e (b) se o agente lê uma imagem **fora da pasta do projeto** (em `userData/attachments`) sem erro; se pede permissão, se `--add-dir` resolve. Entregável: tabela agente × versão × formato × lê fora do cwd em `specs/004-imagens-no-terminal/research.md` (R1) e, se algum agente não ler, a escolha da contingência registrada para aprovação do dono no plan.md
 
 ## Phase 2: Foundational
 
-- [ ] T002 [P] Testes em `tests/unit/core/attachments/image-format.test.ts`: assinaturas PNG (`89 50 4E 47`), JPEG (`FF D8 FF`), GIF (`47 49 46 38`), WebP (`RIFF....WEBP`); desconhecido → `null`; `MAX_IMAGE_BYTES = 20 * 1024 * 1024`; `MAX_FILES = 20`; `formatImageRef` com `"{path}"` e `"@{path}"`, `quote` `always`/`when-needed`, aspas internas escapadas, caractere de controle recusado
-- [ ] T003 [P] Testes do schema em `tests/unit/core/catalog/images.test.ts`: `template` com `{path}` exatamente uma vez; `quote` só `always`/`when-needed`; inválido vira `CatalogIssue`
-- [ ] T004 (depende de T002) Criar `src/core/attachments/image-format.ts`
-- [ ] T005 [P] (depende de T003) `images?` em `src/core/catalog/schema.ts`
-- [ ] T006 [P] [simples] `attachmentsRoot` e `attachmentsDir(execId)` em `src/core/paths.ts`, com teste em `tests/unit/core/paths.test.ts`
-- [ ] T007 [simples] (depende de T004) Contrato: tipos `ImageRef` e grupo `attachments` (5 canais: `clipboardHasImage`, `pasteImage`, `checkFiles`, `pickImages`, `send`) em `src/shared/ipc-contract.ts`; `files.pathOf` em `src/preload/preload.ts`; `CONTRACT` em `tests/unit/preload/preload.test.ts`; mocks em `tests/support/fake-api.ts`
+- [X] T002 [P] Testes em `tests/unit/core/attachments/image-format.test.ts`: assinaturas PNG (`89 50 4E 47`), JPEG (`FF D8 FF`), GIF (`47 49 46 38`), WebP (`RIFF....WEBP`); desconhecido → `null`; `MAX_IMAGE_BYTES = 20 * 1024 * 1024`; `MAX_FILES = 20`; `formatImageRef` com `"{path}"` e `"@{path}"`, `quote` `always`/`when-needed`, aspas internas escapadas, caractere de controle recusado
+- [X] T003 [P] Testes do schema em `tests/unit/core/catalog/images.test.ts`: `template` com `{path}` exatamente uma vez; `quote` só `always`/`when-needed`; inválido vira `CatalogIssue`
+- [X] T004 (depende de T002) Criar `src/core/attachments/image-format.ts`
+- [X] T005 [P] (depende de T003) `images?` em `src/core/catalog/schema.ts`
+- [X] T006 [P] [simples] `attachmentsRoot` e `attachmentsDir(execId)` em `src/core/paths.ts`, com teste em `tests/unit/core/paths.test.ts`
+- [X] T007 [simples] (depende de T004) Contrato: tipos `ImageRef` e grupo `attachments` (5 canais: `clipboardHasImage`, `pasteImage`, `checkFiles`, `pickImages`, `send`) em `src/shared/ipc-contract.ts`; `files.pathOf` em `src/preload/preload.ts`; `CONTRACT` em `tests/unit/preload/preload.test.ts`; mocks em `tests/support/fake-api.ts`
 
 ## Phase 3: User Story 1 — Colar imagem da área de transferência (P1) 🎯 MVP
 
@@ -27,20 +27,20 @@ pendente); `[simples]` delegável ao implementer.
 
 ### Tests (escritos antes)
 
-- [ ] T008 [US1] Testes de `saveClipboardImage` em `tests/integration/core/attachments.test.ts` (adaptador real de FS, pasta temporária): grava `<timestamp>-<n>.png` em `attachmentsDir(execId)`; recusa formato desconhecido e acima de 20 MB sem gravar; logs `attachment.saved { execId, bytes, type }` e `attachment.rejected { reason }` sem conteúdo
-- [ ] T009 [P] [US1] Testes da miniatura em `tests/unit/main/thumbnail.test.ts`: lado maior ≤ 256 px, saída `data:image/png;base64,`, imagem menor não é ampliada
-- [ ] T010 [US1] Testes do IPC em `tests/unit/main/ipc/register-attachments.test.ts`: `clipboardHasImage` (imagem sem texto → true; com texto → false); `pasteImage` devolve `ImageRef` com `ref` e `thumbnail`; execução parada → `EXECUTION_NOT_RUNNING`; agente sem `images` → "Este agente não recebe imagens."; `send` revalida e escreve as referências separadas por espaço, sem `\r`
-- [ ] T011 [P] [US1] Testes em `tests/unit/renderer/ImagePreview.test.tsx`: miniatura e nome; "Enviar" chama `attachments.send`; "Cancelar" e Esc não enviam; execução que sai de `running`/`idle` fecha a prévia com aviso
-- [ ] T012 [P] [US1] Testes em `tests/unit/renderer/TerminalView.test.tsx`: Ctrl+V com `clipboardHasImage=true` não cola no xterm e chama `pasteImage`; com `false` mantém a colagem; Ctrl+Shift+V cola só texto
+- [X] T008 [US1] Testes de `saveClipboardImage` em `tests/integration/core/attachments.test.ts` (adaptador real de FS, pasta temporária): grava `<timestamp>-<n>.png` em `attachmentsDir(execId)`; recusa formato desconhecido e acima de 20 MB sem gravar; logs `attachment.saved { execId, bytes, type }` e `attachment.rejected { reason }` sem conteúdo
+- [X] T009 [P] [US1] Testes da miniatura em `tests/unit/main/thumbnail.test.ts`: lado maior ≤ 256 px, saída `data:image/png;base64,`, imagem menor não é ampliada
+- [X] T010 [US1] Testes do IPC em `tests/unit/main/ipc/register-attachments.test.ts`: `clipboardHasImage` (imagem sem texto → true; com texto → false); `pasteImage` devolve `ImageRef` com `ref` e `thumbnail`; execução parada → `EXECUTION_NOT_RUNNING`; agente sem `images` → "Este agente não recebe imagens."; `send` revalida e escreve as referências separadas por espaço, sem `\r`
+- [X] T011 [P] [US1] Testes em `tests/unit/renderer/ImagePreview.test.tsx`: miniatura e nome; "Enviar" chama `attachments.send`; "Cancelar" e Esc não enviam; execução que sai de `running`/`idle` fecha a prévia com aviso
+- [X] T012 [P] [US1] Testes em `tests/unit/renderer/TerminalView.test.tsx`: Ctrl+V com `clipboardHasImage=true` não cola no xterm e chama `pasteImage`; com `false` mantém a colagem; Ctrl+Shift+V cola só texto
 
 ### Implementação
 
-- [ ] T013 [US1] (depende de T004, T006, T008) `src/core/attachments/attachment-service.ts` com `saveClipboardImage`, dependências injetadas (`FileSystem`, `Clock`, `paths`, `log`)
-- [ ] T014 [US1] (depende de T009) `src/main/thumbnail.ts` com `nativeImage.resize`
-- [ ] T015 [US1] (depende de T007, T010, T013, T014) `src/main/ipc/register-attachments.ts`, `src/main/ipc/validate-attachments.ts`, registro em `src/main/ipc/register.ts` e ligação no `src/main/main.ts`: `clipboardHasImage`, `pasteImage`, `send`
-- [ ] T016 [US1] (depende de T011) `src/renderer/components/Panel/ImagePreview.tsx` e CSS em `src/renderer/styles/app.css`
-- [ ] T017 [US1] (depende de T012, T016) Ctrl+V em `src/renderer/components/TerminalView.tsx` (`attachCustomKeyEventHandler`) e prévia no `src/renderer/components/Panel/Panel.tsx`
-- [ ] T018 [P] [US1] [simples] (depende de T001) `images` no Claude Code em `catalog/agents.json` (Gemini e Codex só se marcados como "lê fora do cwd: sim" na tabela da T001) e no agente `fake` em `tests/fixtures/catalog.fake.json`
+- [X] T013 [US1] (depende de T004, T006, T008) `src/core/attachments/attachment-service.ts` com `saveClipboardImage`, dependências injetadas (`FileSystem`, `Clock`, `paths`, `log`)
+- [X] T014 [US1] (depende de T009) `src/main/thumbnail.ts` com `nativeImage.resize`
+- [X] T015 [US1] (depende de T007, T010, T013, T014) `src/main/ipc/register-attachments.ts`, `src/main/ipc/validate-attachments.ts`, registro em `src/main/ipc/register.ts` e ligação no `src/main/main.ts`: `clipboardHasImage`, `pasteImage`, `send`
+- [X] T016 [US1] (depende de T011) `src/renderer/components/Panel/ImagePreview.tsx` e CSS em `src/renderer/styles/app.css`
+- [X] T017 [US1] (depende de T012, T016) Ctrl+V em `src/renderer/components/TerminalView.tsx` (`attachCustomKeyEventHandler`) e prévia no `src/renderer/components/Panel/Panel.tsx`
+- [X] T018 [P] [US1] [simples] (depende de T001) `images` no Claude Code em `catalog/agents.json` (Gemini e Codex só se marcados como "lê fora do cwd: sim" na tabela da T001) e no agente `fake` em `tests/fixtures/catalog.fake.json`
 
 **Checkpoint**: colar imagem funciona de ponta a ponta.
 
@@ -52,15 +52,15 @@ pendente); `[simples]` delegável ao implementer.
 
 ### Tests (escritos antes)
 
-- [ ] T019 [US2] (depois de T008, mesmo arquivo) Testes de `checkFile` em `tests/integration/core/attachments.test.ts`: inexistente, acima de 20 MB, formato não aceito, diretório, link simbólico apontando para fora (recusado), arquivo regular aceito; nenhum arquivo copiado; arquivo apagado entre `checkFiles` e `send` é recusado no `send`
-- [ ] T020 [US2] (depois de T010, mesmo arquivo) Testes de `checkFiles` e `pickImages` em `tests/unit/main/ipc/register-attachments.test.ts`: 1–20 caminhos; caractere de controle recusado; separação `accepted`/`rejected` com motivo
-- [ ] T021 [US2] (depois de T011/T016) Testes em `tests/unit/renderer/Panel.test.tsx`: soltar arquivos chama `checkFiles` com `files.pathOf`; recusados listados; botão "Anexar imagem" do painel chama `pickImages`; e em `tests/unit/renderer/Tree.test.tsx`: clipe na linha da execução viva
+- [X] T019 [US2] (depois de T008, mesmo arquivo) Testes de `checkFile` em `tests/integration/core/attachments.test.ts`: inexistente, acima de 20 MB, formato não aceito, diretório, link simbólico apontando para fora (recusado), arquivo regular aceito; nenhum arquivo copiado; arquivo apagado entre `checkFiles` e `send` é recusado no `send`
+- [X] T020 [US2] (depois de T010, mesmo arquivo) Testes de `checkFiles` e `pickImages` em `tests/unit/main/ipc/register-attachments.test.ts`: 1–20 caminhos; caractere de controle recusado; separação `accepted`/`rejected` com motivo
+- [X] T021 [US2] (depois de T011/T016) Testes em `tests/unit/renderer/Panel.test.tsx`: soltar arquivos chama `checkFiles` com `files.pathOf`; recusados listados; botão "Anexar imagem" do painel chama `pickImages`; e em `tests/unit/renderer/Tree.test.tsx`: clipe na linha da execução viva
 
 ### Implementação
 
-- [ ] T022 [US2] (depende de T013, T019) `checkFile` em `src/core/attachments/attachment-service.ts` (`lstat`, `realpath`, arquivo regular)
-- [ ] T023 [US2] (depende de T015, T020) `checkFiles` e `pickImages` (filtro de imagens, seleção múltipla) em `src/main/ipc/register-attachments.ts` e `validate-attachments.ts`
-- [ ] T024 [US2] (depende de T017, T021) Drop e botão "Anexar imagem" em `src/renderer/components/Panel/Panel.tsx`; clipe em `src/renderer/components/Tree/TreeExecution.tsx`
+- [X] T022 [US2] (depende de T013, T019) `checkFile` em `src/core/attachments/attachment-service.ts` (`lstat`, `realpath`, arquivo regular)
+- [X] T023 [US2] (depende de T015, T020) `checkFiles` e `pickImages` (filtro de imagens, seleção múltipla) em `src/main/ipc/register-attachments.ts` e `validate-attachments.ts`
+- [X] T024 [US2] (depende de T017, T021) Drop e botão "Anexar imagem" em `src/renderer/components/Panel/Panel.tsx`; clipe em `src/renderer/components/Tree/TreeExecution.tsx`
 
 ## Phase 5: User Story 3 — Agentes sem suporte (P3)
 
@@ -68,8 +68,8 @@ pendente); `[simples]` delegável ao implementer.
 
 **Independent Test**: colar ou soltar imagem no painel de um shell mostra o aviso e nada é escrito.
 
-- [ ] T025 [US3] (depois de T021, mesmo arquivo) Testes em `tests/unit/renderer/Panel.test.tsx`: agente sem `images` → aviso "Este agente não recebe imagens" ao colar e ao soltar (inclusive arquivo que não é imagem); `send` nunca é chamado
-- [ ] T026 [US3] [simples] (depende de T024, T025) Aviso no `src/renderer/components/Panel/Panel.tsx` a partir de `agent.images`
+- [X] T025 [US3] (depois de T021, mesmo arquivo) Testes em `tests/unit/renderer/Panel.test.tsx`: agente sem `images` → aviso "Este agente não recebe imagens" ao colar e ao soltar (inclusive arquivo que não é imagem); `send` nunca é chamado
+- [X] T026 [US3] [simples] (depende de T024, T025) Aviso no `src/renderer/components/Panel/Panel.tsx` a partir de `agent.images`
 
 ## Phase 6: User Story 4 — Anexos limpos (P3)
 
@@ -77,13 +77,13 @@ pendente); `[simples]` delegável ao implementer.
 
 **Independent Test**: colar duas imagens, remover a sessão; a pasta de anexos some e o arquivo arrastado continua.
 
-- [ ] T027 [US4] (depois de T019, mesmo arquivo) Testes em `tests/integration/core/attachments.test.ts`: `removeFor(execId)` apaga só `attachmentsDir(execId)`; `sweepOrphans(known)` apaga pastas de execuções desconhecidas; arquivo fora da pasta de anexos permanece; log `attachment.cleaned { execId, files }`
-- [ ] T028 [US4] (depende de T027) `removeFor` e `sweepOrphans` em `src/core/attachments/attachment-service.ts`; chamada em `removeExecution` de `src/core/execution/lifecycle.ts` e `sweepOrphans` na inicialização em `src/main/main.ts`
+- [X] T027 [US4] (depois de T019, mesmo arquivo) Testes em `tests/integration/core/attachments.test.ts`: `removeFor(execId)` apaga só `attachmentsDir(execId)`; `sweepOrphans(known)` apaga pastas de execuções desconhecidas; arquivo fora da pasta de anexos permanece; log `attachment.cleaned { execId, files }`
+- [X] T028 [US4] (depende de T027) `removeFor` e `sweepOrphans` em `src/core/attachments/attachment-service.ts`; chamada em `removeExecution` de `src/core/execution/lifecycle.ts` e `sweepOrphans` na inicialização em `src/main/main.ts`
 
 ## Phase 7: Polish
 
-- [ ] T029 [P] e2e em `tests/e2e/images.spec.ts`: soltar um PNG no painel do agente falso, enviar e ver o caminho no eco
-- [ ] T030 [P] [simples] `README.md` (funcionalidades) e contrato base em `specs/001-workspace-agentes-paralelos/contracts/ipc.md` com o grupo `attachments`
+- [X] T029 [P] e2e em `tests/e2e/images.spec.ts`: soltar um PNG no painel do agente falso, enviar e ver o caminho no eco
+- [X] T030 [P] [simples] `README.md` (funcionalidades) e contrato base em `specs/001-workspace-agentes-paralelos/contracts/ipc.md` com o grupo `attachments`
 
 ## Dependencies & Execution Order
 

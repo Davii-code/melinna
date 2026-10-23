@@ -1,6 +1,7 @@
 import { LIMITS, type Group, type Task } from '../../../shared/ipc-contract';
 import { isLiveStatus } from '../../labels';
 import { bandColor } from '../../theme/bands';
+import { GitBar } from '../Git/GitBar';
 import { AgentMenu } from './AgentMenu';
 import { InlineEdit, type TreeProps } from './Tree';
 import { TreeTask } from './TreeTask';
@@ -10,13 +11,35 @@ export interface TreeGroupProps extends TreeProps {
   tasks: Task[];
 }
 
+/** Tooltip do workspace: as pastas, com a principal marcada; um grupo de uma pasta mostra só o caminho. */
+export function folderTooltip(group: Group): string | undefined {
+  const folders = group.folders ?? [];
+  if (folders.length <= 1) return group.repoPath;
+  return folders
+    .map((f) => (f.id === group.primaryFolderId ? `${f.path} (principal)` : f.path))
+    .join('\n');
+}
+
+/** Pastas do workspace que podem ter git: a lista do workspace ou, em estado antigo, só o caminho do repositório. */
+export function gitFolders(group: Group, availability?: Readonly<Record<string, boolean>>): { id: string; path: string }[] {
+  const folders = group.folders ?? (group.repoPath ? [{ id: `${group.id}-0`, path: group.repoPath }] : []);
+  return folders.filter((f) => availability?.[f.id] !== false);
+}
+
+function folderName(path: string): string {
+  const parts = path.split(/[\/]+/).filter((p) => p.length > 0);
+  return parts[parts.length - 1] ?? path;
+}
+
 export function TreeGroup(props: TreeGroupProps) {
   const { group } = props;
   const taskIds = new Set(props.tasks.map((t) => t.id));
-  const live = props.executions.some((e) => taskIds.has(e.taskId) && isLiveStatus(e.status));
+  const liveCount = props.executions.filter((e) => taskIds.has(e.taskId) && isLiveStatus(e.status)).length;
+  const live = liveCount > 0;
+  const folders = gitFolders(group, props.folderAvailability);
   return (
     <li role="treeitem" aria-expanded="true" className="tree-group" data-testid={`tree-group-${group.id}`}>
-      <div className="tree-row tree-group-row" title={group.repoPath}>
+      <div className="tree-row tree-group-row" title={folderTooltip(group)}>
         {group.repoPath && (
           <span
             className="band"
@@ -40,6 +63,17 @@ export function TreeGroup(props: TreeGroupProps) {
               onPick={(agentId) => props.onNewSession?.(group.id, agentId)}
             />
           )}
+          {props.onEditGroup && group.repoPath && (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={`Editar workspace ${group.name}`}
+              title="Editar nome e pastas do workspace"
+              onClick={() => props.onEditGroup?.(group.id)}
+            >
+              ✎
+            </button>
+          )}
           <button
             type="button"
             className="icon-button"
@@ -54,6 +88,16 @@ export function TreeGroup(props: TreeGroupProps) {
           </button>
         </span>
       </div>
+      {folders.map((f) => (
+        <GitBar
+          key={f.id}
+          repo={f.path}
+          title={group.name}
+          {...(folders.length > 1 ? { folderLabel: folderName(f.path) } : {})}
+          liveAgents={liveCount}
+          onOpenFile={(path) => props.onOpenFile?.(path)}
+        />
+      ))}
       {props.tasks.length > 0 && (
         <ul role="group">
           {props.tasks.map((t) => (

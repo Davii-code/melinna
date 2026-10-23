@@ -1,56 +1,69 @@
-# Contrato IPC: Rodar o projeto e abrir na IDE externa
+# Contrato IPC: Configurações de execução e mapas de atalhos
 
-Novos grupos `run` e `ide`; todos devolvem `Result<T>`.
+Grupos `run` e `prefs`; todos devolvem `Result<T>`. O grupo `ide` do plano anterior foi removido.
 
 ```ts
-interface RunCommand { id: string; source: 'npm' | 'maven' | 'gradle' | 'compose' | 'custom'; label: string; program: string; args: string[]; folder: string; available: boolean; searched: string }
-interface DetectResult { commands: RunCommand[]; warnings: { folder: string; message: string }[] }
+type RunTool = 'npm' | 'pnpm' | 'yarn' | 'maven' | 'gradle' | 'compose' | 'custom';
+interface RunCommand {
+  id: string; groupId: string; source: 'npm' | 'maven' | 'gradle' | 'compose' | 'custom'; tool: RunTool;
+  label: string; program: string; args: string[]; folder: string;
+  available: boolean; unavailableReason: 'not-found' | 'folder-outside' | null; searched: string;
+}
+interface RunCatalog { commands: RunCommand[]; warnings: { groupId: string; folder: string; message: string }[] }
+type KeymapId = 'windows' | 'intellij' | 'eclipse' | 'vscode';
+interface Preferences { keymap: KeymapId; activeRun: { groupId: string; commandId: string } | null; readOnly: boolean }
 
 run: {
-  list(groupId: string): Promise<Result<DetectResult>>;          // detectados + personalizados, por pasta
-  /** O main resolve commandId (nova detecção ou Group.commands); já rodando → devolve a execução existente com reused=true. */
-  start(groupId: string, commandId: string, size: TermSize, confirm?: 'wrapper-sh'[]): Promise<Result<{ taskId: string; execId: string; reused: boolean } | { needsConfirm: 'wrapper-sh'; wrapper: string }>>;
+  /** Configurações de todos os workspaces abertos (personalizadas e detectadas). */
+  list(): Promise<Result<RunCatalog>>;
+  /** O main resolve commandId; viva → reused=true; encerrada → relança no mesmo painel. */
+  start(groupId: string, commandId: string, size: TermSize, choice?: 'wrapper-sh' | 'system-tool'):
+    Promise<Result<{ taskId: string; execId: string; reused: boolean } | { needsConfirm: 'wrapper-sh'; wrapper: string }>>;
   rerun(execId: string, size: TermSize): Promise<Result<void>>;
   saveCommand(groupId: string, input: { id?: string; label: string; program: string; args: string[]; folder: string }): Promise<Result<RunCommand>>;
   removeCommand(groupId: string, commandId: string): Promise<Result<void>>;
 }
 
-ide: {
-  /** Onde está cada IDE (null = não encontrada) e onde o app procurou. */
-  locate(): Promise<Result<{ vscode: { path: string | null; searched: string[] }; intellij: { path: string | null; searched: string[] } }>>;
-  open(kind: 'vscode' | 'intellij', target: { path: string; line?: number }): Promise<Result<void>>;
-  /** Diálogo nativo no main para escolher o executável (no Windows só .exe); cancelado → null. */
-  choosePath(kind: 'vscode' | 'intellij'): Promise<Result<string | null>>;
-  /** Volta à detecção automática. */
-  resetPath(kind: 'vscode' | 'intellij'): Promise<Result<void>>;
-  reveal(path: string): Promise<Result<void>>;                    // explorador de arquivos
+prefs: {
+  get(): Promise<Result<Preferences>>;
+  setKeymap(keymap: KeymapId): Promise<Result<void>>;
+  setActiveRun(ref: { groupId: string; commandId: string } | null): Promise<Result<void>>;
 }
 ```
 
-Parar usa o canal existente `executions.stop`.
+Parar usa o canal existente `executions.stop`. Duplicar é `saveCommand` sem `id` com os campos copiados e o nome
+sugerido "<nome> (cópia)" (com número se já existir). `rerun` resolve a configuração de novo
+(`COMMAND_STALE`/`PROGRAM_NOT_FOUND` como no `start`).
 
 ## Validação (main)
 
 | Campo | Regra |
 |---|---|
-| `groupId`, `execId`, `commandId` | existentes |
-| `label` | 1–80, sem quebra de linha |
+| `groupId`, `execId` | existentes; `execId` de `rerun` precisa ter `command` |
+| `commandId` | formato de id; existência resolvida no serviço (`COMMAND_STALE`) |
+| `choice` | ausente, `wrapper-sh` ou `system-tool`; no serviço, só aceito quando a configuração usa o wrapper do projeto sem bit de execução (senão `INPUT_INVALID`) |
+| `label` | 1–80, sem quebra de linha; único entre as personalizadas do workspace |
 | `program` | 1–`LIMITS.path`, sem caracteres de controle |
 | `args` | 0–64 itens, cada um 0–4.096, sem caracteres de controle |
-| `folder` | dentro de uma pasta do workspace `groupId` |
-| `target.path`, `reveal.path` | após `realpath`, dentro de uma pasta de algum workspace registrado |
-| `line` | inteiro 1–10.000.000 |
-| executável da IDE (escolhido no diálogo ou detectado) | arquivo regular; no Windows só `.exe`; `.cmd`/`.bat` recusados também no `open` |
+| `folder` | uma das pastas do workspace `groupId` (comparação normalizada) |
+| `keymap` | um dos 4 ids |
+| `ref` de `setActiveRun` | `null` ou ids com formato válido e `groupId` existente |
 
 ## Erros
 
 | Situação | Código / mensagem |
 |---|---|
 | programa não encontrado | `PROGRAM_NOT_FOUND` "Programa não encontrado: X." |
-| comando não existe mais | `COMMAND_STALE` "O comando mudou; abra o menu de novo." |
+| configuração não existe mais | `COMMAND_STALE` "A configuração mudou; abra o seletor de novo." |
 | lote (`.cmd`/`.bat`) que não é shim do npm | `INPUT_INVALID` "Este programa só roda pelo prompt de comando; use o executável." |
-| sem vaga | `LIMIT_REACHED` |
-| remover com comando rodando | `EXECUTION_RUNNING` "Pare o comando antes." |
-| IDE não encontrada | `IDE_NOT_FOUND` "VS Code não encontrado. Procurado em: …" (o renderer oferece escolher o executável) |
-| executável de IDE que é lote | `INPUT_INVALID` "Escolha o programa .exe da IDE." |
+| nome repetido | `INPUT_INVALID` "Já existe uma configuração com esse nome." |
 | pasta fora do workspace | `INPUT_INVALID` "A pasta precisa ser do workspace." |
+| sem vaga | `LIMIT_REACHED` |
+| excluir configuração / remover workspace com comando rodando | `EXECUTION_RUNNING` "Pare o comando antes." |
+| preferências de versão mais nova | `setKeymap`/`setActiveRun` valem na sessão; `get` devolve `readOnly: true` |
+
+## Logs
+
+`run.started { groupId, source, tool, reused }`, `run.stopped { groupId, exitCode }`,
+`run.command_saved { groupId, created }`, `run.command_removed { groupId }`,
+`prefs.keymap_changed { keymap }` — sem argumentos, programas nem caminhos.

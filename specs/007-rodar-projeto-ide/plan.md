@@ -1,148 +1,157 @@
-# Implementation Plan: Rodar o projeto e abrir na IDE externa
+# Implementation Plan: Configurações de execução e mapas de atalhos, no estilo do IntelliJ
 
-**Branch**: `007-rodar-projeto-ide` | **Date**: 2026-10-22 | **Spec**: [spec.md](spec.md)
+**Branch**: `007-rodar-projeto-ide` | **Date**: 2026-10-23 | **Spec**: [spec.md](spec.md)
+
+**Revisão**: regerado para a spec de 2026-10-23. Saem a abertura em IDE externa (`tools.json`, grupo
+IPC `ide`, `IDE_NOT_FOUND`) e o menu ▶ na árvore; entram a barra de execução na barra superior, a
+janela de configurações, a configuração ativa e os mapas de atalhos. T001–T005 já implementadas são
+reaproveitadas; o que delas pertencia à IDE é desfeito na task T006.
 
 ## Summary
 
-Um detector puro lê os arquivos de projeto de cada pasta do workspace e gera comandos (`RunCommand`).
-Rodar um comando cria uma tarefa e uma execução do tipo "comando": a execução guarda `command`
-(programa e argumentos) e o lançamento usa o mesmo caminho das sessões (resolver executável, shim do
-npm sem `cmd.exe`, PTY no hospedeiro), sem passar pelo catálogo de agentes. Comandos personalizados
-ficam no workspace. Abrir na IDE externa resolve o executável do VS Code/IntelliJ (locais padrão ou
-caminho informado em `userData/tools.json`) e o lança destacado, sem shell. Constitution de
-referência: 2.0.0.
+Um detector puro lê os arquivos de projeto de cada pasta de cada workspace e gera configurações
+(`RunCommand`) com id estável; as personalizadas ficam em `Group.commands`. Rodar cria (ou reusa) uma
+tarefa e uma execução do tipo "comando" que guardam programa resolvido e argumentos e usam o mesmo
+caminho de PTY das sessões, sem catálogo e sem shell. Na barra superior, um seletor mostra a
+configuração ativa (lembrada em `userData/preferences.json`), com Rodar (▶) e menu (⋮: Rodar de novo,
+Parar, Editar configurações). Os atalhos do app passam a vir de um mapa escolhido (Windows, IntelliJ,
+Eclipse, VS Code), também em `preferences.json`, aplicado por um único ouvinte de teclado em fase de
+captura. Constitution de referência: 2.0.0.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.9 estrito, Electron 44.9.2, Node 24
 
-**Primary Dependencies**: React 19 — **nenhuma nova** (`shell.showItemInFolder` do Electron)
+**Primary Dependencies**: React 19 — **nenhuma nova**
 
-**Storage**: `Group.commands?`, `Task.kind?` e `Execution.command?` no estado (campos opcionais, sem
-subir a versão do esquema — ver research R4 e o risco de downgrade); `userData/tools.json` versão 1 com
-os caminhos de IDE escolhidos
+**Storage**: `Group.commands?`, `Task.kind?`, `Execution.command?` no estado (opcionais, sem subir a
+versão — research R6); `userData/preferences.json` versão 1 (`keymap`, `activeRun`) — research R5
 
-**Testing**: Vitest (unit core/main/renderer; integração com PTY real e projetos de exemplo em pasta
-temporária), Playwright
+**Testing**: Vitest (unit core/main/renderer; integração com PTY real e projetos de exemplo de
+`tests/fixtures/projects/`), Playwright (e2e), teste de arquitetura
 
-**Constraints**: sem shell (Princípio VIII); mesmas 12 vagas de terminais vivos; leitura de arquivos
-de projeto limitada a 1 MB
+**Target Platform**: Windows 10 1809+ validado; Linux/macOS compilam e rodam (wrappers com bit de
+execução)
+
+**Performance Goals**: seletor abre em < 1 s com 10 workspaces (SC-002): detecção em paralelo por pasta,
+leitura ≤ 1 MB por arquivo
+
+**Constraints**: sem shell (VIII); mesmas 12 vagas de terminais vivos; atalhos nunca capturam
+Ctrl+C/D/Z/B nem setas (FR-015)
+
+**Scale/Scope**: até 10 workspaces × poucas pastas; 4 mapas × 7 ações
 
 ## Constitution Check
 
 | Princípio | Situação |
 |---|---|
-| I. Agente é processo | ✅ Comandos não são agentes; não mexem no catálogo. Lançamento compartilha o motor de PTY. |
-| II. Pasta do usuário | ✅ O app só **lê** arquivos de projeto; o comando é lançado pelo usuário, que decide o que ele faz na pasta (como um terminal comum). Nada gravado no projeto pelo app. |
+| I. Agente é processo | ✅ Comandos não são agentes nem entram no catálogo; o lançamento compartilha o motor de PTY. |
+| II. Pasta do usuário | ✅ O app só **lê** arquivos de projeto; o comando é lançado pelo usuário, como num terminal. Nada é gravado no projeto. |
 | III. PTY fonte da verdade | ✅ Comando roda no hospedeiro; sobrevive ao fechar o app; "Rodar de novo" relança no mesmo painel com separador. |
-| IV. Núcleo independente | ✅ Detector, modelo e lançamento em `src/core`; IDE: resolução no núcleo com portas, spawn destacado e `shell` no main. |
-| V/VI | ✅ Testes por história; sem decisões em aberto. |
-| VII. Sem surpresas | ✅ Sem dependência nova. Mudam estado (campos opcionais), arquivo novo `tools.json`, IPC e códigos de erro, aprovados pelo dono em 2026-10-22 — ver abaixo. |
-| VIII. Execução segura | ✅ Programa resolvido por `resolveExecutable` (PATH/PATHEXT); `.cmd`/`.bat` do npm via `npm-shim` (nunca `cmd.exe`); outros `.cmd`/`.bat` recusados; wrapper `gradlew`/`mvnw` no Linux sem bit de execução → `sh <wrapper> <args>` (sem `-c`) só com confirmação; argumentos como lista. Nomes de script vêm do `package.json` (conteúdo não confiável), mas viram um item de argv de `<pm> run`, sem efeito de shell. O renderer só envia `commandId`: programa e argumentos são resolvidos no main (nova detecção ou `Group.commands`). IDE: executável escolhido por diálogo nativo no main; no Windows só `.exe` (o `idea.cmd` do Toolbox não é candidato); `open`/`reveal` só aceitam caminhos (após `realpath`) dentro de uma pasta de workspace registrado. |
+| IV. Núcleo independente | ✅ Detector, resolução, serviço de execução e preferências em `src/core` com portas; main só registra canais; mapas no renderer. |
+| V. Testes | ✅ Testes por história escritos antes (tasks "Tests"). |
+| VI. Entregável completo | ✅ Erros com mensagem ao usuário e log estruturado. |
+| VII. Sem surpresas | ✅ Sem dependência nova. Mudanças de contrato listadas abaixo, aprovadas pelo dono (2026-10-22 e 2026-10-23). |
+| VIII. Execução segura | ✅ Programa resolvido por `resolveExecutable`; shim do npm sem `cmd.exe`; outros `.cmd`/`.bat` recusados; wrapper sem bit de execução → `sh <wrapper> <args>` (sem `-c`) só com confirmação; argumentos como lista; o renderer só envia ids. |
+| IX/X | ✅ Ícones e textos próprios; cores da marca. |
 
-Resultado: **passa** (aprovações do Princípio VII registradas abaixo).
+Resultado: **passa**.
 
 ### Aprovações (Princípio VII)
 
 | Contrato | Mudança | Aprovação |
 |---|---|---|
-| Erros | códigos `PROGRAM_NOT_FOUND`, `IDE_NOT_FOUND`, `COMMAND_STALE` | aprovado pelo dono em 2026-10-22 |
-| Estado | `Group.commands?: RunCommand[]`, `Task.kind?: 'agent' \| 'command'`, `Execution.command?: { file, args, label }` (opcionais) | aprovado pelo dono em 2026-10-22 |
-| Arquivo novo | `userData/tools.json` versão 1 (caminhos de IDE) | aprovado pelo dono em 2026-10-22 |
-| IPC | grupos `run` e `ide` (contracts/ipc.md) | aprovado pelo dono em 2026-10-22 |
+| Erros | `PROGRAM_NOT_FOUND`, `COMMAND_STALE` (mensagem "A configuração mudou; abra o seletor de novo."); `IDE_NOT_FOUND` removido | códigos aprovados pelo dono em 2026-10-22; remoção e mensagem nova aprovadas pelo dono em 2026-10-23 |
+| Estado | `Group.commands?`, `Task.kind?`, `Execution.command?` (opcionais) | aprovado pelo dono em 2026-10-22 |
+| Arquivo novo | `userData/preferences.json` v1 (`keymap`, `activeRun`) no lugar de `tools.json` | aprovado pelo dono em 2026-10-23 |
+| IPC | grupo `run` (com `list()` global, `choice` no `start`, `groupId`/`tool`/`unavailableReason` em `RunCommand`) e grupo `prefs`; grupo `ide` removido | aprovado pelo dono em 2026-10-23 |
 
 ## Design
 
-### Núcleo
+### Núcleo (`src/core`)
 
-- `src/core/run/detect.ts` (puro sobre `FileSystem`): por pasta, lê até 1 MB de cada arquivo:
-  - `package.json` → `scripts` (lock: `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, senão npm;
-    `<pm> run <script>`); inválido → aviso no resultado;
-  - `pom.xml` → `mvnw`/`mvn` com `compile`, `test`, `package`;
-  - `build.gradle(.kts)` → `gradlew`/`gradle` com `build`, `test`; `run` se houver o plugin
-    `application`; `bootRun` se houver `org.springframework.boot`;
-  - `docker-compose.yml`/`compose.yaml` → `docker compose up` e `docker compose down`.
-  Saída: `RunCommand[]` com `available` (ferramenta resolvida) e `searched`.
-- `src/core/run/run-service.ts`: `start(groupId, commandId, size)` → resolve o `commandId` **no
-  servidor** (nova detecção ou `Group.commands`; inexistente → `COMMAND_STALE` "O comando mudou; abra o
-  menu de novo."); comando com execução viva → devolve a execução existente (o renderer foca o painel);
-  valida pasta do workspace e vagas (`assertWithinLimit`); resolve o programa (ausente →
-  `PROGRAM_NOT_FOUND`); cria `Task { kind: 'command', isolation: 'direct' }` e
-  `Execution { agentId: 'command', command: { commandId, label, file, args } }`, onde `file` é o
-  **caminho já resolvido**; `start.ts` usa `command` em vez de `catalog.buildLaunch`.
-  `rerun(execId)` = parar (se vivo) + `relaunchExecution`. Remoção de comando/workspace com execução
-  viva → `EXECUTION_RUNNING`.
-- Consumidores de `agentId` (`switch-service.ts`, `execution-service.ts`, `prepare.ts`, `roots.ts` e, no
-  renderer, `App.tsx`, `ExecutionTabs.tsx`, `Panel.tsx`, `TreeTask.tsx`, `TreeExecution.tsx`,
-  `AgentMenu.tsx`): execução com `command` não troca modelo/modo (recusa com mensagem), não é
-  retomada como agente, mostra o rótulo do comando e um ícone próprio no lugar do nome do agente.
-- `src/core/run/custom-commands.ts`: CRUD em `Group.commands` (nome 1–80, programa 1–`LIMITS.path`,
-  até 64 argumentos de até 4.096 caracteres, sem caracteres de controle, pasta do workspace).
-- `src/core/ide/ide-locator.ts`: candidatos por sistema — VS Code: `code` no PATH (no Windows,
-  `Code.exe` em `%LOCALAPPDATA%\Programs\Microsoft VS Code` e `%ProgramFiles%\Microsoft VS Code`; o
-  `code.cmd` não é usado); IntelliJ: `idea64.exe` em `%ProgramFiles%\JetBrains\IntelliJ*\bin` e nos
-  scripts do Toolbox; Linux: `code`, `idea`, `idea.sh` no PATH e em `~/.local/share/JetBrains/Toolbox/
-  scripts`. Caminho informado em `tools.json` tem prioridade; inexistente → volta a procurar e avisa.
-  No Windows só `.exe` é candidato (o `idea.cmd` do Toolbox e o `code.cmd` são ignorados; o Toolbox
-  também instala `idea64.exe` em `%LOCALAPPDATA%\Programs`). Argumentos: VS Code
-  `--goto <arquivo>:<linha>` ou `<pasta>`; IntelliJ `--line <n> <arquivo>` ou `<pasta>`.
-- `src/core/ide/tools-store.ts`: `tools.json` versão 1, gravação atômica, versão maior → somente
-  leitura.
+- `run/detect.ts` (puro sobre `FileSystem`/`Platform`): por pasta, lê até 1 MB de `package.json`,
+  `pom.xml`, `build.gradle(.kts)`, `docker-compose.yml`/`compose.yaml` e gera `RunCommand[]` +
+  avisos (research R2, R3; data-model "Detecção"). `available`/`unavailableReason`/`searched` pela
+  resolução do programa.
+- `run/resolve-program.ts`: `resolveExecutable`; lote do npm/pnpm/yarn → `resolveNpmShim`; outro lote →
+  `INPUT_INVALID`; ausente → `PROGRAM_NOT_FOUND`. Wrapper no Linux/macOS: confere bit de execução
+  (`FileStat.mode`, novo campo opcional na porta, preenchido pelo `NodeFileSystem`).
+- `run/custom-commands.ts`: validação e CRUD de `Group.commands` (nome único no workspace).
+- `run/run-service.ts`: `list()` (todos os workspaces, detecção em paralelo), `start`, `rerun`,
+  `saveCommand`, `removeCommand` (recusa com execução viva). `start` e `rerun` seguem research R7
+  (resolve de novo, atualiza `exec.command`, serializado por configuração); cria
+  `Task { kind: 'command', isolation: 'direct' }` e `Execution { agentId: 'command', command }`.
+  `choice: 'wrapper-sh'` só vale quando o programa é o wrapper do projeto sem bit de execução;
+  `system-tool` só troca o wrapper por `mvn`/`gradle`. Parar: `executions.stop` (Ctrl+C e, após 5 s,
+  encerramento forçado — research R9).
+- Os consumidores decidem por `exec.command`/`Task.kind`, nunca por `agentId === 'command'` (o
+  marcador existe só para versões antigas do estado lerem um id não vazio).
+- `execution/start.ts` e `relaunchExecution`: com `exec.command`, usam `file`/`args` dele em vez de
+  `catalog.buildLaunch`; `prepare.ts` não consulta o catálogo para execução de comando.
+- Consumidores de `agentId` (`switch-service.ts`, `execution-service.ts`, `files/roots.ts`): troca de
+  modelo/modo recusada com `SWITCH_UNSUPPORTED` "Comandos não trocam de modelo nem de modo.";
+  `removeTasksOf` recusa com execução de comando viva ("Pare o comando antes.").
+- `prefs/preferences-store.ts`: lê/grava `preferences.json` (atômico, versão, somente leitura).
 
 ### Main/IPC
 
-Grupos `run` e `ide` ([contracts/ipc.md](contracts/ipc.md)); `ide.open` faz `spawn` destacado
-(`detached`, `stdio: 'ignore'`, sem shell) e `unref`; `ide.choosePath` abre o diálogo nativo no main
-(filtro `.exe` no Windows) e valida arquivo regular e não-lote; `ide.reveal` usa
-`shell.showItemInFolder`.
+`register-run.ts`/`validate-run.ts` e `register-prefs.ts`/`validate-prefs.ts` no padrão de
+`register-lifecycle.ts`/`validate-lifecycle.ts`; montagem em `register.ts` e `main.ts`
+([contracts/ipc.md](contracts/ipc.md)).
 
 ### Renderer
 
-- `Run/RunMenu.tsx` no "▶" do workspace (árvore): comandos por pasta, desabilitados com motivo,
-  "Novo comando…".
-- `Run/CommandDialog.tsx`: criar/editar personalizado (argumentos como lista de campos, não uma linha).
-- Linha da execução de comando na árvore com ícone próprio, "Parar", "Rodar de novo".
-- "Abrir em…" (VS Code, IntelliJ, explorador) no workspace, nas pastas e na aba do editor (com a linha
-  do cursor); diálogo para informar o caminho quando não encontrado.
+- `Run/RunBar.tsx` no slot `children` de `TopBar.tsx`: seletor (ícone do tipo + nome; "Nenhuma
+  configuração ativa"), ▶ (desabilitado com "Escolha uma configuração"), ⋮ com "Rodar de novo",
+  "Parar", "Editar configurações". Indica rodando pelo snapshot (execução viva com `command.commandId`).
+- `Run/RunSelector.tsx`: lista por workspace e pasta, personalizadas primeiro, desabilitadas com
+  "não encontrado: X" ou "pasta fora do workspace", avisos, "Nenhuma configuração".
+- `Run/RunConfigDialog.tsx`: lista à esquerda, campos à direita; detectadas só leitura com "Duplicar";
+  personalizadas com editar/duplicar/excluir; argumentos como lista de campos.
+- `store/run-store.ts`: catálogo, configuração ativa (via `prefs`), ações rodar/rodar de novo/parar;
+  foca o painel com `layout-store.open(execId)`.
+- `keymap/keymaps.ts` (tabela R8), `keymap/keymap-store.ts` (mapa atual via `prefs`),
+  `keymap/use-shortcuts.ts` (ouvinte único em captura na `window`, substitui os de `App.tsx`);
+  `Settings/KeymapDialog.tsx` ("Mapa de atalhos" com a tabela) aberto por um botão na barra superior;
+  dicas/títulos (`EditorPane`, `TopBar`, `Sidebar`) usam `shortcutLabel(action)`.
+- Execução de comando na árvore e no painel: ícone próprio e rótulo do comando no lugar do agente
+  (`TreeExecution`, `TreeTask`, `ExecutionTabs`, `Panel`, `AgentMenu` sem trocas).
 
 ### Erros e logs
 
-`INPUT_INVALID` (validações), códigos novos `PROGRAM_NOT_FOUND`, `IDE_NOT_FOUND` (o renderer abre o
-diálogo de escolha a partir dele) e `COMMAND_STALE`, além de `LIMIT_REACHED` e `EXECUTION_RUNNING`.
-Logs: `run.started { groupId, source, tool }`, `run.stopped { groupId, exitCode }`,
-`ide.open { kind, ok }`, `ide.reveal { ok }` — sem argumentos nem caminhos.
+Ver [contracts/ipc.md](contracts/ipc.md) (Erros, Logs). FR-017 coberto pelos logs `run.*` e
+`prefs.keymap_changed`, sem argumentos nem caminhos.
 
 ## Estratégia de testes
 
 | Camada | Cobre | Onde |
 |---|---|---|
-| Unit core | detector (cada tipo, lock, wrapper, plugin application/spring, inválido, > 1 MB, ferramenta ausente), comandos personalizados, localizador de IDE e argumentos, tools-store | `tests/unit/core/run/`, `tests/unit/core/ide/` |
-| Integração | rodar `node -e` como comando personalizado num PTY real; rodar script npm de um projeto de exemplo; rerun e stop; limite de vagas | `tests/integration/core/run.test.ts` |
-| Unit main | canais `run`/`ide`, spawn destacado sem shell (fake) | `tests/unit/main/ipc/register-run.test.ts`, `register-ide.test.ts` |
-| Unit renderer | menu, diálogo, linha da execução, "Abrir em…" | `tests/unit/renderer/Run*.test.tsx`, `OpenIn.test.tsx` |
-| e2e | rodar um script npm de um projeto de exemplo e ver a saída | `tests/e2e/run.spec.ts` |
+| Unit core | detector (cada tipo, lock, wrapper com/sem bit, plugins, inválido, > 1 MB, ausente, legado do compose), resolução, personalizadas, run-service, preferências | `tests/unit/core/run/`, `tests/unit/core/prefs/` |
+| Integração | script npm do `node-app` num PTY real; personalizado `node -e` com argumento com espaço e aspas; rerun/stop; reusar painel; limite de vagas | `tests/integration/core/run.test.ts` |
+| Unit main | canais `run`/`prefs` e validação | `tests/unit/main/ipc/register-run.test.ts`, `register-prefs.test.ts` |
+| Unit renderer | barra, seletor, janela de configurações, árvore, mapas (tabela, captura com terminal/editor em foco, teclas proibidas, troca imediata), diálogo do mapa | `tests/unit/renderer/` |
+| Arquitetura | nenhum `shell: true`, `cmd.exe`, `/c`, `sh -c` em `src/core/run` e `register-run.ts` | `tests/arch/no-shell-launch.test.ts` |
+| Desempenho | detecção de 10 pastas < 1 s | `tests/unit/core/run/detect-perf.test.ts` |
+| e2e | escolher `dev`, Rodar, ver saída; trocar mapa e usar o atalho | `tests/e2e/run.spec.ts` |
 
 ### Roteiro de tela (para o `/testar-tela`)
 
-- **US1**: "▶" do workspace Node → `dev` → painel com a saída → "Rodar de novo" → "Parar".
-- **US2**: "Novo comando…" → `node`, argumentos `-e`, `console.log(1)` → rodar → saída `1`.
-- **US3**: "Abrir em… → VS Code" no workspace; no editor, linha 42 → VS Code abre na linha; IDE ausente
-  → informar caminho.
-
-Detalhe em [quickstart.md](quickstart.md).
+Ver [quickstart.md](quickstart.md).
 
 ## Project Structure
 
 ```text
-src/core/run/detect.ts, run-service.ts, custom-commands.ts (novos)
-src/core/ide/ide-locator.ts, tools-store.ts (novos)
-src/core/persistence/state-schema.ts (campos opcionais), src/core/execution/start.ts, src/core/paths.ts
-src/shared/ipc-contract.ts
-src/main/ipc/register-run.ts, validate-run.ts, register-ide.ts, validate-ide.ts (novos), src/main/ipc/register.ts, src/main/main.ts
-src/renderer/components/Run/RunMenu.tsx, CommandDialog.tsx (novos); src/renderer/components/Ide/OpenIn.tsx (novo)
-src/core/execution/switch-service.ts, execution-service.ts, prepare.ts, src/core/files/roots.ts (execução de comando)
-src/renderer/App.tsx, Panel/ExecutionTabs.tsx, Panel/Panel.tsx, Tree/TreeTask.tsx, Tree/AgentMenu.tsx (rótulo e ícone)
-src/renderer/components/Tree/TreeGroup.tsx, TreeExecution.tsx, Editor/EditorPane.tsx
+src/core/run/types.ts (existe), detect.ts, resolve-program.ts, custom-commands.ts, run-service.ts
+src/core/prefs/preferences-store.ts
+src/core/ports/file-system.ts (mode?), src/adapters/node-fs.ts
+src/core/persistence/state-schema.ts (feito), src/core/paths.ts (preferencesFile), src/core/errors.ts
+src/core/execution/start.ts, lifecycle.ts, prepare.ts, switch-service.ts, execution-service.ts, src/core/files/roots.ts
+src/shared/ipc-contract.ts, src/preload/preload.ts
+src/main/ipc/register-run.ts, validate-run.ts, register-prefs.ts, validate-prefs.ts, register.ts, src/main/main.ts
+src/renderer/components/Run/RunBar.tsx, RunSelector.tsx, RunConfigDialog.tsx; src/renderer/store/run-store.ts
+src/renderer/keymap/keymaps.ts, keymap-store.ts, use-shortcuts.ts; src/renderer/components/Settings/KeymapDialog.tsx
+src/renderer/App.tsx, TopBar.tsx, Tree/*, Panel/*, Editor/EditorPane.tsx, styles/app.css
 ```
 
 ## Complexity Tracking

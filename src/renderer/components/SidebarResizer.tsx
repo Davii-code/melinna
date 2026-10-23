@@ -1,4 +1,5 @@
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
+import { useShortcutLabel, withShortcut } from '../keymap/keymap-store';
 
 export const SIDEBAR_MIN = 200;
 export const SIDEBAR_MAX = 640;
@@ -59,13 +60,14 @@ export function storeSidebarCollapsed(
 
 /** Faixa estreita no lugar da barra lateral escondida, com o botão para mostrá-la de novo. */
 export function SidebarRail({ onExpand }: { onExpand: () => void }) {
+  const toggleShortcut = useShortcutLabel('toggleSidebar');
   return (
     <div className="sidebar-rail">
       <button
         type="button"
         className="icon-button"
         aria-label="Mostrar barra lateral"
-        title="Mostrar barra lateral (Ctrl+Shift+B)"
+        title={withShortcut('Mostrar barra lateral', toggleShortcut)}
         onClick={onExpand}
       >
         »

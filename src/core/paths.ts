@@ -23,6 +23,10 @@ export interface AppPaths {
   userData: string;
   state: string;
   userCatalog: string;
+  /** Biblioteca de prompts e filas por sessão (versão própria, separada do estado do workspace). */
+  promptsFile: string;
+  /** Preferências do usuário: mapa de atalhos e configuração de execução ativa (versão própria). */
+  preferencesFile: string;
   hostDir: string;
   hostRegistry: string;
   hostToken: string;
@@ -32,8 +36,12 @@ export interface AppPaths {
   mainLog: string;
   hostLog: string;
   scrollbackRoot: string;
+  /** Anexos de imagem coladas, uma pasta por execução. */
+  attachmentsRoot: string;
   worktreesRoot: string;
   scrollbackDir(execId: string): string;
+  attachmentsDir(execId: string): string;
+  attachmentFile(execId: string, fileName: string): string;
   repoWorktrees(repoId: string): string;
   worktree(repoId: string, execId: string): string;
   lease(repoId: string, execId: string): string;
@@ -48,11 +56,14 @@ export function makePaths(userData: string, os: OsName): AppPaths {
   const logsDir = p.join(root, 'logs');
   const worktreesRoot = p.join(root, 'worktrees');
   const scrollbackRoot = p.join(root, 'scrollback');
+  const attachmentsRoot = p.join(root, 'attachments');
   const cmp = (s: string) => (os === 'win32' ? s.toLowerCase() : s);
   return {
     userData: root,
     state: p.join(root, 'state.json'),
     userCatalog: p.join(root, 'catalog.json'),
+    promptsFile: p.join(root, 'prompts.json'),
+    preferencesFile: p.join(root, 'preferences.json'),
     hostDir,
     hostRegistry: p.join(hostDir, 'registry.json'),
     hostToken: p.join(hostDir, 'token'),
@@ -62,8 +73,11 @@ export function makePaths(userData: string, os: OsName): AppPaths {
     mainLog: p.join(logsDir, 'main.log'),
     hostLog: p.join(logsDir, 'host.log'),
     scrollbackRoot,
+    attachmentsRoot,
     worktreesRoot,
     scrollbackDir: (execId) => p.join(scrollbackRoot, execId),
+    attachmentsDir: (execId) => p.join(attachmentsRoot, execId),
+    attachmentFile: (execId, fileName) => p.join(attachmentsRoot, execId, fileName),
     repoWorktrees: (repoId) => p.join(worktreesRoot, repoId),
     worktree: (repoId, execId) => p.join(worktreesRoot, repoId, execId),
     lease: (repoId, execId) => p.join(worktreesRoot, repoId, `${execId}.lease`),

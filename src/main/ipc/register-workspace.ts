@@ -5,12 +5,15 @@ import { handler, type Handle } from './result';
 import {
   parseCleanResidue,
   parseCreateGroup,
+  parseCreateWorkspace,
   parseInspectRepo,
   parseOpenWorkspace,
+  parsePickFolders,
   parsePickRepository,
   parseRenameGroup,
   parseRenameTask,
   parseSnapshot,
+  parseUpdateWorkspace,
 } from './validate-workspace';
 
 export interface WorkspaceIpcDeps {
@@ -18,6 +21,8 @@ export interface WorkspaceIpcDeps {
   log: Logger;
   /** Diálogo nativo de escolha de pasta. */
   pickRepository: (defaultPath?: string) => Promise<string | null>;
+  /** Diálogo nativo com seleção múltipla de pastas; lista vazia se cancelado. */
+  pickFolders: (defaultPath?: string) => Promise<string[]>;
 }
 
 export function registerWorkspace(handle: Handle, deps: WorkspaceIpcDeps): void {
@@ -29,11 +34,26 @@ export function registerWorkspace(handle: Handle, deps: WorkspaceIpcDeps): void 
   };
   handle(
     C.snapshot,
-    handler(log, C.snapshot, parseSnapshot, () => workspace.snapshot()),
+    handler(log, C.snapshot, parseSnapshot, async () => {
+      await workspace.refreshFolderAvailability();
+      return workspace.snapshot();
+    }),
   );
   handle(
     C.createGroup,
     handler(log, C.createGroup, parseCreateGroup, (name) => workspace.createGroup(name)),
+  );
+  handle(
+    C.createWorkspace,
+    handler(log, C.createWorkspace, parseCreateWorkspace, (input) =>
+      workspace.createWorkspace(input.name, input.folders, input.primaryIndex),
+    ),
+  );
+  handle(
+    C.updateWorkspace,
+    handler(log, C.updateWorkspace, parseUpdateWorkspace(ids), (id, change) =>
+      workspace.updateWorkspace(id, change),
+    ),
   );
   handle(
     C.renameGroup,
@@ -46,6 +66,10 @@ export function registerWorkspace(handle: Handle, deps: WorkspaceIpcDeps): void 
   handle(
     C.pickRepository,
     handler(log, C.pickRepository, parsePickRepository, (p) => deps.pickRepository(p)),
+  );
+  handle(
+    C.pickFolders,
+    handler(log, C.pickFolders, parsePickFolders, (p) => deps.pickFolders(p)),
   );
   handle(
     C.inspectRepo,

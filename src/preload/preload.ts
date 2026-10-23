@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import {
   CHANNELS,
   EVENTS,
@@ -40,7 +40,23 @@ export function buildApi(): MelinnaApi {
     executions: group(CHANNELS.executions),
     terminal: group(CHANNELS.terminal),
     layout: group(CHANNELS.layout),
-    files: group(CHANNELS.files),
+    files: {
+      ...group(CHANNELS.files),
+      pathOf: (file) => webUtils.getPathForFile(file as File),
+    },
+    git: {
+      ...group(CHANNELS.git),
+      onProgress: (fn) => subscribe(EVENTS.gitProgress, fn),
+    },
+    attachments: group(CHANNELS.attachments),
+    prompts: {
+      ...group(CHANNELS.prompts),
+      queue: group(CHANNELS.promptQueue),
+      onChange: (fn) => subscribe<void>(EVENTS.promptsChanged, () => fn()),
+      onQueueDiscarded: (fn) => subscribe(EVENTS.queueDiscarded, fn),
+    },
+    run: group(CHANNELS.run),
+    prefs: group(CHANNELS.prefs),
     app: {
       ...group(CHANNELS.app),
       onCloseRequested: (fn) => subscribe(EVENTS.closeRequested, fn),

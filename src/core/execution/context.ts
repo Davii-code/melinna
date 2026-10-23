@@ -33,9 +33,13 @@ export interface ExecutionDeps {
   hosts: HostProvider;
   /** Ambiente herdado pelos agentes (o do usuário). */
   baseEnv: Record<string, string>;
+  /** Anexos de imagem da execução: apagados junto com ela. */
+  attachments?: { removeFor(execId: string): Promise<number | null> };
 }
 
 export interface ExecutionContext extends ExecutionDeps {
   busy: BusyTracker;
   update(execId: string, patch: Partial<Execution>): void;
+  /** Avisa que o registro de uma execução foi removido. */
+  removed(execId: string): void;
 }

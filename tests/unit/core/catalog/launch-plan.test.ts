@@ -134,7 +134,13 @@ describe('buildLaunchArgs', () => {
       detect: { strategy: 'path' },
     };
     const s = buildLaunchArgs(shell, { model: 'x', permission: 'y', prompt: 'ignored' }, linux);
-    expect(s).toEqual({ args: ['-l'], model: null, permission: null });
+    expect(s).toEqual({
+      args: ['-l'],
+      model: null,
+      permission: null,
+      extraDirsApplied: false,
+      extraDirsOmitted: 0,
+    });
   });
 
   it('omits the prompt arguments when the prompt is empty', () => {

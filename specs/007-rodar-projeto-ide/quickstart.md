@@ -1,30 +1,40 @@
-# Quickstart: validar rodar o projeto e abrir na IDE
+# Quickstart: validar configurações de execução e mapas de atalhos
 
 ## Automático
 
 ```bash
 npm run test:unit
 npm run test:integration
+npm run test:arch
 npm run test:e2e
 ```
 
 ## Roteiro manual (para o /testar-tela, no app)
 
-Prepare três pastas: um projeto Node com scripts `dev` e `test` e `package-lock.json`; um projeto
-Maven com `mvnw`; um projeto com `compose.yaml`.
+Prepare workspaces com os projetos de `tests/fixtures/projects/` (`node-app`, `maven-app`,
+`compose-app`, `broken`).
 
-1. **Detectar** — "▶" do workspace Node. Esperado: `npm run dev`, `npm run test`.
-2. **Rodar** — `dev`. Esperado: painel com a saída; linha na árvore com "Parar" e "Rodar de novo".
-3. **Rodar de novo / parar** — Esperado: separador "relançado em" no painel; parar encerra.
-4. **Maven** — workspace Maven. Esperado: compilar/testar/empacotar; no Windows, aviso de wrapper
-   ignorado e uso do `mvn`; no Linux, `./mvnw`.
-5. **Ausente** — sem `docker` instalado, workspace com `compose.yaml`. Esperado: itens desabilitados
-   com "não encontrado: docker".
-6. **Personalizado** — "Novo comando…": programa `node`, argumentos `-e` e `console.log("oi mundo")`.
-   Esperado: saída `oi mundo` (argumento com espaço preservado).
-7. **Vagas** — com 12 terminais vivos, rodar um comando. Esperado: mensagem de limite.
-8. **VS Code** — "Abrir em… → VS Code" no workspace; no editor, cursor na linha 42, abrir no VS Code.
-   Esperado: abre a pasta; depois o arquivo na linha 42.
-9. **IntelliJ ausente** — "Abrir em… → IntelliJ" sem IntelliJ. Esperado: mensagem com onde procurou;
-   informar o caminho; abrir de novo funciona e o caminho fica guardado.
-10. **Explorador** — "Mostrar no explorador". Esperado: gerenciador de arquivos na pasta.
+0. **Sem ativa** — primeiro uso. Esperado: seletor "Nenhuma configuração ativa", ▶ desabilitado com
+   "Escolha uma configuração"; ⋮ com "Rodar de novo"/"Parar" desabilitados.
+1. **Seletor** — abrir o seletor na barra superior. Esperado: grupos por workspace e pasta; `node-app`
+   com "dev" e "test" (npm); Maven com compilar/testar/empacotar (no Windows, aviso de wrapper
+   ignorado); `broken` com aviso de `package.json` inválido; sem `docker`, compose desabilitado com
+   "não encontrado: docker".
+2. **Rodar** — escolher "dev", clicar ▶. Esperado: painel com "servidor de exemplo no ar"; seletor
+   indica rodando; ▶ de novo foca o mesmo painel.
+3. **Menu** — ⋮ → "Rodar de novo": separador "relançado em" no mesmo painel; ⋮ → "Parar": painel
+   mostra o código de saída.
+4. **Editar configurações** — ⋮ → "Editar configurações" → nova: nome "oi", programa `node`,
+   argumentos `-e` e `console.log("oi mundo")`, pasta do workspace. Rodar. Esperado: `oi mundo`.
+   Nome repetido → "Já existe uma configuração com esse nome". Detectada: campos só leitura e
+   "Duplicar".
+5. **Lembrar** — fechar e reabrir o app. Esperado: mesma configuração ativa; personalizada continua.
+6. **Excluir rodando** — excluir a personalizada enquanto roda. Esperado: "Pare o comando antes."
+7. **Vagas** — com 12 terminais vivos, Rodar. Esperado: mensagem de limite.
+8. **Mapa de atalhos** — abrir "Mapa de atalhos", escolher IntelliJ; com o terminal em foco,
+   Ctrl+Shift+N abre "ir para arquivo" e Shift+F10 roda a configuração ativa; Ctrl+P não faz nada do
+   app. Voltar a Windows: Ctrl+P abre "ir para arquivo". Ctrl+C no terminal continua interrompendo.
+9. **Mapa persiste** — com IntelliJ escolhido, fechar e reabrir o app. Esperado: IntelliJ continua.
+10. **Pasta fora** — remover do workspace a pasta de uma personalizada. Esperado: desabilitada com
+    "pasta fora do workspace".
+11. **Dicas** — com o mapa IntelliJ, o título de "Salvar"/"Rodar" mostra a tecla do mapa.

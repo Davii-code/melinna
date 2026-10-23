@@ -98,7 +98,7 @@ describe('RemoveExecutionDialog', () => {
         />
       </ApiContext.Provider>,
     );
-    expect(screen.getByText(/a pasta/i).textContent).toMatch(/A pasta /minha/pasta não é apagada/);
+    expect(screen.getByText(/a pasta/i).textContent).toMatch(/A pasta \/minha\/pasta não é apagada/);
     expect(screen.queryByRole('checkbox', { name: /apagar a branch/i })).toBeNull();
     const remove = screen.getByRole('button', { name: /^remover$/i }) as HTMLButtonElement;
     await waitFor(() => expect(remove.disabled).toBe(false));

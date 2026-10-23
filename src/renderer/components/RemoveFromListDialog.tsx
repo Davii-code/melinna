@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Execution, Group, Task } from '../../shared/ipc-contract';
 import { errorMessage, unwrap, useApi } from '../api';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -32,6 +32,20 @@ export function RemoveFromListDialog({
   const api = useApi();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Prompts do escopo do workspace, que saem junto com ele; só informativo. */
+  const [promptCount, setPromptCount] = useState(0);
+  const groupId = target.kind === 'workspace' ? target.group.id : null;
+
+  useEffect(() => {
+    if (groupId === null) return;
+    let alive = true;
+    void api.prompts.countForGroup(groupId).then((r) => {
+      if (alive && r.ok) setPromptCount(r.value);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [api, groupId]);
 
   const affected =
     target.kind === 'task' ? [target.task] : tasks.filter((t) => t.groupId === target.group.id);
@@ -72,6 +86,13 @@ export function RemoveFromListDialog({
       {target.kind === 'workspace' && (
         <p>
           {affected.length} {affected.length === 1 ? 'sessão sai' : 'sessões saem'} junto com o workspace.
+        </p>
+      )}
+      {promptCount > 0 && (
+        <p>
+          {promptCount === 1
+            ? '1 prompt deste workspace será removido.'
+            : `${promptCount} prompts deste workspace serão removidos.`}
         </p>
       )}
       {execCount > 0 && (

@@ -27,6 +27,8 @@
         "switch": { "strategy": "pty-command", "template": "/permission {permission}\r" }
       },
       "resume": { "args": ["--resume"] },
+      "extraDirs": { "style": "repeat", "args": ["--add-dir", "{dir}"] },
+      "images": { "template": "{path}", "quote": "when-needed" },
       "detect": { "strategy": "path" }
     },
     {

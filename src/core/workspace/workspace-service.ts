@@ -1,3 +1,4 @@
+import type { WorkspaceChange } from '../api-types';
 import { MelinnaError } from '../errors';
 import { slugify } from '../git/branch-name';
 import type { GitRunner } from '../git/git-runner';
@@ -6,6 +7,16 @@ import { cleanResidue, type ResidueDeps } from '../git/residue';
 import { newId } from '../ids';
 import { pathModule, repoIdOf } from '../paths';
 import type { Group, Isolation, Task } from '../persistence/state-schema';
+import {
+  addFolder,
+  derivedRepo,
+  extrasOf,
+  normalizeFolders,
+  primaryOf,
+  removeFolder,
+  setPrimary,
+  type FolderSet,
+} from './workspace-folders';
 import type { Clock } from '../ports/clock';
 import type { Unsubscribe } from '../ports/host-client';
 import type { Logger } from '../ports/logger';
@@ -31,6 +42,8 @@ export interface WorkspaceServiceDeps {
   clock: Clock;
   log: Logger;
   residue: ResidueDeps;
+  /** Chamado depois que um workspace sai da lista (ex.: remover os prompts do escopo dele). */
+  onGroupRemoved?: (groupId: string) => void;
 }
 
 export function validateGroupName(name: string): string {
@@ -38,6 +51,16 @@ export function validateGroupName(name: string): string {
   if (trimmed.length < 1 || trimmed.length > GROUP_NAME_MAX || /[\r\n]/.test(trimmed)) {
     throw new MelinnaError('INPUT_INVALID', {
       userMessage: `O nome do grupo deve ter de 1 a ${GROUP_NAME_MAX} caracteres, sem quebra de linha.`,
+    });
+  }
+  return trimmed;
+}
+
+export function validateWorkspaceName(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed.length < 1 || trimmed.length > GROUP_NAME_MAX || /[\r\n]/.test(trimmed)) {
+    throw new MelinnaError('INPUT_INVALID', {
+      userMessage: `O nome do workspace deve ter de 1 a ${GROUP_NAME_MAX} caracteres, sem quebra de linha.`,
     });
   }
   return trimmed;
@@ -126,18 +149,118 @@ export class WorkspaceService {
       return this.deps.model.group(existing.id) ?? existing;
     }
     const groups = this.deps.model.raw.groups;
+    const set = normalizeFolders([root], os);
     const group: Group = {
       id: newId(),
       name: validateGroupName(name && name.trim().length > 0 ? name : folderName(root)),
       order: groups.length,
-      repoPath: root,
-      repoId,
+      ...set,
+      ...derivedRepo(set, os),
       colorIndex: groups.filter((g) => g.repoPath).length % 6,
       lastOpenedAt: now,
     };
     this.deps.model.mutate((s) => s.groups.push(group));
     this.deps.log.info('workspace.opened', { repoId });
+    await this.refreshFolderAvailability();
     return group;
+  }
+
+  /**
+   * Cria um workspace com nome e uma ou mais pastas (`primaryIndex` escolhe a principal; padrão a primeira).
+   * As pastas ficam como foram escolhidas, sem subir para a raiz do repositório, e podem repetir-se em
+   * outros workspaces.
+   */
+  async createWorkspace(name: string, paths: readonly string[], primaryIndex = 0): Promise<Group> {
+    const valid = validateWorkspaceName(name);
+    if (paths.length === 0)
+      throw new MelinnaError('INPUT_INVALID', { userMessage: 'Um workspace precisa de ao menos uma pasta.' });
+    const os = this.deps.residue.os;
+    const set = normalizeFolders(paths, os, primaryIndex);
+    for (const folder of set.folders) await this.assertDirectory(folder.path);
+    const groups = this.deps.model.raw.groups;
+    const group: Group = {
+      id: newId(),
+      name: valid,
+      order: groups.length,
+      ...set,
+      ...derivedRepo(set, os),
+      colorIndex: groups.filter((g) => g.repoPath).length % 6,
+      lastOpenedAt: this.deps.clock.now().toISOString(),
+    };
+    this.deps.model.mutate((s) => s.groups.push(group));
+    this.deps.log.info('workspace.created', { groupId: group.id, folders: set.folders.length });
+    await this.refreshFolderAvailability();
+    return group;
+  }
+
+  /** Aplica uma mudança ao workspace (nome ou pastas) e grava; sessões vivas não são tocadas. */
+  updateWorkspace(id: string, change: WorkspaceChange): Promise<Group> {
+    return this.deps.residue.mutex.run(`workspace:${id}`, async () => {
+      const group = this.deps.model.group(id);
+      if (!group) throw new MelinnaError('INPUT_INVALID', { userMessage: 'Workspace não encontrado.' });
+      const os = this.deps.residue.os;
+      const current: FolderSet | null =
+        group.folders && group.primaryFolderId
+          ? { folders: group.folders, primaryFolderId: group.primaryFolderId }
+          : null;
+      let next: FolderSet | null = current;
+      let name = group.name;
+      switch (change.kind) {
+        case 'rename':
+          name = validateWorkspaceName(change.name);
+          break;
+        case 'addFolders': {
+          if (change.folders.length === 0)
+            throw new MelinnaError('INPUT_INVALID', { userMessage: 'Escolha ao menos uma pasta.' });
+          const resolved = change.folders.map((p) => pathModule(os).resolve(p));
+          for (const p of resolved) await this.assertDirectory(p);
+          next = current ?? normalizeFolders(resolved.slice(0, 1), os);
+          for (const p of current ? resolved : resolved.slice(1)) next = addFolder(next, p, os);
+          break;
+        }
+        case 'removeFolder':
+          next = removeFolder(this.requireFolders(current), change.folderId);
+          break;
+        case 'setPrimary':
+          next = setPrimary(this.requireFolders(current), change.folderId);
+          break;
+      }
+      this.deps.model.mutate((s) => {
+        const g = s.groups.find((x) => x.id === id);
+        if (!g) return;
+        g.name = name;
+        if (next) Object.assign(g, next, derivedRepo(next, os));
+      });
+      this.deps.log.info('workspace.updated', {
+        groupId: id,
+        folders: next?.folders.length ?? 0,
+        change: change.kind,
+      });
+      await this.refreshFolderAvailability();
+      return this.deps.model.group(id) ?? group;
+    });
+  }
+
+  private requireFolders(set: FolderSet | null): FolderSet {
+    if (!set) throw new MelinnaError('INPUT_INVALID', { userMessage: 'Pasta não encontrada neste workspace.' });
+    return set;
+  }
+
+  private async assertDirectory(path: string): Promise<void> {
+    const stat = await this.deps.residue.fs.stat(path).catch(() => null);
+    if (!stat?.isDirectory) {
+      throw new MelinnaError('INPUT_INVALID', { userMessage: `A pasta ${path} não existe.` });
+    }
+  }
+
+  /** Confere no disco quais pastas de workspace ainda existem e avisa quem escuta. */
+  async refreshFolderAvailability(): Promise<void> {
+    const { fs } = this.deps.residue;
+    const folders = this.deps.model.raw.groups.flatMap((g) => g.folders ?? []);
+    const checks = await Promise.all(
+      folders.map(async (f) => ((await fs.stat(f.path).catch(() => null))?.isDirectory ? null : f.id)),
+    );
+    this.deps.model.setUnavailableFolders(new Set(checks.filter((id): id is string => id !== null)));
   }
 
   inspectRepo(repoPath: string, baseRef: string): Promise<RepoInspection> {
@@ -163,25 +286,45 @@ export class WorkspaceService {
     if (model.raw.tasks.some((t) => t.groupId === id)) {
       throw new MelinnaError('INPUT_INVALID', { userMessage: 'Remova as sessões do workspace antes.' });
     }
+    const folders = model.group(id)?.folders?.length ?? 0;
     model.mutate((s) => {
       s.groups = s.groups.filter((g) => g.id !== id);
     });
-    log.info('workspace.removed', { groupId: id });
+    log.info('workspace.removed', { groupId: id, folders });
+    this.deps.onGroupRemoved?.(id);
   }
 
   async createTask(input: CreateTaskInput): Promise<Task> {
-    if (!this.deps.model.group(input.groupId))
-      throw new MelinnaError('INPUT_INVALID', { userMessage: 'Grupo não encontrado.' });
+    // Leitura única do workspace: a principal e as extras valem para esta sessão, mesmo que ele mude depois.
+    const group = this.deps.model.group(input.groupId);
+    if (!group) throw new MelinnaError('INPUT_INVALID', { userMessage: 'Grupo não encontrado.' });
+    const os = this.deps.residue.os;
+    const folders =
+      group.folders && group.primaryFolderId
+        ? { folders: [...group.folders], primaryFolderId: group.primaryFolderId }
+        : null;
     validatePrompt(input.prompt);
     const title =
       input.title !== undefined && input.title.trim().length > 0
         ? validateTaskTitle(input.title)
         : defaultTitle(input.prompt, 'Sessão');
     const isolation = input.isolation ?? 'worktree';
-    const repo =
-      isolation === 'direct'
+    // Execução direta num workspace: o cwd é a pasta principal como foi escolhida, sem subir para a raiz do git.
+    const primary = isolation === 'direct' && folders ? primaryOf(folders) : null;
+    if (primary) {
+      const stat = await this.deps.residue.fs.stat(primary.path).catch(() => null);
+      if (!stat?.isDirectory) {
+        throw new MelinnaError('INPUT_INVALID', {
+          userMessage: `A pasta principal ${primary.path} não está disponível.`,
+        });
+      }
+    }
+    const repo = primary
+      ? { root: primary.path, baseCommit: '' }
+      : isolation === 'direct'
         ? { root: await this.folderRoot(input.repoPath), baseCommit: '' }
         : await this.inspectRepo(input.repoPath, input.baseRef);
+    const extraDirs = primary && folders ? extrasOf(folders).map((f) => f.path) : [];
     // Só notifica quando há de fato um workspace com repositório para marcar como aberto agora.
     if (this.deps.model.group(input.groupId)?.repoPath) {
       this.deps.model.mutate((s) => {
@@ -195,12 +338,13 @@ export class WorkspaceService {
       title,
       prompt: input.prompt,
       repoPath: repo.root,
-      repoId: repoIdOf(repo.root, this.deps.residue.os),
+      repoId: repoIdOf(repo.root, os),
       baseRef: input.baseRef,
       baseCommit: repo.baseCommit,
       slug: slugify(title),
       createdAt: this.deps.clock.now().toISOString(),
       ...(isolation === 'direct' ? { isolation } : {}),
+      ...(extraDirs.length > 0 ? { extraDirs } : {}),
     };
     this.deps.model.mutate((s) => s.tasks.push(task));
     this.deps.log.info('task.created', { taskId: task.id, repoId: task.repoId, size: task.prompt.length });

@@ -1,22 +1,36 @@
 import type { Pane } from '../layout/panes';
 import { paneOfExecution } from '../layout/panes';
+import type { ExecutionCommand, StoredCommand } from '../run/types';
 
 export type { Pane };
 export { paneOfExecution };
 
-export const STATE_SCHEMA_VERSION = 2;
+export const STATE_SCHEMA_VERSION = 3;
 
-/** Grupo de tarefas; com `repoPath`, é um workspace aberto a partir de uma pasta. */
+/** Pasta de um workspace; `path` é absoluto e normalizado. */
+export interface WorkspaceFolder {
+  id: string;
+  path: string;
+}
+
+/** Grupo de tarefas; com `folders`, é um workspace com uma ou mais pastas. */
 export interface Group {
   id: string;
   name: string;
   order: number;
-  /** Raiz do repositório do workspace. */
+  /** Pastas do workspace, na ordem em que foram adicionadas; ausente = grupo manual, sem pasta. */
+  folders?: WorkspaceFolder[];
+  /** Id da pasta principal (onde os terminais rodam); obrigatório quando há `folders`. */
+  primaryFolderId?: string;
+  /** Derivado da pasta principal; mantido para quem lê o estado sem conhecer `folders`. */
   repoPath?: string;
+  /** Derivado da pasta principal. */
   repoId?: string;
   /** Índice da faixa de cor do workspace (0..5). */
   colorIndex?: number;
   lastOpenedAt?: string;
+  /** Comandos personalizados do workspace; ausente = nenhum. */
+  commands?: StoredCommand[];
 }
 
 /**
@@ -42,6 +56,10 @@ export interface Task {
   nextBandIndex?: number;
   /** Ausente = `worktree` (estado gravado antes da execução direta). */
   isolation?: Isolation;
+  /** Pastas extras do workspace no momento da criação; ausente = nenhuma. O relançamento reusa a lista. */
+  extraDirs?: string[];
+  /** Ausente = `agent`; `command` agrupa a execução de um comando de projeto. */
+  kind?: 'agent' | 'command';
 }
 
 export function isDirect(task: Pick<Task, 'isolation'>): boolean {
@@ -55,6 +73,11 @@ export interface PendingSwitch {
   kind: 'model' | 'permission';
   value: string;
 }
+
+/** Aviso do lançamento sobre as pastas extras do workspace. */
+export type ExecutionNotice =
+  | { kind: 'extra-dirs-unsupported' }
+  | { kind: 'extra-dirs-omitted'; count: number };
 
 export interface Execution {
   id: string;
@@ -75,6 +98,16 @@ export interface Execution {
   endedAt: string | null;
   launchCount: number;
   failure: { code: string; message: string } | null;
+  /** Avisos do último lançamento; ausente = nenhum. */
+  notices?: ExecutionNotice[];
+  /** Presente só nas execuções de comando; ausente = execução de agente. */
+  command?: ExecutionCommand;
+}
+
+export function isCommandExecution(exec: Pick<Execution, 'command'>): exec is Pick<Execution, 'command'> & {
+  command: ExecutionCommand;
+} {
+  return exec.command !== undefined;
 }
 
 export type LayoutMode = 'auto' | 'spotlight' | 'sidebar' | 'custom';
@@ -200,10 +233,23 @@ function parseLayoutV2(layout: Record<string, unknown>, fallback: CustomGrid): L
   };
 }
 
+/**
+ * Esquema 2 → 3: todo grupo com `repoPath` vira um workspace de uma pasta, que é a principal. O id da
+ * pasta deriva do id do grupo, para a migração dar o mesmo resultado a cada leitura (o esquema também é
+ * lido pela interface, que não tem gerador de ids do Node).
+ */
+function migrateGroup(group: Group): Group {
+  if (group.folders !== undefined || typeof group.repoPath !== 'string' || group.repoPath === '')
+    return group;
+  const folder: WorkspaceFolder = { id: `${group.id}-0`, path: group.repoPath };
+  return { ...group, folders: [folder], primaryFolderId: folder.id };
+}
+
 /** Validação estrutural do arquivo de estado. Devolve `null` se a forma não confere. */
 export function parseState(raw: unknown): StateFile | null {
   if (!isObj(raw)) return null;
-  if (typeof raw.schemaVersion !== 'number') return null;
+  const schemaVersion = raw.schemaVersion;
+  if (typeof schemaVersion !== 'number') return null;
   if (!Array.isArray(raw.groups) || !Array.isArray(raw.tasks) || !Array.isArray(raw.executions)) return null;
   if (!raw.groups.every((g) => isObj(g) && typeof g.id === 'string' && typeof g.name === 'string'))
     return null;
@@ -223,8 +269,8 @@ export function parseState(raw: unknown): StateFile | null {
   return {
     // A versão relatada é a do arquivo lido: o `StateStore` usa isso para abrir em somente-leitura
     // um estado gravado por uma versão mais nova do app. O layout, esse sim, sai sempre migrado.
-    schemaVersion: raw.schemaVersion,
-    groups: raw.groups as Group[],
+    schemaVersion,
+    groups: (raw.groups as Group[]).map((g) => (schemaVersion < 3 ? migrateGroup(g) : g)),
     tasks: raw.tasks as Task[],
     executions: raw.executions as Execution[],
     layout: parsedLayout,

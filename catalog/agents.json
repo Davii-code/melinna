@@ -41,6 +41,8 @@
         "switch": { "strategy": "restart-resume" }
       },
       "resume": { "args": ["--continue"] },
+      "extraDirs": { "style": "repeat", "args": ["--add-dir", "{dir}"] },
+      "images": { "template": "{path}", "quote": "when-needed" },
       "detect": { "strategy": "path" }
     },
     {

@@ -6,6 +6,8 @@ describe('paths', () => {
     const p = makePaths('/home/u/.config/melinna/', 'linux');
     expect(p.state).toBe('/home/u/.config/melinna/state.json');
     expect(p.userCatalog).toBe('/home/u/.config/melinna/catalog.json');
+    expect(p.promptsFile).toBe('/home/u/.config/melinna/prompts.json');
+    expect(p.preferencesFile).toBe('/home/u/.config/melinna/preferences.json');
     expect(p.hostRegistry).toBe('/home/u/.config/melinna/host/registry.json');
     expect(p.hostToken).toBe('/home/u/.config/melinna/host/token');
     expect(p.hostEndpoint).toBe('/home/u/.config/melinna/host/endpoint');
@@ -13,6 +15,9 @@ describe('paths', () => {
     expect(p.mainLog).toBe('/home/u/.config/melinna/logs/main.log');
     expect(p.hostLog).toBe('/home/u/.config/melinna/logs/host.log');
     expect(p.scrollbackDir('e1')).toBe('/home/u/.config/melinna/scrollback/e1');
+    expect(p.attachmentsRoot).toBe('/home/u/.config/melinna/attachments');
+    expect(p.attachmentsDir('e1')).toBe('/home/u/.config/melinna/attachments/e1');
+    expect(p.attachmentFile('e1', '1-1.png')).toBe('/home/u/.config/melinna/attachments/e1/1-1.png');
     expect(p.worktree('r1', 'e1')).toBe('/home/u/.config/melinna/worktrees/r1/e1');
     expect(p.lease('r1', 'e1')).toBe('/home/u/.config/melinna/worktrees/r1/e1.lease');
   });
@@ -20,6 +25,9 @@ describe('paths', () => {
   it('lays out userData on Windows', () => {
     const p = makePaths('C:\\Users\\u\\AppData\\Roaming\\Melinna', 'win32');
     expect(p.worktree('r', 'e')).toBe('C:\\Users\\u\\AppData\\Roaming\\Melinna\\worktrees\\r\\e');
+    expect(p.attachmentsDir('e')).toBe('C:\\Users\\u\\AppData\\Roaming\\Melinna\\attachments\\e');
+    expect(p.promptsFile).toBe('C:\\Users\\u\\AppData\\Roaming\\Melinna\\prompts.json');
+    expect(p.preferencesFile).toBe('C:\\Users\\u\\AppData\\Roaming\\Melinna\\preferences.json');
   });
 
   it('checks containment in the worktrees folder', () => {

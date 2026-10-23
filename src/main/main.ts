@@ -1,11 +1,13 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import {
   BrowserWindow,
   MessageChannelMain,
   type MessagePortMain,
   app,
+  clipboard,
   dialog,
   ipcMain,
   Menu,
@@ -17,19 +19,27 @@ import { NodeClock } from '../adapters/node-clock';
 import { NodeFileSystem } from '../adapters/node-fs';
 import { nodePlatform } from '../adapters/node-platform';
 import { NodeProcessRunner } from '../adapters/node-process-runner';
+import { AttachmentService } from '../core/attachments/attachment-service';
 import { CatalogService } from '../core/catalog/catalog-service';
 import { ExecutionService } from '../core/execution/execution-service';
 import { FileStatusService } from '../core/files/file-status';
 import { FilesService } from '../core/files/files-service';
 import { navigationRoots } from '../core/files/roots';
 import { DiffService } from '../core/git/diff';
+import { GitService } from '../core/git/git-service';
 import { GitRunner } from '../core/git/git-runner';
 import { KeyedMutex } from '../core/git/repo-mutex';
 import { findOrphanLeases } from '../core/git/residue';
 import { JsonlSink } from '../core/log/jsonl-sink';
 import { createLogger } from '../core/log/logger';
 import { makePaths } from '../core/paths';
+import { PreferencesStore } from '../core/prefs/preferences-store';
+import { PromptLibrary } from '../core/prompts/prompt-library';
+import { connectQueue, PromptQueue } from '../core/prompts/prompt-queue';
+import { PromptSender } from '../core/prompts/prompt-sender';
+import { PromptStore } from '../core/prompts/prompt-store';
 import { StateStore } from '../core/persistence/state-store';
+import { RunService } from '../core/run/run-service';
 import { WorkspaceModel } from '../core/workspace/workspace-model';
 import { WorkspaceService } from '../core/workspace/workspace-service';
 import { ensureToken } from '../host/auth';
@@ -40,6 +50,7 @@ import { CloseFlow } from './close-flow';
 import { NodeHostClient } from './host-client';
 import { HostLauncher } from './host-launcher';
 import { registerIpc } from './ipc/register';
+import { createThumbnail } from './thumbnail';
 import type { Handle } from './ipc/result';
 import { TerminalBridge } from './ipc/terminal-ports';
 import { claimSingleInstance } from './single-instance';
@@ -126,14 +137,36 @@ async function boot(): Promise<void> {
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     now: () => Date.now(),
   });
+  const promptStore = new PromptStore({
+    fs,
+    path: paths.promptsFile,
+    clock,
+    log: log.child('prompts'),
+    mutex,
+  });
+  await promptStore.load();
+  const promptLibrary = new PromptLibrary({
+    store: promptStore,
+    groupExists: (id) => model.group(id) !== undefined,
+    clock,
+    log: log.child('prompts'),
+  });
   const workspace = new WorkspaceService({
     model,
     git,
     clock,
     log: log.child('workspace'),
     residue: { git, fs, mutex, os: platform.os, paths },
+    onGroupRemoved: (groupId) => promptLibrary.releaseGroup(groupId),
+  });
+  const attachments = new AttachmentService({
+    fs,
+    clock,
+    paths,
+    log: log.child('attachments'),
   });
   const executions = new ExecutionService({
+    attachments,
     model,
     catalog,
     git,
@@ -147,9 +180,46 @@ async function boot(): Promise<void> {
     baseEnv,
   });
 
+  const run = new RunService({ executions, platform });
+  const prefs = new PreferencesStore({
+    fs,
+    path: paths.preferencesFile,
+    log: log.child('prefs'),
+    mutex,
+  });
+  await prefs.load();
+
+  const promptSender = new PromptSender({
+    model,
+    executions,
+    clock,
+    log: log.child('prompts'),
+    mutex,
+  });
+
+  const promptQueue = new PromptQueue({
+    store: promptStore,
+    sender: promptSender,
+    model,
+    clock,
+    log: log.child('prompts'),
+    mutex,
+  });
+  connectQueue(executions, promptQueue, log.child('prompts'));
+
   const diff = new DiffService({ model, git, fs, os: platform.os, log: log.child('diff') });
 
-  const navigationRootsOf = () => navigationRoots(model.raw);
+  const navigationRootsOf = () =>
+    navigationRoots({ ...model.raw, unavailableFolders: model.unavailableFolderIds() });
+  const gitService = new GitService({
+    git,
+    fs,
+    log: log.child('git-ui'),
+    mutex,
+    clock,
+    os: platform.os,
+    tmpdir: tmpdir(),
+  });
   const files = new FilesService({
     fs,
     os: platform.os,
@@ -163,8 +233,14 @@ async function boot(): Promise<void> {
     roots: navigationRootsOf,
   });
 
+  // Anexos de execuções que não existem mais (removidas com o app fechado ou por falha) saem agora.
+  await attachments
+    .sweepOrphans(model.raw.executions.map((e) => e.id))
+    .catch((err: unknown) => log.error('attachment.sweep_failed', { err }));
+
   await executions.reconcileWithHost().catch((err: unknown) => log.error('host.reconcile_failed', { err }));
   executions.resumePendingSwitches();
+  await promptQueue.resume().catch((err: unknown) => log.error('prompts.queue_resume_failed', { err }));
   const residues = await findOrphanLeases(
     { fs, paths, os: platform.os },
     (id) => model.execution(id) !== undefined,
@@ -269,8 +345,19 @@ async function boot(): Promise<void> {
     workspace,
     executions,
     diff,
+    git: gitService,
+    gitRoots: () =>
+      navigationRootsOf()
+        .filter((r) => r.kind === 'workspace')
+        .map((r) => r.path),
+    os: platform.os,
+    emitGitProgress: (e) => {
+      if (!win.isDestroyed()) win.webContents.send(EVENTS.gitProgress, e);
+    },
     files,
     fileStatus,
+    run,
+    prefs,
     model,
     bridge,
     closeFlow,
@@ -283,7 +370,52 @@ async function boot(): Promise<void> {
       });
       return r.canceled ? null : (r.filePaths[0] ?? null);
     },
+    pickFolders: async (defaultPath) => {
+      const r = await dialog.showOpenDialog(win, {
+        title: 'Escolher pastas',
+        properties: ['openDirectory', 'multiSelections'],
+        ...(defaultPath ? { defaultPath } : {}),
+      });
+      return r.canceled ? [] : r.filePaths;
+    },
+    attachments,
+    clipboard: {
+      hasImageOnly: async () => {
+        const types = (await clipboard.read()).flatMap((item) => item.types);
+        return types.some((t) => t.startsWith('image/')) && !types.some((t) => t.startsWith('text/'));
+      },
+      readImage: async () => {
+        const items = await clipboard.read();
+        const types = items.flatMap((item) => item.types).filter((t) => t.startsWith('image/'));
+        const type = types.includes('image/png') ? 'image/png' : types[0];
+        const item = items.find((i) => type !== undefined && i.types.includes(type));
+        if (!item || type === undefined) return null;
+        const blob = (await item.getType(type as 'image/png')) as Blob;
+        return new Uint8Array(await blob.arrayBuffer());
+      },
+    },
+    thumbnail: (bytes) => createThumbnail(bytes),
+    pickImagePaths: async () => {
+      const r = await dialog.showOpenDialog(win, {
+        title: 'Anexar imagem',
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: 'Imagens', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }],
+      });
+      return r.canceled ? [] : r.filePaths;
+    },
     openExternal: (url) => shell.openExternal(url),
+    prompts: {
+      library: promptLibrary,
+      sender: promptSender,
+      queue: promptQueue,
+      emitQueueDiscarded: (e) => {
+        if (!win.isDestroyed()) win.webContents.send(EVENTS.queueDiscarded, e);
+      },
+    },
+  });
+
+  promptStore.subscribe(() => {
+    if (!win.isDestroyed()) win.webContents.send(EVENTS.promptsChanged);
   });
 
   let pending: ReturnType<typeof setTimeout> | null = null;

@@ -5,6 +5,8 @@ import {
   type AgentDefinition,
   type CatalogIssue,
   type CatalogSource,
+  type ExtraDirsSpec,
+  type ImagesSpec,
   type PermissionOption,
   type SwitchStrategy,
 } from './schema';
@@ -51,6 +53,34 @@ function switchStrategy(v: unknown, field: string, placeholder: '{model}' | '{pe
   if (v.strategy === 'restart-resume') return { strategy: 'restart-resume' };
   if (v.strategy === 'unsupported') return { strategy: 'unsupported' };
   throw new Invalid(`${field}.strategy inválida`);
+}
+
+function occurrences(args: readonly string[], placeholder: string): number {
+  return args.filter((a) => a === placeholder).length;
+}
+
+function extraDirsSpec(v: unknown): ExtraDirsSpec {
+  need(isObj(v), 'extraDirs inválido');
+  if (v.style === 'repeat') {
+    const args = strArray(v.args, 'extraDirs.args', ['{dir}']);
+    need(occurrences(args, '{dir}') === 1, 'extraDirs.args deve conter {dir} exatamente uma vez');
+    return { style: 'repeat', args };
+  }
+  if (v.style === 'join') {
+    const args = strArray(v.args, 'extraDirs.args', ['{dirs}']);
+    need(occurrences(args, '{dirs}') === 1, 'extraDirs.args deve conter {dirs} exatamente uma vez');
+    const separator = str(v.separator, 'extraDirs.separator', 1, 5);
+    return { style: 'join', separator, args };
+  }
+  throw new Invalid('extraDirs.style inválido');
+}
+
+function imagesSpec(v: unknown): ImagesSpec {
+  need(isObj(v), 'images inválido');
+  const template = str(v.template, 'images.template', 1, 200);
+  need(template.split('{path}').length === 2, 'images.template deve conter {path} exatamente uma vez');
+  need(v.quote === 'always' || v.quote === 'when-needed', 'images.quote deve ser always ou when-needed');
+  return { template, quote: v.quote };
 }
 
 function uniqueIds(ids: string[], field: string): void {
@@ -183,6 +213,9 @@ function validateAgent(raw: unknown): AgentDefinition {
     need(isObj(raw.resume), 'resume inválido');
     def.resume = { args: strArray(raw.resume.args, 'resume.args') };
   }
+
+  if (raw.extraDirs !== undefined) def.extraDirs = extraDirsSpec(raw.extraDirs);
+  if (raw.images !== undefined) def.images = imagesSpec(raw.images);
 
   if (kind === 'shell') {
     need(def.model === undefined, 'shell não pode ter model');

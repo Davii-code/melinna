@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Pane } from '../../../shared/ipc-contract';
 import { useApi } from '../../api';
+import { registerEditorSaver } from '../../keymap/editor-save';
+import { useShortcutLabel, withShortcut } from '../../keymap/keymap-store';
 import { CodeEditor, type CodeEditorProps } from './CodeEditor';
 
 export type EditorPaneModel = Extract<Pane, { kind: 'editor' }>;
@@ -28,20 +30,14 @@ function fileName(path: string): string {
 }
 
 /** Painel de editor: uma aba por arquivo, texto em memória e salvamento com checagem de hash. */
-export function EditorPane({
-  pane,
-  focused,
-  onFocus,
-  onSelect,
-  onCloseTab,
-  renderEditor,
-}: EditorPaneProps) {
+export function EditorPane({ pane, focused, onFocus, onSelect, onCloseTab, renderEditor }: EditorPaneProps) {
   const api = useApi();
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const activePath = pane.docs[Math.min(pane.activeIndex, pane.docs.length - 1)] ?? null;
+  const saveShortcut = useShortcutLabel('save');
 
   useEffect(() => {
     if (activePath === null || drafts[activePath] !== undefined) return;
@@ -66,16 +62,13 @@ export function EditorPane({
     };
   }, [api, activePath, drafts]);
 
-  const change = useCallback(
-    (path: string, text: string) => {
-      setDrafts((current) => {
-        const draft = current[path];
-        if (draft === undefined) return current;
-        return { ...current, [path]: { ...draft, text, dirty: text !== draft.text || draft.dirty } };
-      });
-    },
-    [],
-  );
+  const change = useCallback((path: string, text: string) => {
+    setDrafts((current) => {
+      const draft = current[path];
+      if (draft === undefined) return current;
+      return { ...current, [path]: { ...draft, text, dirty: text !== draft.text || draft.dirty } };
+    });
+  }, []);
 
   const save = useCallback(
     async (path: string) => {
@@ -97,6 +90,13 @@ export function EditorPane({
     },
     [api, drafts, saving],
   );
+
+  // O atalho de salvar vem do mapa de atalhos (ouvinte único do app): ele chama o salvar deste painel.
+  const saveActive = useRef<() => void>(() => undefined);
+  saveActive.current = () => {
+    if (activePath !== null && drafts[activePath]?.dirty === true) void save(activePath);
+  };
+  useEffect(() => registerEditorSaver(pane.id, () => saveActive.current()), [pane.id]);
 
   const requestClose = (path: string) => {
     const draft = drafts[path];
@@ -146,7 +146,7 @@ export function EditorPane({
             className="editor-save"
             onClick={() => void save(activePath)}
             disabled={drafts[activePath]?.dirty !== true || saving}
-            title="Salvar (Ctrl+S)"
+            title={withShortcut('Salvar', saveShortcut)}
           >
             Salvar
           </button>
@@ -156,7 +156,12 @@ export function EditorPane({
       {error !== null ? (
         <div className="editor-error" role="alert">
           <span>{error}</span>
-          <button type="button" className="icon-button" aria-label="Fechar aviso" onClick={() => setError(null)}>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Fechar aviso"
+            onClick={() => setError(null)}
+          >
             ×
           </button>
         </div>

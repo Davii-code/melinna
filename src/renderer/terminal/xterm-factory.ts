@@ -75,6 +75,7 @@ export const createXterm: TerminalFactory = ({ openLink }) => {
     dispose: () => term.dispose(),
     proposeSize: () => fit.proposeDimensions() ?? null,
     fit: () => fit.fit(),
+    attachCustomKeyEventHandler: (fn) => term.attachCustomKeyEventHandler(fn),
     onRendererFallback: (fn) => fallbacks.push(fn),
     search: (q, dir) =>
       dir === 'next'

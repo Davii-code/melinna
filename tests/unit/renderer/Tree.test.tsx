@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Tree, type TreeProps } from '../../../src/renderer/components/Tree/Tree';
-import type { Group, Task } from '../../../src/shared/ipc-contract';
+import type { Execution, Group, QueueItem, Task } from '../../../src/shared/ipc-contract';
 import { agentDef, execution } from '../../support/renderer-fixtures';
 
 const groups: Group[] = [
@@ -226,5 +226,282 @@ describe('Tree', () => {
     fireEvent.click(within(row('e2')).getByRole('button', { name: /relançar/i }));
     expect(props.onRelaunch).toHaveBeenCalledWith('e2');
     expect(props.onOpen).not.toHaveBeenCalled();
+  });
+});
+
+const multi: Group = {
+  id: 'w9',
+  name: 'Plataforma',
+  order: 0,
+  folders: [
+    { id: 'f1', path: '/repos/site' },
+    { id: 'f2', path: '/repos/api' },
+  ],
+  primaryFolderId: 'f2',
+  repoPath: '/repos/api',
+  colorIndex: 1,
+};
+
+describe('Tree — workspace com várias pastas', () => {
+  it('lists every folder in the tooltip and marks the primary one', () => {
+    setup({ groups: [multi], tasks: [], executions: [], onEditGroup: vi.fn() });
+    const title = screen.getByTestId('tree-group-w9').querySelector('.tree-group-row')?.getAttribute('title');
+    expect(title).toBe('/repos/site\n/repos/api (principal)');
+  });
+
+  it('keeps the plain path as the tooltip of a one-folder workspace', () => {
+    const single: Group = {
+      ...multi,
+      folders: [{ id: 'f1', path: '/repos/site' }],
+      primaryFolderId: 'f1',
+      repoPath: '/repos/site',
+    };
+    setup({ groups: [single], tasks: [], executions: [], onEditGroup: vi.fn() });
+    expect(screen.getByTestId('tree-group-w9').querySelector('.tree-group-row')?.getAttribute('title')).toBe(
+      '/repos/site',
+    );
+  });
+
+  it('shows "Editar workspace" and calls onEditGroup with the workspace id', () => {
+    const onEditGroup = vi.fn();
+    setup({ groups: [multi], tasks: [], executions: [], onEditGroup });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar workspace Plataforma' }));
+    expect(onEditGroup).toHaveBeenCalledWith('w9');
+  });
+
+  it('hides the edit button without a handler and for a group without a folder', () => {
+    setup({ groups: [multi], tasks: [], executions: [] });
+    expect(screen.queryByRole('button', { name: /editar workspace/i })).toBeNull();
+  });
+
+  it('keeps the edit button available while sessions are live', () => {
+    const t = { ...task('t9', 'w9', 'Sessão'), repoPath: '/repos/api' };
+    setup({
+      groups: [multi],
+      tasks: [t],
+      executions: [execution('e9', { taskId: 't9', status: 'running' })],
+      onEditGroup: vi.fn(),
+    });
+    expect(
+      (screen.getByRole('button', { name: 'Editar workspace Plataforma' }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+});
+
+describe('Tree — aviso de pastas extras', () => {
+  const withNotices = (notices?: Execution['notices']) =>
+    setup({
+      groups: [multi],
+      tasks: [{ ...task('t9', 'w9', 'Sessão'), repoPath: '/repos/api' }],
+      executions: [execution('e9', { taskId: 't9', ...(notices ? { notices } : {}) })],
+    });
+
+  it('shows "só a principal" when the agent does not take extra folders', () => {
+    withNotices([{ kind: 'extra-dirs-unsupported' }]);
+    expect(within(row('e9')).getByText('só a principal')).toBeTruthy();
+  });
+
+  it('shows how many folders were left out', () => {
+    withNotices([{ kind: 'extra-dirs-omitted', count: 2 }]);
+    expect(within(row('e9')).getByText('2 pastas indisponíveis')).toBeTruthy();
+  });
+
+  it('uses the singular for one folder', () => {
+    withNotices([{ kind: 'extra-dirs-omitted', count: 1 }]);
+    expect(within(row('e9')).getByText('1 pasta indisponível')).toBeTruthy();
+  });
+
+  it('shows no badge without notices, or with an empty list', () => {
+    withNotices();
+    expect(within(row('e9')).queryByTestId('tree-exec-notice-e9')).toBeNull();
+    cleanup();
+    withNotices([]);
+    expect(within(row('e9')).queryByTestId('tree-exec-notice-e9')).toBeNull();
+  });
+});
+
+describe('Tree — clipe de imagem', () => {
+  const withImages = agentDef('claude', { images: { template: '{path}', quote: 'when-needed' } });
+  const clip = (name: string) => screen.queryByRole('button', { name: `Anexar imagem a ${name}` });
+
+  function imagesSetup(status: Execution['status'], over: Partial<TreeProps> = {}, withHandler = true) {
+    return setup({
+      groups: [multi],
+      tasks: [{ ...task('t9', 'w9', 'Sessão'), repoPath: '/repos/api' }],
+      executions: [execution('e9', { taskId: 't9', status })],
+      agents: new Map([['claude', withImages]]),
+      ...(withHandler ? { onAttachImage: vi.fn() } : {}),
+      ...over,
+    });
+  }
+
+  it('shows the clip on a live execution of an agent that takes images and calls onAttachImage', () => {
+    const props = imagesSetup('running');
+    fireEvent.click(clip('Claude Code') as HTMLElement);
+    expect(props.onAttachImage).toHaveBeenCalledWith('e9');
+  });
+
+  it('shows the clip for an idle execution too', () => {
+    imagesSetup('idle');
+    expect(clip('Claude Code')).toBeTruthy();
+  });
+
+  it.each(['exited', 'preparing', 'starting', 'failed_to_start', 'lost'] as const)(
+    'hides the clip when the execution is %s',
+    (status) => {
+      imagesSetup(status);
+      expect(clip('Claude Code')).toBeNull();
+    },
+  );
+
+  it('hides the clip for an agent that does not take images', () => {
+    imagesSetup('running', { agents: new Map([['claude', agentDef('claude')]]) });
+    expect(clip('Claude Code')).toBeNull();
+  });
+
+  it('hides the clip without a handler', () => {
+    imagesSetup('running', {}, false);
+    expect(clip('Claude Code')).toBeNull();
+  });
+
+  it('clicking the clip does not open the panel of the row', () => {
+    const props = imagesSetup('running');
+    fireEvent.click(clip('Claude Code') as HTMLElement);
+    expect(props.onOpen).not.toHaveBeenCalled();
+  });
+});
+
+describe('Tree: fila de prompts', () => {
+  const item = (id: string, text: string): QueueItem => ({
+    id,
+    text,
+    enqueuedAt: '2026-10-22T10:00:00.000Z',
+  });
+  const queues = new Map<string, readonly QueueItem[]>([
+    ['e1', [item('q1', 'rode os testes'), item('q2', 'depois faça o commit')]],
+    ['e2', [item('q3', 'só um')]],
+  ]);
+
+  function queueSetup(over: Partial<TreeProps> = {}) {
+    return setup({
+      queues,
+      onRemoveQueueItem: vi.fn(),
+      onClearQueue: vi.fn(),
+      onDismissDiscarded: vi.fn(),
+      ...over,
+    });
+  }
+
+  it('shows no badge for a session without queue', () => {
+    setup();
+    expect(within(row('e1')).queryByText(/na fila/)).toBeNull();
+    expect(within(row('e3')).queryByRole('button', { name: /fila/i })).toBeNull();
+  });
+
+  it('shows how many prompts are queued', () => {
+    queueSetup();
+    expect(within(row('e1')).getByText('2 na fila')).toBeTruthy();
+    expect(within(row('e2')).getByText('1 na fila')).toBeTruthy();
+    expect(within(row('e3')).queryByText(/na fila/)).toBeNull();
+  });
+
+  it('opens the queue menu with the queued texts and closes it again', () => {
+    queueSetup();
+    expect(within(row('e1')).queryByRole('list', { name: 'Fila de Claude Code' })).toBeNull();
+    fireEvent.click(within(row('e1')).getByRole('button', { name: 'Ver fila de Claude Code' }));
+    const list = within(row('e1')).getByRole('list', { name: 'Fila de Claude Code' });
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual([expect.stringContaining('rode os testes'), expect.stringContaining('depois faça o commit')]);
+    fireEvent.click(within(row('e1')).getByRole('button', { name: 'Ver fila de Claude Code' }));
+    expect(within(row('e1')).queryByRole('list', { name: 'Fila de Claude Code' })).toBeNull();
+  });
+
+  it('removes one queued item', () => {
+    const props = queueSetup();
+    fireEvent.click(within(row('e1')).getByRole('button', { name: 'Ver fila de Claude Code' }));
+    fireEvent.click(within(row('e1')).getByRole('button', { name: 'Remover da fila: depois faça o commit' }));
+    expect(props.onRemoveQueueItem).toHaveBeenCalledWith('e1', 'q2');
+  });
+
+  it('clears the queue', () => {
+    const props = queueSetup();
+    fireEvent.click(within(row('e1')).getByRole('button', { name: 'Ver fila de Claude Code' }));
+    fireEvent.click(within(row('e1')).getByRole('button', { name: 'Limpar fila' }));
+    expect(props.onClearQueue).toHaveBeenCalledWith('e1');
+  });
+
+  it('opening the menu does not open the panel of the row', () => {
+    const props = queueSetup();
+    fireEvent.click(within(row('e1')).getByRole('button', { name: 'Ver fila de Claude Code' }));
+    expect(props.onOpen).not.toHaveBeenCalled();
+  });
+
+  it('tells how many items were discarded and lets the user dismiss the notice', () => {
+    const props = queueSetup({
+      discarded: new Map([
+        ['e2', 3],
+        ['e3', 1],
+      ]),
+    });
+    expect(within(row('e2')).getByRole('status').textContent).toMatch(/3 itens descartados/);
+    expect(within(row('e3')).getByRole('status').textContent).toMatch(/1 item descartado\b/);
+    expect(within(row('e1')).queryByRole('status')).toBeNull();
+    fireEvent.click(within(row('e2')).getByRole('button', { name: 'Dispensar aviso da fila' }));
+    expect(props.onDismissDiscarded).toHaveBeenCalledWith('e2');
+  });
+});
+
+describe('Tree — command executions', () => {
+  const commandTask: Task = { ...task('tc', 'g1', 'dev'), kind: 'command', isolation: 'direct' };
+  const commandExec = execution('ec', {
+    taskId: 'tc',
+    agentId: 'command',
+    model: null,
+    permissionMode: null,
+    status: 'running',
+    command: { commandId: 'c1', label: 'dev', file: '/bin/node', args: ['server.js'] },
+  });
+
+  function commandSetup(over: Partial<TreeProps> = {}) {
+    return setup({
+      tasks: [commandTask],
+      executions: [commandExec],
+      onAddTerminal: vi.fn(),
+      launchable: [agentDef('claude')],
+      ...over,
+    });
+  }
+
+  it('shows the command label with its own icon and no agent name', () => {
+    commandSetup();
+    const r = row('ec');
+    expect(within(r).getByTestId('tree-exec-command-icon-ec')).toBeTruthy();
+    expect(within(r).getByText('dev')).toBeTruthy();
+    expect(within(r).queryByText('command')).toBeNull();
+    expect(within(r).getByText('rodando')).toBeTruthy();
+  });
+
+  it('keeps the agent rows without the command icon', () => {
+    setup();
+    expect(within(row('e1')).queryByTestId('tree-exec-command-icon-e1')).toBeNull();
+  });
+
+  it('names the actions after the command and keeps the stop/relaunch rules', () => {
+    const props = commandSetup();
+    const r = row('ec');
+    expect((within(r).getByRole('button', { name: 'Parar dev' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((within(r).getByRole('button', { name: 'Relançar dev' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    fireEvent.click(within(r).getByRole('button', { name: 'Parar dev' }));
+    expect(props.onStop).toHaveBeenCalledWith('ec');
+  });
+
+  it('does not offer a new agent terminal in a command session', () => {
+    commandSetup();
+    expect(screen.queryByRole('button', { name: /Novo terminal na sessão/ })).toBeNull();
   });
 });

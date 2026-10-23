@@ -12,9 +12,13 @@ export interface TreeTaskProps extends TreeProps {
 export function TreeTask(props: TreeTaskProps) {
   const { task } = props;
   const live = props.taskExecutions.some((e) => isLiveStatus(e.status));
+  const isCommand = task.kind === 'command';
   return (
     <li role="treeitem" aria-expanded="true" className="tree-task" data-testid={`tree-task-${task.id}`}>
-      <div className="tree-row tree-task-row" title={`${task.repoPath} @ ${task.baseRef}`}>
+      <div
+        className="tree-row tree-task-row"
+        title={isCommand ? task.repoPath : `${task.repoPath} @ ${task.baseRef}`}
+      >
         <InlineEdit
           value={task.title}
           label="Título da tarefa"
@@ -24,7 +28,7 @@ export function TreeTask(props: TreeTaskProps) {
         />
         <span className="spacer" />
         <span className="tree-actions">
-          {props.onAddTerminal && (
+          {props.onAddTerminal && !isCommand && (
             <AgentMenu
               label={`Novo terminal na sessão ${task.title}`}
               agents={props.launchable ?? []}
@@ -58,6 +62,12 @@ export function TreeTask(props: TreeTaskProps) {
               onStop={props.onStop}
               onRelaunch={props.onRelaunch}
               onRemove={props.onRemove}
+              queue={props.queues?.get(e.id) ?? []}
+              discarded={props.discarded?.get(e.id) ?? 0}
+              {...(props.onAttachImage ? { onAttachImage: props.onAttachImage } : {})}
+              {...(props.onRemoveQueueItem ? { onRemoveQueueItem: props.onRemoveQueueItem } : {})}
+              {...(props.onClearQueue ? { onClearQueue: props.onClearQueue } : {})}
+              {...(props.onDismissDiscarded ? { onDismissDiscarded: props.onDismissDiscarded } : {})}
             />
           ))}
         </ul>

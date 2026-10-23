@@ -59,7 +59,7 @@ function setup(state: StateFile = emptyState()) {
     log,
     residue: { git, fs, mutex: new KeyedMutex(), os: 'linux', paths },
   });
-  return { fs, clock, svc, model, runner, store };
+  return { fs, clock, svc, model, runner, store, log };
 }
 
 function stateWithTask(executions: Execution[] = []): StateFile {
@@ -156,3 +156,40 @@ describe('WorkspaceService: limpar resíduo', () => {
     expect(await fs.exists(wt)).toBe(false);
   });
 });
+
+describe('WorkspaceService: remover workspace', () => {
+  it('logs workspace.removed with the group id and the folder count, never the paths', () => {
+    const state = emptyState();
+    state.groups.push({
+      id: 'g9',
+      name: 'Multi',
+      order: 0,
+      folders: [
+        { id: 'f1', path: '/repos/segredo-a' },
+        { id: 'f2', path: '/repos/segredo-b' },
+      ],
+      primaryFolderId: 'f1',
+      repoPath: '/repos/segredo-a',
+    });
+    const { svc, log } = setup(state);
+    svc.removeGroup('g9');
+    expect(svc.snapshot().groups).toHaveLength(0);
+    expect(log.records.find((r) => r.event === 'workspace.removed')?.fields).toEqual({
+      groupId: 'g9',
+      folders: 2,
+    });
+    expect(log.text()).not.toContain('segredo');
+  });
+
+  it('logs zero folders when a manual group without folders is removed', () => {
+    const state = emptyState();
+    state.groups.push({ id: 'g8', name: 'Manual', order: 0 });
+    const { svc, log } = setup(state);
+    svc.removeGroup('g8');
+    expect(log.records.find((r) => r.event === 'workspace.removed')?.fields).toEqual({
+      groupId: 'g8',
+      folders: 0,
+    });
+  });
+});
+

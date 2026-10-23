@@ -10,6 +10,11 @@ export type ErrorCode =
   | 'WORKTREE_IN_USE'
   | 'WORKTREE_RESIDUE'
   | 'GIT_FAILED'
+  | 'GIT_AUTH'
+  | 'GIT_REJECTED'
+  | 'GIT_IDENTITY'
+  | 'GIT_HOOK_FAILED'
+  | 'GIT_LOCKED'
   | 'LIMIT_REACHED'
   | 'EXECUTION_RUNNING'
   | 'EXECUTION_NOT_RUNNING'
@@ -20,11 +25,14 @@ export type ErrorCode =
   | 'HOST_VERSION'
   | 'INPUT_INVALID'
   | 'DISK_FULL'
+  | 'IO_ERROR'
   | 'STATE_CORRUPT'
   | 'SWITCH_UNSUPPORTED'
   | 'FILE_OUTSIDE_ROOT'
   | 'FILE_UNREADABLE'
   | 'FILE_CONFLICT'
+  | 'PROGRAM_NOT_FOUND'
+  | 'COMMAND_STALE'
   | 'INTERNAL';
 
 export const ERROR_CODES: readonly ErrorCode[] = [
@@ -39,6 +47,11 @@ export const ERROR_CODES: readonly ErrorCode[] = [
   'WORKTREE_IN_USE',
   'WORKTREE_RESIDUE',
   'GIT_FAILED',
+  'GIT_AUTH',
+  'GIT_REJECTED',
+  'GIT_IDENTITY',
+  'GIT_HOOK_FAILED',
+  'GIT_LOCKED',
   'LIMIT_REACHED',
   'EXECUTION_RUNNING',
   'EXECUTION_NOT_RUNNING',
@@ -49,11 +62,14 @@ export const ERROR_CODES: readonly ErrorCode[] = [
   'HOST_VERSION',
   'INPUT_INVALID',
   'DISK_FULL',
+  'IO_ERROR',
   'STATE_CORRUPT',
   'SWITCH_UNSUPPORTED',
   'FILE_OUTSIDE_ROOT',
   'FILE_UNREADABLE',
   'FILE_CONFLICT',
+  'PROGRAM_NOT_FOUND',
+  'COMMAND_STALE',
   'INTERNAL',
 ];
 
@@ -69,6 +85,13 @@ const DEFAULT_MESSAGES: Record<ErrorCode, string> = {
   WORKTREE_IN_USE: 'O worktree está em uso por outra execução.',
   WORKTREE_RESIDUE: 'Há um resíduo de worktree no caminho desta execução.',
   GIT_FAILED: 'O comando git falhou.',
+  GIT_AUTH:
+    'O git não conseguiu se autenticar no remoto. Configure suas credenciais (Git Credential Manager ou SSH) e tente de novo.',
+  GIT_REJECTED: 'O remoto recusou o envio porque tem commits novos. Faça pull antes.',
+  GIT_IDENTITY: 'Configure seu nome e e-mail no git (git config user.name / user.email).',
+  GIT_HOOK_FAILED: 'Um hook do git recusou a operação.',
+  GIT_LOCKED:
+    'Outro processo do git está usando este repositório — talvez um agente. Tente de novo em instantes.',
   LIMIT_REACHED: 'Limite de 12 execuções vivas atingido.',
   EXECUTION_RUNNING: 'A execução está rodando. Pare-a antes.',
   EXECUTION_NOT_RUNNING: 'A execução não está rodando.',
@@ -79,11 +102,14 @@ const DEFAULT_MESSAGES: Record<ErrorCode, string> = {
   HOST_VERSION: 'O hospedeiro de terminais é de outra versão do app.',
   INPUT_INVALID: 'Valor inválido.',
   DISK_FULL: 'Disco sem espaço.',
+  IO_ERROR: 'Falha ao gravar no disco.',
   STATE_CORRUPT: 'O estado salvo do app está corrompido.',
   SWITCH_UNSUPPORTED: 'Este agente não permite essa troca.',
   FILE_OUTSIDE_ROOT: 'Este caminho está fora das pastas abertas no app.',
   FILE_UNREADABLE: 'Não foi possível ler este arquivo.',
   FILE_CONFLICT: 'O arquivo mudou no disco desde que foi aberto.',
+  PROGRAM_NOT_FOUND: 'Programa não encontrado.',
+  COMMAND_STALE: 'A configuração mudou; abra o seletor de novo.',
   INTERNAL: 'Erro interno inesperado. Detalhes no log.',
 };
 

@@ -85,6 +85,9 @@ async function handle(cmd) {
     case '/cwd':
       out(`cwd=${process.cwd()}\r\n`);
       return;
+    case '/argv':
+      out(`argv=${JSON.stringify(process.argv.slice(2))}\r\n`);
+      return;
     case '/busy': {
       const until = Date.now() + Number(arg);
       const timer = setInterval(() => {

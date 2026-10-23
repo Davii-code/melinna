@@ -18,6 +18,8 @@ export interface LaunchPlan {
   promptViaPty?: string;
   model: string | null;
   permission: string | null;
+  extraDirsApplied: boolean;
+  extraDirsOmitted: number;
 }
 
 export interface CatalogServiceDeps {
@@ -77,6 +79,8 @@ export class CatalogService {
       args: plan.args,
       model: plan.model,
       permission: plan.permission,
+      extraDirsApplied: plan.extraDirsApplied,
+      extraDirsOmitted: plan.extraDirsOmitted,
     };
     if (plan.promptViaPty !== undefined) out.promptViaPty = plan.promptViaPty;
     return out;

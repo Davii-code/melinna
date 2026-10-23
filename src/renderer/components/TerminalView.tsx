@@ -28,20 +28,32 @@ export interface TerminalViewProps {
   onExit?: (exitCode: number | null, signal: string | null) => void;
   onReady?: (handle: TerminalHandle | null) => void;
   onRendererFallback?: () => void;
+  /**
+   * Chamado quando o usuário aperta Ctrl+V e a área de transferência tem uma imagem e nenhum texto. A
+   * colagem de texto segue o caminho normal do xterm: sem texto na área de transferência, não cola nada.
+   */
+  onPasteImage?: () => void;
 }
 
 const encoder = new TextEncoder();
 
 /** Terminal de um painel: anexa ao PTY pelo MessagePort dedicado e o mantém do tamanho do elemento. */
-export function TerminalView({ execId, visible, onExit, onReady, onRendererFallback }: TerminalViewProps) {
+export function TerminalView({
+  execId,
+  visible,
+  onExit,
+  onReady,
+  onRendererFallback,
+  onPasteImage,
+}: TerminalViewProps) {
   const api = useApi();
   const deps = useContext(TerminalDepsContext);
   if (!deps) throw new Error('TerminalDepsContext ausente');
   const hostRef = useRef<HTMLDivElement>(null);
   const visibleRef = useRef(visible);
   const refitRef = useRef<() => void>(() => undefined);
-  const callbacks = useRef({ onExit, onReady, onRendererFallback });
-  callbacks.current = { onExit, onReady, onRendererFallback };
+  const callbacks = useRef({ onExit, onReady, onRendererFallback, onPasteImage });
+  callbacks.current = { onExit, onReady, onRendererFallback, onPasteImage };
 
   useEffect(() => {
     visibleRef.current = visible;
@@ -60,6 +72,17 @@ export function TerminalView({ execId, visible, onExit, onReady, onRendererFallb
     const term = deps.factory({ openLink: (url) => void api.app.openExternal(url) });
     term.open(el);
     term.onRendererFallback(() => callbacks.current.onRendererFallback?.());
+
+    // Ctrl+V: a colagem de texto não muda (a tecla segue para o xterm); em paralelo o main diz se a área
+    // de transferência tem só imagem. Ctrl+Shift+V cola sempre só texto.
+    term.attachCustomKeyEventHandler((e) => {
+      const paste = e.type === 'keydown' && !e.repeat && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
+      if (!paste || e.key.toLowerCase() !== 'v' || !callbacks.current.onPasteImage) return true;
+      void api.attachments.clipboardHasImage().then((r) => {
+        if (r.ok && r.value && !disposed) callbacks.current.onPasteImage?.();
+      });
+      return true;
+    });
 
     const send = (msg: unknown, transfer?: Transferable[]) => {
       if (!port) return;

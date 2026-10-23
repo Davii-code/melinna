@@ -17,7 +17,43 @@ describe('MelinnaError', () => {
     expect(ERROR_CODES).toContain('HOST_VERSION');
     expect(ERROR_CODES).toContain('INPUT_INVALID');
     expect(ERROR_CODES).toContain('WORK_WOULD_BE_LOST');
+    expect(ERROR_CODES).toContain('IO_ERROR');
     expect(ERROR_CODES).toContain('INTERNAL');
+  });
+
+  it('has the git codes with the contract messages', () => {
+    for (const code of [
+      'GIT_AUTH',
+      'GIT_REJECTED',
+      'GIT_IDENTITY',
+      'GIT_HOOK_FAILED',
+      'GIT_LOCKED',
+      'GIT_FAILED',
+    ] as const) {
+      expect(ERROR_CODES).toContain(code);
+    }
+    expect(defaultUserMessage('GIT_AUTH')).toBe(
+      'O git não conseguiu se autenticar no remoto. Configure suas credenciais (Git Credential Manager ou SSH) e tente de novo.',
+    );
+    expect(defaultUserMessage('GIT_REJECTED')).toBe(
+      'O remoto recusou o envio porque tem commits novos. Faça pull antes.',
+    );
+    expect(defaultUserMessage('GIT_IDENTITY')).toBe(
+      'Configure seu nome e e-mail no git (git config user.name / user.email).',
+    );
+    expect(defaultUserMessage('GIT_HOOK_FAILED')).toBe('Um hook do git recusou a operação.');
+    expect(defaultUserMessage('GIT_LOCKED')).toBe(
+      'Outro processo do git está usando este repositório — talvez um agente. Tente de novo em instantes.',
+    );
+  });
+
+  it('has the run codes with the contract messages', () => {
+    for (const code of ['PROGRAM_NOT_FOUND', 'COMMAND_STALE'] as const) {
+      expect(ERROR_CODES).toContain(code);
+    }
+    expect(defaultUserMessage('COMMAND_STALE')).toBe('A configuração mudou; abra o seletor de novo.');
+    expect(defaultUserMessage('PROGRAM_NOT_FOUND')).toMatch(/^Programa não encontrado/);
+    expect(ERROR_CODES as readonly string[]).not.toContain('IDE_NOT_FOUND');
   });
 
   it('keeps code, user message, details and cause', () => {

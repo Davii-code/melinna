@@ -11,6 +11,11 @@ export interface TerminalLike {
   /** Tamanho que caberia no elemento, ou null se oculto. */
   proposeSize(): { cols: number; rows: number } | null;
   fit(): void;
+  /**
+   * Filtro de teclas do terminal: devolver `false` impede o xterm de tratar a tecla. Usado para observar o
+   * Ctrl+V sem mexer na colagem de texto.
+   */
+  attachCustomKeyEventHandler(fn: (event: KeyboardEvent) => boolean): void;
   /** Avisa quando o renderizador WebGL perdeu o contexto e trocou para DOM. */
   onRendererFallback(fn: () => void): void;
   search(term: string, direction: 'next' | 'previous'): boolean;

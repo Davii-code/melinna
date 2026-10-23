@@ -9,7 +9,7 @@ import {
 } from '../../../src/renderer/components/TerminalView';
 import type { PortReceiver } from '../../../src/renderer/terminal/port-receiver';
 import type { TerminalLike } from '../../../src/renderer/terminal/xterm-types';
-import { fakeApi } from '../../support/fake-api';
+import { fakeApi, okR } from '../../support/fake-api';
 
 class FakeTerm implements TerminalLike {
   cols = 80;
@@ -20,6 +20,14 @@ class FakeTerm implements TerminalLike {
   disposed = false;
   private dataFns: ((d: string) => void)[] = [];
   private fallbackFns: (() => void)[] = [];
+  keyHandler: ((e: KeyboardEvent) => boolean) | null = null;
+  attachCustomKeyEventHandler(fn: (e: KeyboardEvent) => boolean) {
+    this.keyHandler = fn;
+  }
+  /** Tecla como o xterm a veria; devolve o que o filtro respondeu (`true` = o xterm continua). */
+  press(init: KeyboardEventInit & { key: string }, type: 'keydown' | 'keyup' = 'keydown'): boolean {
+    return this.keyHandler?.(new KeyboardEvent(type, init)) ?? true;
+  }
   open() {
     this.opened = true;
   }
@@ -74,7 +82,14 @@ afterEach(() => {
   delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
 });
 
-function setup(props: { visible?: boolean; onExit?: () => void; onRendererFallback?: () => void } = {}) {
+function setup(
+  props: {
+    visible?: boolean;
+    onExit?: () => void;
+    onRendererFallback?: () => void;
+    onPasteImage?: () => void;
+  } = {},
+) {
   const api = fakeApi();
   const term = new FakeTerm();
   const channel = new MessageChannel();
@@ -210,5 +225,82 @@ describe('TerminalView', () => {
     await tick();
     lastOpenLink?.('https://example.com/docs');
     expect(api.app.openExternal).toHaveBeenCalledWith('https://example.com/docs');
+  });
+});
+
+describe('TerminalView — Ctrl+V com imagem', () => {
+  it('asks the main process and calls onPasteImage when the clipboard has only an image', async () => {
+    const onPasteImage = vi.fn();
+    const { api, term } = setup({ onPasteImage });
+    await tick();
+    api.attachments.clipboardHasImage.mockImplementation(() => okR(true));
+    term.press({ key: 'v', ctrlKey: true });
+    await tick(5);
+    expect(api.attachments.clipboardHasImage).toHaveBeenCalledTimes(1);
+    expect(onPasteImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('never blocks the key, so a text paste keeps working exactly as before', async () => {
+    const { api, term } = setup({ onPasteImage: vi.fn() });
+    await tick();
+    api.attachments.clipboardHasImage.mockImplementation(() => okR(true));
+    expect(term.press({ key: 'v', ctrlKey: true })).toBe(true);
+  });
+
+  it('does nothing when the clipboard has text (or no image)', async () => {
+    const onPasteImage = vi.fn();
+    const { api, term } = setup({ onPasteImage });
+    await tick();
+    api.attachments.clipboardHasImage.mockImplementation(() => okR(false));
+    term.press({ key: 'v', ctrlKey: true });
+    await tick(5);
+    expect(api.attachments.clipboardHasImage).toHaveBeenCalled();
+    expect(onPasteImage).not.toHaveBeenCalled();
+  });
+
+  it('Ctrl+Shift+V pastes text only and does not look for an image', async () => {
+    const onPasteImage = vi.fn();
+    const { api, term } = setup({ onPasteImage });
+    await tick();
+    api.attachments.clipboardHasImage.mockImplementation(() => okR(true));
+    expect(term.press({ key: 'V', ctrlKey: true, shiftKey: true })).toBe(true);
+    await tick(5);
+    expect(api.attachments.clipboardHasImage).not.toHaveBeenCalled();
+    expect(onPasteImage).not.toHaveBeenCalled();
+  });
+
+  it('ignores other keys, key release, auto-repeat and Alt combinations', async () => {
+    const { api, term } = setup({ onPasteImage: vi.fn() });
+    await tick();
+    term.press({ key: 'c', ctrlKey: true });
+    term.press({ key: 'v' });
+    term.press({ key: 'v', ctrlKey: true }, 'keyup');
+    term.press({ key: 'v', ctrlKey: true, repeat: true });
+    term.press({ key: 'v', ctrlKey: true, altKey: true });
+    await tick(5);
+    expect(api.attachments.clipboardHasImage).not.toHaveBeenCalled();
+  });
+
+  it('does not ask without an onPasteImage handler', async () => {
+    const { api, term } = setup();
+    await tick();
+    expect(term.press({ key: 'v', ctrlKey: true })).toBe(true);
+    await tick(5);
+    expect(api.attachments.clipboardHasImage).not.toHaveBeenCalled();
+  });
+
+  it('does not call onPasteImage after the terminal was unmounted', async () => {
+    const onPasteImage = vi.fn();
+    const { api, term, utils } = setup({ onPasteImage });
+    await tick();
+    let release: (v: { ok: true; value: boolean }) => void = () => undefined;
+    api.attachments.clipboardHasImage.mockImplementation(
+      () => new Promise((resolve) => (release = resolve)),
+    );
+    term.press({ key: 'v', ctrlKey: true });
+    utils.unmount();
+    release({ ok: true, value: true });
+    await tick(5);
+    expect(onPasteImage).not.toHaveBeenCalled();
   });
 });

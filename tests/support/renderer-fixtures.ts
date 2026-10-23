@@ -1,4 +1,4 @@
-import type { AgentDefinition, Execution } from '../../src/shared/ipc-contract';
+import type { AgentDefinition, Execution, RunCommand } from '../../src/shared/ipc-contract';
 
 export function agentDef(id: string, over: Partial<AgentDefinition> = {}): AgentDefinition {
   return {
@@ -60,4 +60,22 @@ export function execution(id: string, over: Partial<Execution> = {}): Execution 
 export function shellDef(id: string, displayName = id): AgentDefinition {
   const { model: _model, permission: _permission, resume: _resume, ...rest } = agentDef(id);
   return { ...rest, displayName, kind: 'shell', prompt: { delivery: 'none' } };
+}
+
+/** Configuração de execução disponível; `over` ajusta o que o teste precisa. */
+export function runCommand(over: Partial<RunCommand> = {}): RunCommand {
+  return {
+    id: 'c1',
+    groupId: 'g1',
+    source: 'npm',
+    tool: 'npm',
+    label: 'dev',
+    program: 'npm',
+    args: ['run', 'dev'],
+    folder: '/repo',
+    available: true,
+    unavailableReason: null,
+    searched: 'npm',
+    ...over,
+  };
 }

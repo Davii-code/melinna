@@ -99,8 +99,9 @@ export async function relaunchExecution(
   assertWithinLimit(ctx.model.liveCount(), 1);
   const task = requireTask(ctx, exec);
   const prepared = exec.branch !== '' && (await ctx.fs.exists(exec.worktreePath));
-  if (isDirect(task)) {
-    await assertFolderExists(ctx, exec.worktreePath);
+  // Comando de projeto roda sempre na pasta da tarefa, como a execução direta.
+  if (isDirect(task) || exec.command) {
+    await assertFolderExists(ctx, exec.worktreePath, task);
     ctx.update(exec.id, { status: 'starting', failure: null });
   } else if (prepared) {
     await acquireLease({
@@ -171,6 +172,9 @@ export async function removeExecution(
     .catch((err: unknown) => {
       ctx.log.error('scrollback.remove_failed', { execId, err });
     });
+  await ctx.attachments?.removeFor(exec.id).catch((err: unknown) => {
+    ctx.log.error('attachment.remove_failed', { execId, err });
+  });
   ctx.busy.ended(exec.id);
   ctx.model.mutate((s) => {
     s.executions = s.executions.filter((e) => e.id !== exec.id);
@@ -192,6 +196,7 @@ export async function removeExecution(
     const { [exec.id]: _removed, ...remainingCells } = l.custom.cells;
     l.custom.cells = remainingCells;
   });
+  ctx.removed(exec.id);
   ctx.log.info('execution.removed', {
     execId,
     deletedBranch: opts.deleteBranch,

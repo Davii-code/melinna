@@ -12,6 +12,10 @@ export interface GitOptions {
   /** Não lança em código de saída diferente de zero. */
   allowFail?: boolean;
   timeoutMs?: number;
+  /** Variáveis extras de ambiente, por cima das fixas (`GIT_TERMINAL_PROMPT`, `LC_ALL`). */
+  env?: Record<string, string>;
+  signal?: AbortSignal;
+  onStderr?: (chunk: string) => void;
 }
 
 export interface GitResult {
@@ -42,9 +46,12 @@ export class GitRunner {
       res = await this.runner.run(this.gitPath, full, {
         cwd: opts.cwd,
         timeoutMs: opts.timeoutMs ?? 120_000,
-        env: { GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
+        env: { GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C', ...opts.env },
+        ...(opts.signal ? { signal: opts.signal } : {}),
+        ...(opts.onStderr ? { onStderr: opts.onStderr } : {}),
       });
     } catch (cause) {
+      if (cause instanceof Error && cause.name === 'AbortError') throw cause;
       this.log.error('git.spawn_failed', { command: subcommand, err: cause });
       throw new MelinnaError('GIT_FAILED', {
         userMessage: 'Não foi possível executar o git. Verifique se ele está instalado e no PATH.',

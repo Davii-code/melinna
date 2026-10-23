@@ -171,3 +171,59 @@ describe('FilesService.roots', () => {
     expect(service.roots()).toHaveLength(1);
   });
 });
+
+describe('FilesService — workspace com várias pastas', () => {
+  const FIRST = '/ws-a';
+  const SECOND = '/ws-b';
+
+  function multi(unavailable: string[] = []) {
+    const fs = new MemoryFileSystem();
+    const log = new MemoryLogger();
+    const service = new FilesService({
+      fs,
+      os: currentOs,
+      log,
+      roots: () => [
+        { path: FIRST, label: 'a', kind: 'workspace' as const, workspaceId: 'w', primary: true },
+        { path: SECOND, label: 'b', kind: 'workspace' as const, workspaceId: 'w' },
+      ].map((r) => (unavailable.includes(r.path) ? { ...r, available: false } : r)),
+    });
+    return { fs, service };
+  }
+
+  it('writes a file in any folder of the workspace, not only the primary one', async () => {
+    const { fs, service } = multi();
+    fs.seed(`${SECOND}/nota.txt`, 'velho');
+    const hash = contentHash(new TextEncoder().encode('velho'));
+    await service.write(`${SECOND}/nota.txt`, 'novo', hash);
+    expect(fs.readText(`${SECOND}/nota.txt`)).toBe('novo');
+  });
+
+  it('refuses to read, list or write inside a folder flagged as unavailable', async () => {
+    const { fs, service } = multi([SECOND]);
+    fs.seed(`${SECOND}/nota.txt`, 'velho');
+    expect(await rejection(service.list(SECOND))).toBe('FILE_OUTSIDE_ROOT');
+    expect(await rejection(service.read(`${SECOND}/nota.txt`))).toBe('FILE_OUTSIDE_ROOT');
+    expect(await rejection(service.write(`${SECOND}/nota.txt`, 'x', contentHash(new TextEncoder().encode('velho'))))).toBe(
+      'FILE_OUTSIDE_ROOT',
+    );
+    expect(service.containsPath(`${SECOND}/nota.txt`)).toBe(false);
+    expect(service.containsPath(`${FIRST}/qualquer`)).toBe(true);
+    expect(fs.readText(`${SECOND}/nota.txt`)).toBe('velho');
+  });
+
+  it('never writes inside .git, even though the folder is a root', async () => {
+    const { fs, service } = multi();
+    fs.seed(`${FIRST}/.git/config`, '[core]');
+    const hash = contentHash(new TextEncoder().encode('[core]'));
+    expect(await rejection(service.write(`${FIRST}/.git/config`, 'x', hash))).toBe('INPUT_INVALID');
+    expect(fs.readText(`${FIRST}/.git/config`)).toBe('[core]');
+  });
+
+  it('still writes files whose name merely starts with .git', async () => {
+    const { fs, service } = multi();
+    fs.seed(`${FIRST}/.gitignore`, 'a');
+    await service.write(`${FIRST}/.gitignore`, 'b', contentHash(new TextEncoder().encode('a')));
+    expect(fs.readText(`${FIRST}/.gitignore`)).toBe('b');
+  });
+});

@@ -1,121 +1,130 @@
-# Feature Specification: Rodar o projeto e abrir na IDE externa
+# Feature Specification: Configurações de execução e mapas de atalhos, no estilo do IntelliJ
 
 **Feature Branch**: `007-rodar-projeto-ide`
 
 **Created**: 2026-10-22
 
+**Updated**: 2026-10-23 — a abertura em IDE externa saiu do escopo; a execução passou a seguir a barra de execução do IntelliJ; entrou a escolha do mapa de atalhos.
+
 **Status**: Draft
 
-**Input**: User description: "Rodar o projeto e abrir na IDE externa, níveis A e B do bloco 3 de docs/ideias-proximas-versoes.md: detectar e rodar comandos do projeto (npm, Maven, Gradle, Docker Compose) num terminal do app e abrir pasta ou arquivo no VS Code ou no IntelliJ."
+**Input**: User description: "Rodar o projeto com a mesma estrutura do IntelliJ: configurações de execução nomeadas num seletor da barra superior, botão Rodar e menu com editar, rodar de novo e parar; as detectadas (npm, Maven, Gradle, Docker Compose) e as personalizadas no mesmo seletor. Sem depuração e sem abrir em IDE externa. E poder escolher o mapa de atalhos do app: IntelliJ, Eclipse, VS Code ou Windows."
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Rodar um comando detectado do projeto (Priority: P1)
+### User Story 1 - Rodar pela barra de execução (Priority: P1)
 
-O usuário abre o menu "Rodar" do workspace e vê os comandos que o app encontrou no projeto (por exemplo `npm run dev`, `mvn test`, `gradle build`, `docker compose up`). Escolhe um, que abre num terminal do app, com "Rodar de novo" e "Parar".
+Na barra superior, o usuário vê o seletor da configuração de execução ativa (ícone do tipo e nome, por exemplo "back end nest"), o botão Rodar (▶) ao lado e um menu (⋮). Abre o seletor, escolhe uma configuração detectada no projeto ou criada por ele e clica em Rodar: a saída aparece num painel de terminal do app. Pelo menu, roda de novo, para ou edita as configurações.
 
-**Why this priority**: tira o usuário do terminal externo para as tarefas mais comuns do projeto.
+**Why this priority**: tira o usuário do terminal externo para as tarefas mais comuns, com a mesma barra que ele já usa no IntelliJ.
 
-**Independent Test**: num projeto com `package.json` com o script `dev`, rodar `dev` pelo menu e ver a saída num painel; parar e rodar de novo.
+**Independent Test**: num projeto com `package.json` com o script `dev`, escolher "dev" no seletor, clicar em Rodar e ver a saída num painel; pelo menu, rodar de novo e parar.
 
 **Acceptance Scenarios**:
 
-1. **Given** um workspace com `package.json` com scripts, **When** o usuário abre "Rodar", **Then** vê um item por script, com o gerenciador certo (npm, pnpm ou yarn, pelo arquivo de lock).
-2. **Given** um projeto Maven (`pom.xml`) ou Gradle (`build.gradle`/`build.gradle.kts`), **When** abre "Rodar", **Then** vê os comandos comuns (compilar, testar, empacotar) usando o wrapper do projeto quando existir (`mvnw`, `gradlew`).
-3. **Given** um `docker-compose.yml` ou `compose.yaml`, **When** abre "Rodar", **Then** vê "subir" e "derrubar".
-4. **Given** um comando escolhido, **When** ele roda, **Then** abre um painel de terminal com a saída, na pasta onde o arquivo foi encontrado, e a linha dele aparece no workspace com "Parar" e "Rodar de novo".
-5. **Given** um comando rodando, **When** o usuário clica em "Rodar de novo", **Then** o comando é parado e iniciado de novo no mesmo painel.
-6. **Given** um workspace com várias pastas (feature 003), **When** abre "Rodar", **Then** os comandos aparecem agrupados por pasta.
-7. **Given** no Linux um wrapper do projeto sem permissão de execução, **When** o usuário escolhe um comando que o usa, **Then** o app pede confirmação para rodá-lo com o interpretador do wrapper; recusando, usa a ferramenta do sistema.
-8. **Given** um comando já rodando, **When** o usuário o escolhe de novo no menu, **Then** o painel existente ganha o foco em vez de abrir outra instância.
+1. **Given** um workspace com `package.json` com scripts, **When** o usuário abre o seletor, **Then** vê uma configuração por script, com o gerenciador certo (npm, pnpm ou yarn, pelo arquivo de lock).
+2. **Given** um projeto Maven (`pom.xml`) ou Gradle (`build.gradle`/`build.gradle.kts`), **When** abre o seletor, **Then** vê as configurações comuns (compilar, testar, empacotar) usando o wrapper do projeto quando existir (`mvnw`, `gradlew`).
+3. **Given** um `docker-compose.yml` ou `compose.yaml`, **When** abre o seletor, **Then** vê "subir" e "derrubar".
+4. **Given** workspaces e pastas diferentes, **When** abre o seletor, **Then** as configurações aparecem agrupadas por workspace e por pasta, as personalizadas primeiro.
+5. **Given** uma configuração escolhida no seletor, **When** o usuário clica em Rodar (▶), **Then** abre um painel de terminal com a saída, na pasta da configuração, e a configuração passa a mostrar que está rodando.
+6. **Given** a configuração ativa rodando, **When** o usuário clica em Rodar de novo, **Then** o painel existente ganha o foco em vez de abrir outra instância.
+7. **Given** a configuração ativa rodando, **When** escolhe "Rodar de novo" no menu (⋮), **Then** o comando é parado e iniciado de novo no mesmo painel.
+8. **Given** a configuração ativa rodando, **When** escolhe "Parar" no menu, **Then** o comando para como num Ctrl+C e o painel mostra o código de saída.
+9. **Given** o menu (⋮), **When** o usuário escolhe "Editar configurações", **Then** abre a janela de configurações com a lista à esquerda (detectadas e personalizadas) e os campos da selecionada à direita.
+10. **Given** a janela de configurações, **When** o usuário cria uma configuração com nome, programa, argumentos e pasta do workspace, **Then** ela aparece no seletor e continua após reabrir o app.
+11. **Given** uma configuração personalizada, **When** o usuário a edita, duplica ou exclui, **Then** o seletor reflete a mudança.
+12. **Given** uma configuração detectada, **When** o usuário a abre na janela, **Then** vê os campos só para leitura e pode duplicá-la como personalizada para alterar.
+13. **Given** a configuração ativa escolhida, **When** o usuário fecha e reabre o app, **Then** a mesma configuração continua ativa no seletor.
+14. **Given** no Linux um wrapper do projeto sem permissão de execução, **When** o usuário roda uma configuração que o usa, **Then** o app pede confirmação para rodá-lo com o interpretador do wrapper; recusando, usa a ferramenta do sistema.
 
 ---
 
-### User Story 2 - Comandos personalizados do workspace (Priority: P2)
+### User Story 2 - Escolher o mapa de atalhos (Priority: P2)
 
-O usuário cadastra um comando que o app não detecta (por exemplo, um script interno), com nome, programa, argumentos e pasta, e passa a rodá-lo pelo mesmo menu.
+O usuário escolhe, nas preferências do app, o mapa de atalhos de teclado que já tem na memória: IntelliJ, Eclipse, VS Code ou Windows (o padrão, com os atalhos atuais do app). Os atalhos do app passam a seguir o mapa escolhido.
 
-**Why this priority**: cobre projetos fora do padrão; o detectado resolve a maioria.
+**Why this priority**: quem vem de outra IDE não precisa reaprender atalhos; o app funciona sem isso com o mapa padrão.
 
-**Independent Test**: cadastrar "Subir mock" com programa `node` e argumento `mock/server.js`, rodar pelo menu e ver a saída.
-
-**Acceptance Scenarios**:
-
-1. **Given** o menu "Rodar", **When** o usuário cria um comando com nome, programa, argumentos e pasta, **Then** ele aparece no menu do workspace e continua após reabrir o app.
-2. **Given** um comando personalizado, **When** o usuário edita ou exclui, **Then** o menu reflete a mudança.
-3. **Given** um programa que não existe, **When** o usuário tenta rodar, **Then** aparece "Programa não encontrado" com o nome procurado.
-
----
-
-### User Story 3 - Abrir no VS Code ou no IntelliJ (Priority: P2)
-
-O usuário abre o workspace, uma pasta ou o arquivo aberto no editor (na linha atual) no VS Code ou no IntelliJ, para depurar ou usar recursos que o Melinna não tem.
-
-**Why this priority**: cobre a depuração e os recursos de IDE sem reconstruí-los no app.
-
-**Independent Test**: com o VS Code instalado, "Abrir no VS Code" num arquivo na linha 42 abre o VS Code naquele arquivo e linha.
+**Independent Test**: escolher o mapa IntelliJ e abrir o "ir para arquivo" com Ctrl+Shift+N; voltar ao mapa Windows e abrir com Ctrl+P.
 
 **Acceptance Scenarios**:
 
-1. **Given** o VS Code ou o IntelliJ instalados, **When** o usuário escolhe "Abrir no VS Code" ou "Abrir no IntelliJ" num workspace ou pasta, **Then** a IDE abre aquela pasta.
-2. **Given** um arquivo aberto no editor do app, **When** escolhe abrir na IDE, **Then** a IDE abre o arquivo na linha do cursor.
-3. **Given** a IDE não encontrada, **When** o usuário escolhe abrir nela, **Then** aparece a mensagem com onde o app procurou e a opção de informar o caminho do executável, que fica guardado.
-4. **Given** qualquer pasta do workspace, **When** escolhe "Mostrar no explorador de arquivos", **Then** o gerenciador de arquivos do sistema abre na pasta.
+1. **Given** as preferências do app, **When** o usuário abre "Mapa de atalhos", **Then** vê as opções IntelliJ, Eclipse, VS Code e Windows, com a atual marcada e a tabela dos atalhos de cada uma.
+2. **Given** um mapa escolhido, **When** o usuário usa um atalho dele, **Then** a ação correspondente acontece, com o terminal em foco ou não.
+3. **Given** um mapa escolhido, **When** o usuário usa o atalho de outro mapa que não existe no atual, **Then** nada do app acontece e a tecla segue para onde estiver o foco (terminal ou editor).
+4. **Given** um mapa escolhido, **When** fecha e reabre o app, **Then** o mapa continua o mesmo.
+5. **Given** a primeira abertura do app (ou estado sem preferência), **When** nada foi escolhido, **Then** vale o mapa Windows, com os atalhos de hoje.
+6. **Given** os botões e menus que citam atalho (dicas e títulos), **When** o mapa muda, **Then** o texto mostra a tecla do mapa atual.
 
 ### Edge Cases
 
-- Projeto sem nenhum arquivo reconhecido: o menu mostra "Nenhum comando encontrado" e a opção de criar um personalizado.
-- `package.json` inválido: o app ignora esse arquivo e mostra o aviso no menu, sem erro.
-- Wrapper sem permissão de execução no Linux: roda com o interpretador do wrapper só se o usuário confirmar; senão usa a ferramenta do sistema.
-- Mesmo comando escolhido duas vezes (duplo clique ou com ele já rodando): foca o painel existente; para outra instância, o usuário usa "Rodar de novo".
-- Pasta de um comando personalizado removida do workspace depois de salvo: o comando aparece desabilitado com "pasta fora do workspace" até ser editado.
-- `package.json` sem scripts: nenhum item daquele arquivo, sem aviso.
+- Projeto sem nenhum arquivo reconhecido: o seletor mostra "Nenhuma configuração" e a opção "Editar configurações" para criar uma.
+- Nenhuma configuração ativa (primeiro uso ou a ativa sumiu): o botão Rodar fica desabilitado com a dica "Escolha uma configuração".
+- Configuração ativa desabilitada (ferramenta ausente ou pasta fora do workspace): o botão Rodar fica desabilitado com o motivo como dica.
+- Configuração ativa parada: "Rodar de novo" e "Parar" ficam desabilitados no menu (⋮); "Editar configurações" continua disponível.
+- Dois cliques rápidos em Rodar: uma só execução; o segundo foca o painel.
+- `package.json` inválido: o app ignora esse arquivo e mostra o aviso no seletor, sem erro.
+- `package.json` sem scripts: nenhuma configuração daquele arquivo, sem aviso.
+- Configuração detectada que deixou de existir no projeto entre abrir o seletor e clicar em Rodar: recusada com "A configuração mudou; abra o seletor de novo."
+- Configuração ativa detectada que sumiu do projeto: o seletor volta a "Nenhuma configuração ativa".
+- Pasta de uma configuração personalizada removida do workspace: a configuração aparece desabilitada com "pasta fora do workspace" até ser editada.
+- Nome de script com caracteres especiais (`;`, `&`, `$()`, espaços): passado como está, sem efeito de shell.
+- Argumentos com espaços e aspas: passados como estão, um por item, sem interpretação de shell.
+- Ferramenta não instalada (npm, mvn, gradle, docker): a configuração aparece desabilitada com "não encontrado: <nome>".
 - Docker Compose antigo (`docker-compose` separado): usado quando `docker compose` não existe.
 - `docker compose up` fica em primeiro plano no painel; "Parar" encerra os contêineres como Ctrl+C.
-- O projeto mudou entre abrir o menu e escolher o comando (comando não existe mais): recusado com "O comando mudou; abra o menu de novo."
-- Nome de script com caracteres especiais (`;`, `&`, `$()`, espaços): passado como está, sem efeito de shell.
-- Ferramenta não instalada (npm, mvn, gradle, docker): o item aparece desabilitado com "não encontrado: <nome>".
-- Comando que termina sozinho: o painel mostra o código de saída; "Rodar de novo" continua disponível.
-- Comando de longa duração com o app fechado: segue rodando como as sessões de agente, e a linha volta ao reabrir.
-- Remover o comando ou o workspace com o comando rodando: pede para parar antes.
-- Argumentos com espaços e aspas: passados como estão, um por item, sem interpretação de shell.
-- Caminho da IDE informado que deixou de existir: volta a procurar e avisa.
-- Limite de terminais vivos (o mesmo das sessões de agente): rodar um comando sem vaga é recusado com a mensagem de limite.
+- Comando que termina sozinho: o painel mostra o código de saída; Rodar continua disponível.
+- Comando de longa duração com o app fechado: segue rodando como as sessões de agente, e o estado volta ao reabrir.
+- Excluir uma configuração ou remover o workspace com o comando rodando: pede para parar antes.
+- Limite de terminais vivos (o mesmo das sessões de agente): rodar sem vaga é recusado com a mensagem de limite.
+- Atalho do mapa escolhido que o terminal precisa (Ctrl+C, Ctrl+D, Ctrl+Z, Ctrl+B e as setas): nunca é capturado pelo app; o mapa não usa essas teclas.
+- Atalho do mapa que o sistema operacional reserva (por exemplo Ctrl+Alt+Del, teclas de mídia): não entra no mapa.
+- Configuração personalizada com nome repetido no mesmo workspace: recusada com "Já existe uma configuração com esse nome".
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: O sistema MUST detectar, em cada pasta do workspace, os comandos de `package.json` (scripts, com npm/pnpm/yarn pelo arquivo de lock), Maven (`pom.xml`: compilar, testar, empacotar), Gradle (`build.gradle`/`.kts`: build, test, e `run`/`bootRun` quando o projeto declara a aplicação) e Docker Compose (subir, derrubar).
+- **FR-001**: O sistema MUST detectar, em cada pasta do workspace, configurações de execução de `package.json` (scripts, com npm/pnpm/yarn pelo arquivo de lock), Maven (`pom.xml`: compilar, testar, empacotar), Gradle (`build.gradle`/`.kts`: build, test, e `run`/`bootRun` quando o projeto declara a aplicação) e Docker Compose (subir, derrubar).
 - **FR-002**: O sistema MUST usar o wrapper do projeto (`mvnw`, `gradlew`) quando existir e puder ser executado sem passar pelo prompt de comando; no Windows, onde o wrapper é um arquivo de lote, MUST usar a ferramenta do sistema e avisar que o wrapper foi ignorado.
-- **FR-003**: Rodar um comando MUST abrir um painel de terminal na pasta onde ele foi encontrado (ou na pasta escolhida, para os personalizados), com "Parar" e "Rodar de novo".
-- **FR-004**: Comandos MUST ser executados sem interpretação de shell: programa e argumentos separados.
-- **FR-005**: Ferramenta ausente MUST deixar o item desabilitado com o nome procurado.
-- **FR-006**: O usuário MUST poder criar, editar e excluir comandos personalizados por workspace (nome 1–80, programa, até 64 argumentos, pasta do workspace), persistidos entre aberturas.
-- **FR-007**: O sistema MUST abrir workspace, pasta ou arquivo (com linha) no VS Code e no IntelliJ, procurando os executáveis nos locais padrão de cada sistema.
-- **FR-008**: Quando a IDE não for encontrada, o sistema MUST mostrar onde procurou e permitir escolher o executável num diálogo do sistema; a escolha fica guardada. No Windows, só programas `.exe` são aceitos.
-- **FR-009**: O sistema MUST oferecer "Mostrar no explorador de arquivos" para pastas do workspace.
-- **FR-010**: Comandos rodando MUST contar no mesmo limite de terminais vivos das sessões de agente.
-- **FR-011**: Remover um comando personalizado ou o workspace com o comando rodando MUST exigir parar antes.
-- **FR-012**: Rodar, parar e abrir na IDE MUST ficar registrados para diagnóstico (tipo, workspace, resultado), sem argumentos nem caminhos completos.
+- **FR-003**: A barra superior MUST mostrar o seletor da configuração ativa (ícone do tipo e nome), o botão Rodar e o menu com "Rodar de novo", "Parar" e "Editar configurações".
+- **FR-004**: O seletor MUST listar as configurações de todos os workspaces abertos, agrupadas por workspace e pasta, com as personalizadas antes das detectadas, e indicar as que estão rodando.
+- **FR-005**: Rodar MUST abrir um painel de terminal na pasta da configuração; rodar uma configuração que já está rodando MUST focar o painel existente.
+- **FR-006**: "Rodar de novo" MUST parar e iniciar o comando no mesmo painel; "Parar" MUST interromper como Ctrl+C e, sem resposta, encerrar o processo.
+- **FR-007**: Comandos MUST ser executados sem interpretação de shell: programa e argumentos separados.
+- **FR-008**: Ferramenta ausente MUST deixar a configuração desabilitada com o nome procurado.
+- **FR-009**: O usuário MUST poder criar, editar, duplicar e excluir configurações personalizadas por workspace (nome 1–80 único no workspace, programa, até 64 argumentos, pasta do workspace), persistidas entre aberturas; configurações detectadas são só leitura e podem ser duplicadas como personalizadas.
+- **FR-010**: A configuração ativa MUST ser lembrada entre aberturas do app.
+- **FR-011**: Comandos rodando MUST contar no mesmo limite de terminais vivos das sessões de agente.
+- **FR-012**: Excluir uma configuração personalizada ou remover o workspace com o comando rodando MUST exigir parar antes.
+- **FR-013**: O usuário MUST poder escolher o mapa de atalhos entre IntelliJ, Eclipse, VS Code e Windows (padrão); a escolha MUST valer na hora, sem reiniciar, e persistir entre aberturas.
+- **FR-014**: Cada mapa MUST cobrir as mesmas ações do app: ir para arquivo, salvar, fechar aba, mostrar/esconder a barra lateral, abrir a biblioteca de prompts, rodar a configuração ativa e parar. Ações sem atalho num mapa ficam sem atalho nele (continuam disponíveis pelos botões).
+- **FR-015**: Os mapas MUST NOT capturar teclas que o terminal precisa (Ctrl+C, Ctrl+D, Ctrl+Z, Ctrl+B, setas) nem teclas reservadas pelo sistema operacional.
+- **FR-016**: As dicas e títulos que citam atalhos MUST mostrar a tecla do mapa atual.
+- **FR-017**: Rodar, parar e trocar de mapa MUST ficar registrados para diagnóstico (tipo, workspace, resultado), sem argumentos nem caminhos completos.
 
 ### Key Entities
 
-- **Comando do projeto**: nome, origem (detectado ou personalizado), programa, argumentos, pasta.
-- **Execução de comando**: um terminal rodando um comando, com estado como as sessões.
-- **IDE externa**: tipo (VS Code ou IntelliJ) e caminho do executável (detectado ou informado).
+- **Configuração de execução**: nome, tipo (npm, pnpm, yarn, Maven, Gradle, Docker Compose ou personalizada), origem (detectada ou personalizada), programa, argumentos, pasta, workspace.
+- **Configuração ativa**: a configuração escolhida no seletor, lembrada entre aberturas.
+- **Execução de comando**: um terminal rodando uma configuração, com estado como as sessões.
+- **Mapa de atalhos**: nome (IntelliJ, Eclipse, VS Code, Windows) e tecla de cada ação do app.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Rodar o comando de desenvolvimento de um projeto Node, Maven ou Gradle leva no máximo 2 ações a partir do workspace.
-- **SC-002**: O menu "Rodar" abre em menos de 1 segundo num workspace com até 10 pastas.
-- **SC-003**: Abrir um arquivo na IDE externa leva no máximo 2 ações e cai na linha certa.
-- **SC-004**: 0 comandos executados através de um shell.
+- **SC-001**: Rodar a configuração ativa leva 1 ação (clique em Rodar ou atalho); trocar de configuração e rodar leva no máximo 2.
+- **SC-002**: O seletor abre em menos de 1 segundo com até 10 workspaces abertos.
+- **SC-003**: 0 comandos executados através de um shell.
+- **SC-004**: Em cada um dos 4 mapas, todas as ações listadas em FR-014 que têm atalho funcionam com o terminal em foco e com o editor em foco.
+- **SC-005**: Trocar de mapa tem efeito imediato, sem reiniciar o app, verificado em teste para os 4 mapas.
 
 ## Assumptions
 
-- Depuração com pontos de parada fica com a IDE externa (nível D do bloco 3 não entra nesta feature).
+- Depuração (botão 🐞, pontos de parada) fica fora desta feature.
+- Abrir em IDE externa e "mostrar no explorador de arquivos" ficam fora desta feature.
+- Os mapas trocam o conjunto inteiro; editar atalho por atalho fica para depois.
+- As teclas de cada mapa seguem as das IDEs de referência para as mesmas ações quando existem e não conflitam com FR-015; o plano fixa a tabela.
 - Os comandos detectados cobrem o caso comum; personalização fina (perfis do Maven, variáveis de ambiente) fica para depois.
-- Fora de escopo: servidores de linguagem (LSP), busca em todos os arquivos, outras IDEs.
+- Fora de escopo: servidores de linguagem (LSP), busca em todos os arquivos.

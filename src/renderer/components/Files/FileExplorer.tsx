@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { DirectoryListing, FileChange, FileEntry, FileRoot, FileText } from '../../../shared/ipc-contract';
+import type { DirectoryListing, FileChange, FileEntry, FileRoot } from '../../../shared/ipc-contract';
 import { useApi } from '../../api';
 import { statusForDir, statusForPath, statusLabel, statusLetter } from '../../files/decorations';
 
@@ -11,12 +11,18 @@ interface DirState {
 
 const EMPTY_DIR: DirState = { listing: null, loading: false, error: null };
 
-/** Modalidade desta fatia: só leitura. Editar, salvar e abas chegam na fatia do editor. */
 export interface FileExplorerProps {
   /** Chamado quando o usuário fecha o explorador para voltar à árvore de workspaces. */
   onShowWorkspaces?: () => void;
-  /** Abre o arquivo no painel de editor. */
+  /** Abre o arquivo numa aba do painel de editor (clique simples na linha). */
   onOpenFile?: (path: string) => void;
+}
+
+/** Texto da raiz no seletor: a principal de um workspace de várias pastas leva ★; indisponível é avisada. */
+export function rootOptionLabel(root: FileRoot): string {
+  const base = root.kind === 'worktree' ? `⑂ ${root.label}` : root.label;
+  const marked = root.primary ? `★ ${base}` : base;
+  return root.available === false ? `${marked} (indisponível)` : marked;
 }
 
 function formatSize(bytes: number): string {
@@ -38,15 +44,13 @@ function StatusBadge({ change }: { change: FileChange }) {
   );
 }
 
-/** Explorador de arquivos somente leitura das raízes abertas no app (workspaces e worktrees). */
+/** Explorador das raízes abertas no app (workspaces e worktrees); o clique num arquivo abre o editor. */
 export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps) {
   const api = useApi();
   const [roots, setRoots] = useState<FileRoot[]>([]);
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [dirs, setDirs] = useState<Record<string, DirState>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [preview, setPreview] = useState<FileText | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
   const [status, setStatus] = useState<Record<string, FileChange>>({});
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -57,8 +61,9 @@ export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps
       const list = r.ok ? r.value : [];
       setRoots(list);
       setRootPath((current) => {
-        if (current !== null && list.some((root) => root.path === current)) return current;
-        return list[0]?.path ?? null;
+        const usable = list.filter((root) => root.available !== false);
+        if (current !== null && usable.some((root) => root.path === current)) return current;
+        return usable[0]?.path ?? null;
       });
     });
     return () => {
@@ -108,15 +113,6 @@ export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps
     if (open && state?.listing == null && state?.loading !== true) loadDir(entry.path);
   };
 
-  const openFile = (entry: FileEntry) => {
-    setPreviewError(null);
-    setPreview(null);
-    void api.files.read(entry.path).then((r) => {
-      if (r.ok) setPreview(r.value);
-      else setPreviewError(r.error.message);
-    });
-  };
-
   const renderDir = (path: string, depth: number) => {
     const state = dirs[path] ?? EMPTY_DIR;
     if (state.loading) {
@@ -163,8 +159,7 @@ export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps
               className="files-row"
               style={{ paddingLeft: 20 + depth * 12 }}
               title={entry.path}
-              onClick={() => openFile(entry)}
-              onDoubleClick={() => onOpenFile?.(entry.path)}
+              onClick={() => onOpenFile?.(entry.path)}
               data-testid={`file-${entry.name}`}
             >
               <span className="files-icon" aria-hidden="true">
@@ -201,8 +196,8 @@ export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps
         >
           {roots.length === 0 ? <option value="">Nenhuma pasta aberta</option> : null}
           {roots.map((root) => (
-            <option key={root.path} value={root.path}>
-              {root.kind === 'worktree' ? `⑂ ${root.label}` : root.label}
+            <option key={root.path} value={root.path} disabled={root.available === false}>
+              {rootOptionLabel(root)}
             </option>
           ))}
         </select>
@@ -227,7 +222,16 @@ export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps
           </button>
         ) : null}
       </div>
-      {current ? <div className="files-context">{current.path}</div> : null}
+      {current ? (
+        <div className="files-context">
+          {current.primary ? (
+            <span className="files-primary" title="Pasta principal do workspace: os terminais abrem nela">
+              principal
+            </span>
+          ) : null}
+          {current.path}
+        </div>
+      ) : null}
       <div className="files-tree" data-testid="files-tree">
         {rootPath === null ? (
           <p className="files-message">
@@ -237,56 +241,6 @@ export function FileExplorer({ onShowWorkspaces, onOpenFile }: FileExplorerProps
           renderDir(rootPath, 0)
         )}
       </div>
-
-      {previewError !== null ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setPreviewError(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <h2>Não foi possível abrir</h2>
-            <p>{previewError}</p>
-            <div className="confirm">
-              <button type="button" onClick={() => setPreviewError(null)}>
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {preview !== null ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setPreview(null)}>
-          <div
-            className="modal files-preview"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Conteúdo de ${preview.path}`}
-          >
-            <h2 className="files-preview-title">{preview.path}</h2>
-            <p className="files-preview-meta">
-              {formatSize(preview.size)}
-              {preview.binary ? ' · binário, sem visualização' : null}
-              {preview.truncated ? ' · conteúdo cortado no limite de leitura' : null}
-            </p>
-            {preview.binary ? null : <pre className="files-preview-body">{preview.content}</pre>}
-            <div className="confirm">
-              {onOpenFile ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onOpenFile(preview.path);
-                    setPreview(null);
-                  }}
-                >
-                  Abrir no editor
-                </button>
-              ) : null}
-              <button type="button" onClick={() => setPreview(null)}>
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

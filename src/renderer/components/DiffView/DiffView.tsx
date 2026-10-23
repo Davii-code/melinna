@@ -18,7 +18,7 @@ export function formatSize(n: number | null): string {
   return `${fmt(n / (1024 * 1024))} MB`;
 }
 
-function FileSection({ file, mode }: { file: FileDiff; mode: DiffMode }) {
+export function FileSection({ file, mode }: { file: FileDiff; mode: DiffMode }) {
   const [expanded, setExpanded] = useState(false);
   const collapsed = file.lineCount > COLLAPSE_LINES && !expanded;
   return (
@@ -27,7 +27,9 @@ function FileSection({ file, mode }: { file: FileDiff; mode: DiffMode }) {
         <span className="diff-path">{fileTitle(file)}</span>
         <span className={`diff-change diff-change-${file.change}`}>{CHANGE_LABEL[file.change]}</span>
       </header>
-      {file.binary ? (
+      {file.tooLarge ? (
+        <p className="meta">Diff grande demais para mostrar.</p>
+      ) : file.binary ? (
         <p className="meta">
           Binário alterado: {formatSize(file.binary.oldSize)} → {formatSize(file.binary.newSize)}
         </p>

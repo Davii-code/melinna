@@ -15,7 +15,7 @@ export function ExecutionTabs({ execs, activeIndex, agentOf, onSelect, onCloseTa
     <div className="exec-tabs" role="tablist" aria-label="Execuções do painel">
       {execs.map((exec, index) => {
         const active = index === activeIndex;
-        const name = agentOf(exec.agentId)?.displayName ?? exec.agentId;
+        const name = exec.command?.label ?? agentOf(exec.agentId)?.displayName ?? exec.agentId;
         return (
           <div key={exec.id} className={`exec-tab${active ? ' active' : ''}`}>
             <button

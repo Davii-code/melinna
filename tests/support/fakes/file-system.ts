@@ -24,6 +24,8 @@ export class MemoryFileSystem implements FileSystem {
   readonly dirs = new Set<string>();
   /** Links simbólicos encenados: caminho absoluto → destino absoluto. */
   readonly links = new Map<string, string>();
+  /** Bits de permissão encenados por arquivo; sem entrada = 0o755 (executável). */
+  readonly modes = new Map<string, number>();
   private injections: Injection[] = [];
   fsyncCount = 0;
 
@@ -67,6 +69,10 @@ export class MemoryFileSystem implements FileSystem {
       d = dirname(d);
     }
     this.files.set(abs, typeof data === 'string' ? encoder.encode(data) : data);
+  }
+
+  setMode(p: string, mode: number): void {
+    this.modes.set(resolve(p), mode);
   }
 
   async readFile(p: string): Promise<Uint8Array> {
@@ -171,8 +177,18 @@ export class MemoryFileSystem implements FileSystem {
     const abs = resolve(p);
     this.check('stat', abs);
     const f = this.files.get(abs);
-    if (f) return { size: f.length, isFile: true, isDirectory: false };
-    if (this.dirs.has(abs)) return { size: 0, isFile: false, isDirectory: true };
+    if (f) return { size: f.length, isFile: true, isDirectory: false, mode: this.modes.get(abs) ?? 0o755 };
+    if (this.dirs.has(abs)) return { size: 0, isFile: false, isDirectory: true, mode: 0o755 };
+    throw fsError('ENOENT', abs);
+  }
+
+  async lstat(p: string): Promise<FileStat> {
+    const abs = resolve(p);
+    this.check('lstat', abs);
+    if (this.links.has(abs)) return { size: 0, isFile: false, isDirectory: false, isSymbolicLink: true };
+    const f = this.files.get(abs);
+    if (f) return { size: f.length, isFile: true, isDirectory: false, isSymbolicLink: false };
+    if (this.dirs.has(abs)) return { size: 0, isFile: false, isDirectory: true, isSymbolicLink: false };
     throw fsError('ENOENT', abs);
   }
 

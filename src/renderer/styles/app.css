@@ -486,8 +486,6 @@ button:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  direction: rtl;
-  text-align: left;
 }
 
 .files-tree {
@@ -579,36 +577,6 @@ button:focus-visible {
 
 .files-message.error {
   color: var(--danger);
-}
-
-.files-preview {
-  width: min(920px, calc(100vw - 48px));
-}
-
-.files-preview-title {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  word-break: break-all;
-}
-
-.files-preview-meta {
-  margin: 0 0 8px;
-  font-size: 11px;
-  color: var(--prism);
-}
-
-.files-preview-body {
-  max-height: 60vh;
-  overflow: auto;
-  margin: 0;
-  padding: 12px;
-  background: var(--field);
-  border: 1px solid var(--border-weak);
-  border-radius: 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.45;
-  white-space: pre;
 }
 
 /* Painel com mais de uma aba de execução */
@@ -1371,4 +1339,765 @@ button:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Workspace com várias pastas */
+.workspace-dialog .workspace-folders {
+  border: 1px solid var(--border-weak);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.workspace-dialog .workspace-folders legend {
+  padding: 0 4px;
+  color: var(--prism);
+  font-size: 12px;
+}
+
+.workspace-dialog .workspace-folders ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.workspace-dialog .workspace-folders li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-dialog .workspace-folders li label.check {
+  flex: 1;
+  min-width: 0;
+}
+
+.workspace-dialog .folder-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.workspace-dialog li.unavailable .folder-path {
+  color: var(--prism);
+  text-decoration: line-through;
+}
+
+.badge {
+  font-size: 11px;
+  color: var(--band-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+.badge-warn {
+  color: var(--band-2);
+}
+
+/* Aviso de pastas extras na execução */
+.notice-badge {
+  font-size: 11px;
+  color: var(--band-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+/* Raízes do explorador de workspaces de várias pastas */
+.files-primary {
+  font-size: 11px;
+  color: var(--band-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0 6px;
+  margin-right: 6px;
+}
+
+/* Imagens no terminal */
+.panel-attach {
+  position: absolute;
+  top: 6px;
+  right: 18px;
+  z-index: 2;
+  opacity: 0.55;
+}
+
+.panel-attach:hover:not(:disabled),
+.panel-attach:focus-visible {
+  opacity: 1;
+}
+
+.panel-banner.warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-banner.warning > span {
+  flex: 1;
+}
+
+.image-preview {
+  width: min(560px, calc(100vw - 48px));
+}
+
+.image-preview-list,
+.image-preview-rejected ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.image-preview-list li,
+.image-preview-rejected li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.image-preview-list img,
+.image-preview-placeholder {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  background: var(--field);
+  border: 1px solid var(--border-weak);
+  border-radius: 6px;
+  flex: none;
+}
+
+.image-preview-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--prism);
+}
+
+.image-preview-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Orquestrador de prompts */
+.prompt-library {
+  width: min(760px, calc(100vw - 48px));
+}
+
+.prompt-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.prompt-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 52vh;
+  overflow: auto;
+}
+
+.prompt-list li {
+  border: 1px solid var(--border-weak);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prompt-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.prompt-name {
+  font-weight: 600;
+}
+
+.prompt-body {
+  margin: 0;
+  color: var(--prism);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.prompt-actions,
+.prompt-confirm {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.prompt-confirm span {
+  flex: 1;
+  min-width: 160px;
+}
+
+.use-prompt {
+  width: min(620px, calc(100vw - 48px));
+}
+
+.var-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.prompt-preview {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: var(--surface);
+  border: 1px solid var(--border-weak);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.target-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-weak);
+  border-radius: 6px;
+}
+
+.target-list .target-warn {
+  color: var(--band-2);
+  font-size: 12px;
+}
+
+.mode-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.queue-badge {
+  font-size: 11px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  background: var(--surface-raised);
+}
+
+.queue-menu {
+  margin: 2px 0 6px 18px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-weak);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.queue-menu ol {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.queue-menu li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.queue-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-discarded {
+  margin: 2px 0 4px 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--band-2);
+}
+
+/* Git */
+.git-modal {
+  width: min(1100px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.git-agent-warning {
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--band-2);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.git-error {
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.git-body {
+  display: flex;
+  gap: 12px;
+  min-height: 220px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.git-files {
+  width: 340px;
+  flex: none;
+  overflow: auto;
+  font-size: 12px;
+}
+
+.git-files ul,
+.git-bar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.git-folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+.git-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 0 1px 18px;
+}
+
+.git-file.active {
+  background: var(--surface-raised);
+}
+
+.git-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  padding: 0;
+}
+
+.git-kind {
+  color: var(--prism);
+  font-size: 11px;
+}
+
+.git-kind-untracked,
+.git-kind-added {
+  color: var(--band-3);
+}
+
+.git-kind-deleted,
+.git-kind-conflict {
+  color: var(--band-0);
+}
+
+.git-diff {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+.git-message textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.git-amend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.git-confirm-files {
+  max-height: 200px;
+  overflow: auto;
+  margin: 8px 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.git-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 2px 8px 4px 24px;
+  font-size: 11px;
+  color: var(--text-muted, var(--text));
+}
+
+.git-bar .git-branch {
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+}
+
+.git-bar .git-counts {
+  font-variant-numeric: tabular-nums;
+}
+
+.git-bar .git-progress {
+  flex-basis: 100%;
+}
+
+.git-bar .git-notice {
+  flex-basis: 100%;
+  white-space: pre-wrap;
+}
+
+.git-bar .git-error {
+  flex-basis: 100%;
+  color: var(--band-0);
+}
+
+.git-popup {
+  position: absolute;
+  z-index: 20;
+  min-width: 220px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 6px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.git-popup li button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.git-popup li button:hover,
+.git-popup li button:focus-visible {
+  background: var(--accent);
+  color: #fff;
+}
+
+.git-history {
+  width: min(1100px, calc(100vw - 48px));
+  height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.git-commit-list {
+  width: 420px;
+  flex: none;
+  overflow: auto;
+  font-size: 12px;
+}
+
+.git-commit {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 4px 6px;
+  border: none;
+  border-bottom: 1px solid var(--border-weak);
+  background: transparent;
+  color: var(--text);
+}
+
+.git-commit.active {
+  background: var(--surface-raised);
+}
+
+.git-conflicts li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+/* Barra de execução (configuração ativa, ▶ e menu) */
+.run-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.run-selector-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  padding: 4px 10px;
+}
+
+.run-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-play {
+  color: var(--band-3);
+  font-size: 15px;
+}
+
+.run-play:disabled {
+  color: var(--prism);
+}
+
+.run-tool {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--prism);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.run-tool[data-tool='npm'],
+.run-tool[data-tool='pnpm'],
+.run-tool[data-tool='yarn'] {
+  color: var(--band-1);
+}
+
+.run-tool[data-tool='maven'],
+.run-tool[data-tool='gradle'] {
+  color: var(--band-0);
+}
+
+.run-tool[data-tool='compose'] {
+  color: var(--band-4);
+}
+
+.run-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--band-3);
+}
+
+.run-popup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  width: 340px;
+  max-height: 60vh;
+  margin-top: 4px;
+  overflow: auto;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.run-menu {
+  top: 100%;
+  right: 0;
+}
+
+.run-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.run-group-name {
+  padding: 8px 10px 2px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.run-folder-name {
+  padding: 2px 10px;
+  color: var(--prism);
+  font-size: 11px;
+}
+
+.run-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 14px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.run-option:hover:not([aria-disabled='true']),
+.run-option.selected {
+  background: var(--surface);
+}
+
+.run-option.selected {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.run-option[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.run-option-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-option-note {
+  color: var(--prism);
+  font-size: 11px;
+}
+
+.run-warning {
+  margin: 2px 10px;
+  color: var(--band-1);
+  font-size: 11px;
+}
+
+.run-empty {
+  margin: 0;
+  padding: 10px;
+  color: var(--prism);
+}
+
+.run-selector-footer {
+  padding: 6px 10px;
+  border-top: 1px solid var(--border-weak);
+}
+
+/* Janela de configurações de execução */
+.modal.run-config {
+  width: min(860px, calc(100vw - 48px));
+}
+
+.run-config-body {
+  display: flex;
+  gap: 16px;
+  min-height: 320px;
+}
+
+.run-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 0 0 260px;
+  overflow: auto;
+  border-right: 1px solid var(--border-weak);
+  padding-right: 12px;
+}
+
+.run-config-form {
+  flex: 1;
+  min-width: 0;
+}
+
+.run-args {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border-weak);
+  border-radius: 4px;
+}
+
+.run-args legend {
+  color: var(--prism);
+  font-size: 12px;
+}
+
+.run-arg-row {
+  display: flex;
+  gap: 4px;
+}
+
+.run-arg-row input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+}
+
+.run-confirm code {
+  font-family: var(--font-mono);
+}
+
+.field-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
 }

@@ -57,9 +57,14 @@ export class FilesService {
     return [...this.deps.roots()];
   }
 
+  /** Raízes que valem agora: uma pasta de workspace indisponível não autoriza nada. */
+  private activeRoots(): FileRoot[] {
+    return this.deps.roots().filter((root) => root.available !== false);
+  }
+
   /** Checagem barata, sem tocar no disco: o caminho literal está dentro de alguma raiz? */
   containsPath(path: string): boolean {
-    return this.deps.roots().some((root) => isInsideRoot(root.path, path, this.deps.os));
+    return this.activeRoots().some((root) => isInsideRoot(root.path, path, this.deps.os));
   }
 
   async list(rawPath: string): Promise<DirectoryListing> {
@@ -123,6 +128,12 @@ export class FilesService {
   async write(rawPath: string, content: string, expectedHash: string): Promise<FileWriteResult> {
     const { fs } = this.deps;
     const target = await this.canonicalInside(rawPath);
+    if (this.insideDotGit(target)) {
+      throw new MelinnaError('INPUT_INVALID', {
+        userMessage: 'O app não grava dentro da pasta .git de um repositório.',
+        details: { path: target },
+      });
+    }
     const st = await this.statOrNull(target);
     if (st === null || st.isDirectory) throw unreadable(rawPath);
 
@@ -169,9 +180,18 @@ export class FilesService {
     } catch (cause) {
       throw unreadable(rawPath, cause);
     }
-    const inside = this.deps.roots().some((root) => isInsideRoot(root.path, real, this.deps.os));
+    const inside = this.activeRoots().some((root) => isInsideRoot(root.path, real, this.deps.os));
     if (!inside) throw outsideRoot(rawPath);
     return real;
+  }
+
+  /** O caminho passa por uma pasta `.git` dentro da raiz que o contém? Nunca se grava ali. */
+  private insideDotGit(real: string): boolean {
+    const p = pathModule(this.deps.os);
+    const root = this.activeRoots().find((r) => isInsideRoot(r.path, real, this.deps.os));
+    if (!root) return false;
+    const rel = p.relative(p.resolve(root.path), p.resolve(real));
+    return rel.split(/[\\/]+/).some((segment) => segment.toLowerCase() === '.git');
   }
 
   private async readDir(target: string, rawPath: string): Promise<string[]> {

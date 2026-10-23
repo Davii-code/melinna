@@ -10,10 +10,12 @@ import { assertWithinLimit } from './limits';
 import { createExecutionRecord, prepareExecution, type AgentPick } from './prepare';
 import { markLiveAsLost, reconcileWithHost } from './recovery';
 import { clampSize, startExecution } from './start';
-import { isLive } from './state-machine';
+import { isEnded, isLive } from './state-machine';
 import { SwitchService } from './switch-service';
 
 export type { LaunchResult };
+
+export type EndedReason = 'ended' | 'removed';
 
 /** Fachada das execuções: lançamento, E/S do terminal e reação aos eventos do hospedeiro. */
 export class ExecutionService {
@@ -21,6 +23,9 @@ export class ExecutionService {
   private wiredHost: HostClient | null = null;
   private readonly unwire: (() => void)[] = [];
   private readonly exitListeners = new Set<(e: ExitEvent) => void>();
+  private readonly busyListeners = new Set<(execId: string) => void>();
+  private readonly idleListeners = new Set<(execId: string) => void>();
+  private readonly endedListeners = new Set<(execId: string, reason: EndedReason) => void>();
   private readonly switches: SwitchService;
 
   constructor(deps: ExecutionDeps) {
@@ -30,12 +35,17 @@ export class ExecutionService {
       ...deps,
       busy,
       update: (execId, patch) => {
-        if (!deps.model.execution(execId)) return;
+        const before = deps.model.execution(execId)?.status;
+        if (before === undefined) return;
         deps.model.mutate((s) => {
           const e = s.executions.find((x) => x.id === execId);
           if (e) Object.assign(e, patch);
         });
+        if (patch.status !== undefined && isLive(before) && isEnded(patch.status)) {
+          this.notify(this.endedListeners, execId, 'ended');
+        }
       },
+      removed: (execId) => this.notify(this.endedListeners, execId, 'removed'),
       hosts: {
         get: async () => this.wire(await deps.hosts.get()),
         existing: async () => {
@@ -56,6 +66,24 @@ export class ExecutionService {
   onExit(fn: (e: ExitEvent) => void): () => void {
     this.exitListeners.add(fn);
     return () => this.exitListeners.delete(fn);
+  }
+
+  /** A execução ficou ocupada (houve saída), depois de o estado ser atualizado. */
+  onBusy(fn: (execId: string) => void): () => void {
+    this.busyListeners.add(fn);
+    return () => this.busyListeners.delete(fn);
+  }
+
+  /** A execução voltou a ficar ociosa depois de ocupada, depois de o estado ser atualizado. */
+  onIdle(fn: (execId: string) => void): () => void {
+    this.idleListeners.add(fn);
+    return () => this.idleListeners.delete(fn);
+  }
+
+  /** A execução terminou (saída, perda do hospedeiro) ou o registro dela foi removido. */
+  onEnded(fn: (execId: string, reason: EndedReason) => void): () => void {
+    this.endedListeners.add(fn);
+    return () => this.endedListeners.delete(fn);
   }
 
   liveCount(): number {
@@ -163,9 +191,14 @@ export class ExecutionService {
     return stopExecution(this.ctx, execId);
   }
 
-  /** Relança no mesmo worktree, com separador no histórico. */
+  /**
+   * Relança no mesmo worktree, com separador no histórico. Usa o tamanho que o painel informou por
+   * último: o agente desenha a primeira tela na largura do PTY, e lançar com um tamanho padrão diferente
+   * do painel deixa essa tela embaralhada (o redesenho após o resize não refaz o que já foi impresso).
+   * `size` vale só quando o painel nunca informou o tamanho.
+   */
   relaunch(execId: string, size: TermSize): Promise<void> {
-    return relaunchExecution(this.ctx, execId, size);
+    return relaunchExecution(this.ctx, execId, this.switches.sizeOf(execId) ?? size);
   }
 
   removalCheck(execId: string): Promise<RemovalCheck> {
@@ -185,10 +218,12 @@ export class ExecutionService {
   /** Remove todas as sessões do grupo; confere antes que nenhuma execução do grupo está viva. */
   async removeTasksOf(groupId: string): Promise<void> {
     const tasks = this.ctx.model.raw.tasks.filter((t) => t.groupId === groupId);
-    const live = tasks.some((t) => this.ctx.model.executionsOf(t.id).some((e) => isLive(e.status)));
-    if (live) {
+    const liveExecs = tasks.flatMap((t) => this.ctx.model.executionsOf(t.id)).filter((e) => isLive(e.status));
+    if (liveExecs.length > 0) {
       throw new MelinnaError('EXECUTION_RUNNING', {
-        userMessage: 'Pare as sessões do workspace antes de removê-lo.',
+        userMessage: liveExecs.some((e) => e.command)
+          ? 'Pare o comando antes.'
+          : 'Pare as sessões do workspace antes de removê-lo.',
       });
     }
     for (const t of tasks) await removeTask(this.ctx, t.id);
@@ -233,6 +268,22 @@ export class ExecutionService {
     if (isBusy && exec.status === 'idle') this.ctx.update(execId, { status: 'running' });
     else if (!isBusy && exec.status === 'running') this.ctx.update(execId, { status: 'idle' });
     else this.ctx.model.touch();
+    this.notify(isBusy ? this.busyListeners : this.idleListeners, execId);
+  }
+
+  /** Chama os ouvintes; um ouvinte que falha não impede os demais nem o fluxo do serviço. */
+  private notify<A extends unknown[]>(
+    listeners: ReadonlySet<(execId: string, ...args: A) => void>,
+    execId: string,
+    ...args: A
+  ): void {
+    for (const fn of listeners) {
+      try {
+        fn(execId, ...args);
+      } catch (err) {
+        this.ctx.log.error('execution.listener_failed', { err, execId });
+      }
+    }
   }
 
   /** Liga os eventos de um cliente do hospedeiro (uma vez por cliente). */

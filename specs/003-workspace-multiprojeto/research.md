@@ -8,6 +8,10 @@
   `{ style: 'repeat', args: ['--add-dir', '{dir}'] }`. Codex (`--add-dir`, repeat) e Gemini
   (`--include-directories`, join com `,`) entram só depois de conferir a `--help` da versão instalada
   durante a implementação (task própria); sem confirmação, ficam sem a capacidade e mostram o aviso.
+- **Conferência (T001, 2026-10-23)**: Claude Code 2.1.220 — `claude --help` lista `--add-dir <directories...>`
+  (confirmado; declarado como `repeat`). Codex CLI e Gemini CLI **não estão instalados** nesta máquina,
+  então a `--help` deles não pôde ser conferida: ficam sem `extraDirs` no catálogo e mostram o aviso
+  "só a principal" até a conferência.
 - **Rationale**: Princípio I — capacidade genérica e declarável; cobre os dois formatos conhecidos.
 - **Alternatives considered**: variável de ambiente por agente (não existe nos três); arquivo de
   configuração do agente gravado na pasta (viola o Princípio II: o app escreveria na pasta).

@@ -1,7 +1,7 @@
-# Specification Quality Checklist: Rodar o projeto e abrir na IDE externa
+# Specification Quality Checklist: Configurações de execução e mapas de atalhos
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-10-22
+**Created**: 2026-10-22 (revisado em 2026-10-23)
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,4 +31,5 @@
 
 ## Notes
 
-- Validado na geração e de novo após a revisão do plan-reviewer.
+- Os nomes de arquivos de projeto (`package.json`, `pom.xml`, `mvnw`…) e de ferramentas são o domínio da feature, não detalhe de implementação.
+- Revisão de 2026-10-23: US3 (IDE externa) removida; US1 refeita no modelo da barra de execução do IntelliJ, absorvendo os comandos personalizados; nova US2 (mapa de atalhos). `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` e `tasks.md` ficaram desatualizados e precisam ser regerados.

@@ -20,6 +20,8 @@ export class StateStore {
   private cancelTimer: Cancel | undefined;
   private writing: Promise<void> = Promise.resolve();
   private readOnly = false;
+  /** Bytes do arquivo de esquema anterior, copiados para `.v2.json.bak` antes da primeira gravação nova. */
+  private legacyBytes: Uint8Array | undefined;
 
   constructor(
     private readonly fs: FileSystem,
@@ -54,6 +56,7 @@ export class StateStore {
       this.log.warn('state.newer_schema', { schemaVersion: parsed.schemaVersion });
       return { state: parsed, readOnly: true, warning: 'newer-schema' };
     }
+    if (parsed.schemaVersion < STATE_SCHEMA_VERSION) this.legacyBytes = bytes;
     return { state: parsed, readOnly: false };
   }
 
@@ -79,6 +82,7 @@ export class StateStore {
     const state = this.pending;
     this.pending = undefined;
     if (state) {
+      await this.backupLegacy();
       const json = JSON.stringify({ ...state, schemaVersion: STATE_SCHEMA_VERSION }, null, 2);
       this.writing = this.writing
         .then(() => writeFileAtomic(this.fs, this.path, json))
@@ -87,5 +91,19 @@ export class StateStore {
         });
     }
     await this.writing;
+  }
+
+  /** Guarda uma cópia do arquivo anterior antes de sobrescrevê-lo com o esquema novo; uma vez só. */
+  private async backupLegacy(): Promise<void> {
+    const bytes = this.legacyBytes;
+    if (!bytes) return;
+    this.legacyBytes = undefined;
+    const backup = this.path.replace(/state\.json$/, 'state.v2.json.bak');
+    try {
+      await writeFileAtomic(this.fs, backup, bytes);
+      this.log.info('state.legacy_backup', {});
+    } catch (err) {
+      this.log.error('state.legacy_backup_failed', { err });
+    }
   }
 }

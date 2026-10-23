@@ -21,6 +21,11 @@ export function errorMessage(err: unknown): string {
 
 export const ApiContext = createContext<MelinnaApi | null>(null);
 
+/** A API, ou `null` quando não há provedor (componentes que se omitem sem ela). */
+export function useOptionalApi(): MelinnaApi | null {
+  return useContext(ApiContext);
+}
+
 export function useApi(): MelinnaApi {
   const api = useContext(ApiContext);
   if (!api) throw new Error('ApiContext ausente');

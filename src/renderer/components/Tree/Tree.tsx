@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react';
-import type { AgentDefinition, Execution, Group, Task } from '../../../shared/ipc-contract';
+import type { AgentDefinition, Execution, Group, QueueItem, Task } from '../../../shared/ipc-contract';
 import { TreeGroup } from './TreeGroup';
 
 export interface TreeActions {
@@ -13,6 +13,18 @@ export interface TreeActions {
   onRemoveTask: (taskId: string) => void;
   /** Tirar o workspace (ou grupo) da lista; só com as execuções dele paradas. */
   onRemoveGroup: (groupId: string) => void;
+  /** Abrir o diálogo de edição das pastas do workspace. */
+  onEditGroup?: (groupId: string) => void;
+  /** Anexar imagem à execução viva (o clipe da linha); só para agentes que recebem imagens. */
+  onAttachImage?: (execId: string) => void;
+  /** Tirar um item da fila de prompts da execução, sem enviá-lo. */
+  onRemoveQueueItem?: (execId: string, itemId: string) => void;
+  /** Limpar a fila de prompts da execução. */
+  onClearQueue?: (execId: string) => void;
+  /** Dispensar o aviso de itens descartados da fila. */
+  onDismissDiscarded?: (execId: string) => void;
+  /** Abrir um arquivo (caminho absoluto) no editor do app, a partir dos conflitos de merge. */
+  onOpenFile?: (path: string) => void;
 }
 
 export interface TreeProps extends TreeActions {
@@ -29,10 +41,16 @@ export interface TreeProps extends TreeActions {
   stoppingIds?: readonly string[];
   /** IAs instaladas, oferecidas pelo "+" da sessão e do workspace. */
   launchable?: readonly AgentDefinition[];
+  /** Fila de prompts por execução (selo "N na fila" e menu da fila). */
+  queues?: ReadonlyMap<string, readonly QueueItem[]>;
+  /** Itens descartados da fila por execução (sessão terminou ou escrita falhou), até o aviso ser dispensado. */
+  discarded?: ReadonlyMap<string, number>;
   /** Mais um terminal na sessão, com a IA escolhida. */
   onAddTerminal?: (taskId: string, agentId: string) => void;
   /** Nova sessão no workspace, com a IA escolhida. */
   onNewSession?: (groupId: string, agentId: string) => void;
+  /** Disponibilidade das pastas por id (snapshot); pastas indisponíveis não ganham barra de git. */
+  folderAvailability?: Readonly<Record<string, boolean>>;
 }
 
 /** Árvore de três níveis: grupos (pela ordem), tarefas (pela criação) e execuções (pela faixa). */

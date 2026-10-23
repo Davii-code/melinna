@@ -38,8 +38,14 @@ Sessões criadas por versões anteriores, que rodavam num git worktree isolado, 
 | 🟧 | **Scrollback persistido e reanexação** | feche e reabra o app: os agentes continuam rodando e os painéis voltam com o histórico |
 | 🟨 | **Direto na pasta** | qualquer pasta vira workspace; o terminal roda nela, com o histórico do agente daquele projeto |
 | 🟩 | **Grade de painéis redimensionável** | divisórias arrastáveis entre os painéis e na barra lateral, arrastar e soltar para reordenar |
+| 🟫 | **Workspace com vários projetos** | um workspace reúne várias pastas, com uma principal onde o terminal abre; o agente recebe as demais (`--add-dir` no Claude Code) e o explorador mostra uma raiz por pasta |
+| ⬛ | **Imagens no terminal** | cole um print (Ctrl+V), solte arquivos no painel ou use o clipe: uma prévia confirma e a referência da imagem vai para o prompt do agente, sem Enter |
 | 🟦 | **Sessões e workspaces** | "+" para abrir mais um terminal escolhendo a IA; remover sessão ou workspace sem apagar a pasta |
+| ⬜ | **Biblioteca de prompts** | Ctrl+Shift+P: guarde os prompts que você repete, com variáveis (`{{arquivo}}`; `{{pasta}}`, `{{workspace}}` e `{{data}}` se preenchem sozinhas), envie para um terminal ou para várias sessões de uma vez, ou enfileire para a sessão receber quando ficar ociosa |
 | 🟪 | **Editor de arquivos** | aba Arquivos com editor de código, realce de sintaxe em tema escuro e Ctrl+S |
+| 🟧 | **Barra de execução** | na barra superior, escolha uma configuração (scripts do `package.json`, `mvn`, `gradle`, `docker compose` ou comandos seus), rode, rode de novo e pare; o comando roda num terminal do app, sem shell, e continua vivo ao fechar a janela |
+| 🟦 | **Mapas de atalhos** | Windows, IntelliJ, Eclipse ou VS Code: a troca vale na hora e funciona com o terminal ou o editor em foco; Ctrl+C, Ctrl+D, Ctrl+Z, Ctrl+B e as setas ficam sempre com o terminal |
+| 🟥 | **Git na interface** | por pasta do workspace: branch, ↑/↓ e último fetch; janela de commit com seleção de arquivos, diff, amend e descarte; fetch, pull e push com progresso e cancelamento; branches, merge com lista de conflitos que abre no editor; histórico. Operações que podem perder trabalho pedem confirmação; as credenciais ficam com o git |
 
 Agentes iniciais: Claude Code, Codex CLI e Gemini CLI, mais os shells do sistema. Os agentes vivem num catálogo declarativo: acrescentar um agente é acrescentar uma entrada, sem mexer no motor.
 

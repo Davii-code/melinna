@@ -11,6 +11,10 @@ import { ExecutionService } from '../../src/core/execution/execution-service';
 import { GitRunner } from '../../src/core/git/git-runner';
 import { KeyedMutex } from '../../src/core/git/repo-mutex';
 import { makePaths, type AppPaths } from '../../src/core/paths';
+import { PromptLibrary } from '../../src/core/prompts/prompt-library';
+import { connectQueue, PromptQueue } from '../../src/core/prompts/prompt-queue';
+import { PromptSender } from '../../src/core/prompts/prompt-sender';
+import { PromptStore } from '../../src/core/prompts/prompt-store';
 import { emptyState } from '../../src/core/persistence/state-schema';
 import { StateStore } from '../../src/core/persistence/state-store';
 import type { HostClient } from '../../src/core/ports/host-client';
@@ -30,7 +34,10 @@ export interface CoreHarness {
   model: WorkspaceModel;
   workspace: WorkspaceService;
   executions: ExecutionService;
+  /** Um serviço novo sobre o mesmo estado e o mesmo hospedeiro, como depois de reabrir o app. */
+  restartExecutions(): ExecutionService;
   catalog: CatalogService;
+  prompts: { store: PromptStore; library: PromptLibrary; sender: PromptSender; queue: PromptQueue };
   testHost(): TestHost | null;
   client(): NodeHostClient | null;
   /** Derruba o hospedeiro atual (simula queda). */
@@ -76,7 +83,7 @@ export async function createCoreHarness(): Promise<CoreHarness> {
     },
   };
   const workspace = new WorkspaceService({ model, git, clock, log, residue: { git, fs, mutex, os, paths } });
-  const executions = new ExecutionService({
+  const executionDeps = {
     model,
     catalog,
     git,
@@ -88,7 +95,24 @@ export async function createCoreHarness(): Promise<CoreHarness> {
     log,
     hosts,
     baseEnv: process.env as Record<string, string>,
-  });
+  };
+  const executions = new ExecutionService(executionDeps);
+  const promptStore = new PromptStore({ fs, path: paths.promptsFile, clock, log, mutex });
+  await promptStore.load();
+  const sender = new PromptSender({ model, executions, clock, log, mutex });
+  const queue = new PromptQueue({ store: promptStore, sender, model, clock, log, mutex });
+  connectQueue(executions, queue, log);
+  const prompts = {
+    store: promptStore,
+    library: new PromptLibrary({
+      store: promptStore,
+      groupExists: (id) => model.group(id) !== undefined,
+      clock,
+      log,
+    }),
+    sender,
+    queue,
+  };
   return {
     userData,
     paths,
@@ -96,7 +120,9 @@ export async function createCoreHarness(): Promise<CoreHarness> {
     model,
     workspace,
     executions,
+    restartExecutions: () => new ExecutionService(executionDeps),
     catalog,
+    prompts,
     testHost: () => th,
     client: () => client,
     async killHost() {

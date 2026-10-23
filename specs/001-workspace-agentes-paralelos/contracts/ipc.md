@@ -17,8 +17,23 @@ interface MelinnaApi {
     renameGroup(id: string, name: string): Promise<Result<void>>;
     renameTask(id: string, title: string): Promise<Result<void>>;
     pickRepository(defaultPath?: string): Promise<Result<string | null>>;   // diálogo nativo de pasta, aberto em defaultPath
+    // Feature 003 (workspace multiprojeto) — contrato completo em specs/003-workspace-multiprojeto/contracts/ipc.md
+    createWorkspace(input: { name: string; folders: string[]; primaryIndex?: number }): Promise<Result<Group>>; // 1–32 pastas; a de primaryIndex (padrão 0) é a principal
+    updateWorkspace(id: string, change:
+      | { kind: 'rename'; name: string } | { kind: 'addFolders'; folders: string[] }
+      | { kind: 'removeFolder'; folderId: string } | { kind: 'setPrimary'; folderId: string }): Promise<Result<Group>>; // uma mudança por chamada, serializada por workspace
+    pickFolders(defaultPath?: string): Promise<Result<string[]>>;           // diálogo nativo com seleção múltipla; [] se cancelado
     inspectRepo(repoPath: string, baseRef: string): Promise<Result<RepoInspection>>;
   };
+  // Feature 004 (imagens no terminal) — contrato completo em specs/004-imagens-no-terminal/contracts/ipc.md
+  attachments: {
+    clipboardHasImage(): Promise<Result<boolean>>;                          // área de transferência com imagem e sem texto
+    pasteImage(execId: string): Promise<Result<ImageRef>>;                  // grava como anexo da execução (userData/attachments/<execId>/)
+    checkFiles(execId: string, paths: string[]): Promise<Result<ImageCheck>>; // 1–20 caminhos; recusados vêm com o motivo
+    pickImages(execId: string): Promise<Result<ImageCheck>>;                // diálogo nativo de imagens + checkFiles
+    send(execId: string, paths: string[]): Promise<Result<void>>;           // revalida e digita as referências no PTY, sem Enter
+  };
+  // `files.pathOf(file)` (só no preload): caminho real de um arquivo solto, via webUtils.getPathForFile
   tasks: {
     createAndLaunch(input: { groupId: string; repoPath: string; baseRef: string; prompt: string; title?: string;
       picks: AgentPick[]; size: TermSize }): Promise<Result<{ taskId: string; results: LaunchResult[] }>>;

@@ -17,7 +17,7 @@ export interface DiffDeps {
   log: Logger;
 }
 
-const DIFF_FLAGS = ['--no-color', '--no-ext-diff', '--unified=3', '-M'];
+export const DIFF_FLAGS = ['--no-color', '--no-ext-diff', '--unified=3', '-M'];
 
 async function blobSize(git: GitRunner, cwd: string, commit: string, path: string): Promise<number | null> {
   const r = await git.run(['cat-file', '-s', `${commit}:${path}`], { cwd, read: true, allowFail: true });
@@ -66,19 +66,28 @@ export async function diffWorktree(
     for (const f of parseUnifiedDiff(r.stdout)) files.push({ ...f, path: rel, change: 'untracked' });
   }
 
+  await fillBinarySizes(deps, cwd, input.baseCommit, files);
+  return { files };
+}
+
+/** Preenche os tamanhos antigo e novo dos arquivos binários (o diff só diz que são binários). */
+export async function fillBinarySizes(
+  deps: Pick<DiffDeps, 'git' | 'fs' | 'os'>,
+  cwd: string,
+  baseCommit: string,
+  files: FileDiff[],
+): Promise<void> {
+  const { git, fs, os } = deps;
   const p = pathModule(os);
   for (const f of files) {
     if (!f.binary) continue;
     const oldPath = f.oldPath ?? f.path;
     f.binary = {
       oldSize:
-        f.change === 'added' || f.change === 'untracked'
-          ? null
-          : await blobSize(git, cwd, input.baseCommit, oldPath),
+        f.change === 'added' || f.change === 'untracked' ? null : await blobSize(git, cwd, baseCommit, oldPath),
       newSize: f.change === 'deleted' ? null : await fileSize(fs, p.join(cwd, f.path)),
     };
   }
-  return { files };
 }
 
 /** Diff por execução, a partir do estado do workspace. */

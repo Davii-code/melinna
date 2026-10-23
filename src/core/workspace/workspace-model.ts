@@ -23,6 +23,8 @@ export class WorkspaceModel {
   private readonly paused = new Map<string, 'DISK_FULL' | 'IO_ERROR'>();
 
   private busyIds: () => readonly string[] = () => [];
+  /** Pastas conferidas como ausentes (id → false); o que não consta conta como disponível. */
+  private unavailable = new Set<string>();
 
   constructor(
     private readonly state: StateFile,
@@ -33,6 +35,19 @@ export class WorkspaceModel {
   /** Fonte das execuções ocupadas, ligada pelo serviço de execuções. */
   setBusySource(fn: () => readonly string[]): void {
     this.busyIds = fn;
+  }
+
+  /** Registra quais pastas de workspace estão indisponíveis agora; notifica só se algo mudou. */
+  setUnavailableFolders(ids: ReadonlySet<string>): void {
+    const same = ids.size === this.unavailable.size && [...ids].every((id) => this.unavailable.has(id));
+    if (same) return;
+    this.unavailable = new Set(ids);
+    this.touch();
+  }
+
+  /** Ids das pastas de workspace conferidas como indisponíveis. */
+  unavailableFolderIds(): ReadonlySet<string> {
+    return this.unavailable;
   }
 
   /** Notifica uma mudança que não altera o estado persistido (ocupação, gravação). */
@@ -96,6 +111,11 @@ export class WorkspaceModel {
       readOnly: this.readOnly,
       scrollbackPaused: [...this.paused].map(([execId, reason]) => ({ execId, reason })),
       busy: [...this.busyIds()],
+      folderAvailability: Object.fromEntries(
+        this.state.groups.flatMap((g) =>
+          (g.folders ?? []).map((f) => [f.id, !this.unavailable.has(f.id)] as const),
+        ),
+      ),
     });
     return this.cached;
   }

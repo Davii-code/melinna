@@ -35,8 +35,18 @@ export class SwitchService {
     this.sizes.set(execId, size);
   }
 
+  /** Tamanho que o painel da execução informou por último, se houver. */
+  sizeOf(execId: string): TermSize | undefined {
+    return this.sizes.get(execId);
+  }
+
   async request(execId: string, kind: SwitchKind, value: string): Promise<SwitchPlan> {
     const exec = this.require(execId);
+    if (exec.command) {
+      throw new MelinnaError('SWITCH_UNSUPPORTED', {
+        userMessage: 'Comandos não trocam de modelo nem de modo.',
+      });
+    }
     const def = await this.ctx.catalog.agent(exec.agentId);
     const plan = planSwitch(def, exec, { kind, value }, this.ctx.busy.isBusy(execId), newId());
     for (const [id, p] of this.plans) if (p.execId === execId) this.plans.delete(id);
@@ -99,7 +109,10 @@ export class SwitchService {
     }
     await this.applyCommand(execId, req).catch((err: unknown) => {
       this.ctx.update(execId, { pendingSwitch: null });
-      this.ctx.log.warn('switch.pending_failed', { execId, code: isMelinnaError(err) ? err.code : 'INTERNAL' });
+      this.ctx.log.warn('switch.pending_failed', {
+        execId,
+        code: isMelinnaError(err) ? err.code : 'INTERNAL',
+      });
     });
   }
 
@@ -110,7 +123,10 @@ export class SwitchService {
     if (!strategy || strategy.strategy !== 'pty-command') throw new MelinnaError('SWITCH_UNSUPPORTED');
     const host = await this.ctx.hosts.existing();
     if (!host) throw new MelinnaError('HOST_UNAVAILABLE');
-    const text = fillTemplate(strategy.template, req.kind === 'model' ? { '{model}': req.value } : { '{permission}': req.value });
+    const text = fillTemplate(
+      strategy.template,
+      req.kind === 'model' ? { '{model}': req.value } : { '{permission}': req.value },
+    );
     host.write(execId, encoder.encode(text));
     this.ctx.update(execId, {
       ...(req.kind === 'model' ? { model: req.value } : { permissionMode: req.value }),

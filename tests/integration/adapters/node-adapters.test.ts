@@ -25,7 +25,8 @@ describe('NodeFileSystem', () => {
     await fs.appendFile(f, new Uint8Array([0x79]));
     await fs.fsyncFile(f);
     expect(new TextDecoder().decode(await fs.readFile(f))).toBe('xy');
-    expect(await fs.stat(f)).toEqual({ size: 2, isFile: true, isDirectory: false });
+    expect(await fs.stat(f)).toMatchObject({ size: 2, isFile: true, isDirectory: false });
+    expect((await fs.stat(f)).mode).toEqual(expect.any(Number));
     expect(await fs.readdir(join(dir, 'a'))).toEqual(['b.txt']);
     await fs.rename(f, join(dir, 'c.txt'));
     expect(await fs.exists(f)).toBe(false);

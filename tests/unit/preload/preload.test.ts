@@ -8,6 +8,7 @@ const posted: unknown[][] = [];
 
 vi.mock('electron', () => ({
   contextBridge: { exposeInMainWorld: (key: string, api: unknown) => (exposed[key] = api) },
+  webUtils: { getPathForFile: (file: { path?: string }) => file.path ?? '' },
   ipcRenderer: {
     invoke: (...args: unknown[]) => invoke(...args),
     on: (ch: string, fn: (e: unknown, p: unknown) => void) =>
@@ -29,13 +30,16 @@ const CONTRACT = {
   workspace: [
     'cleanResidue',
     'createGroup',
+    'createWorkspace',
     'inspectRepo',
     'onChange',
     'openWorkspace',
+    'pickFolders',
     'pickRepository',
     'renameGroup',
     'renameTask',
     'snapshot',
+    'updateWorkspace',
   ],
   tasks: ['addExecution', 'createAndLaunch', 'remove', 'removeWorkspace'],
   executions: [
@@ -51,7 +55,41 @@ const CONTRACT = {
   ],
   terminal: ['close', 'open'],
   layout: ['get', 'set'],
-  files: ['list', 'read', 'roots', 'status', 'write'],
+  files: ['list', 'pathOf', 'read', 'roots', 'status', 'write'],
+  git: [
+    'abortMerge',
+    'branches',
+    'cancel',
+    'checkout',
+    'commit',
+    'commitDiff',
+    'createBranch',
+    'diffFile',
+    'discard',
+    'fetch',
+    'log',
+    'markResolved',
+    'merge',
+    'onProgress',
+    'pull',
+    'push',
+    'status',
+  ],
+  attachments: ['checkFiles', 'clipboardHasImage', 'pasteImage', 'pickImages', 'send'],
+  prompts: [
+    'countForGroup',
+    'duplicate',
+    'list',
+    'onChange',
+    'onQueueDiscarded',
+    'preview',
+    'queue',
+    'remove',
+    'save',
+    'send',
+  ],
+  run: ['list', 'removeCommand', 'rerun', 'saveCommand', 'start'],
+  prefs: ['get', 'setActiveRun', 'setKeymap'],
   app: ['answerClose', 'onCloseRequested', 'openExternal'],
 };
 
@@ -83,6 +121,16 @@ describe('preload', () => {
     expect(got).toEqual([{ version: 1 }]);
     off();
     expect(removeListener).toHaveBeenCalledWith('workspace:changed', expect.any(Function));
+  });
+
+  it('subscribes to git progress events', () => {
+    const api = exposed.melinna as { git: { onProgress(fn: (e: unknown) => void): () => void } };
+    const got: unknown[] = [];
+    const off = api.git.onProgress((e) => got.push(e));
+    listeners.get('git:progress')!.at(-1)!({}, { opId: 'o1', phase: 'push', done: true });
+    expect(got).toEqual([{ opId: 'o1', phase: 'push', done: true }]);
+    off();
+    expect(removeListener).toHaveBeenCalledWith('git:progress', expect.any(Function));
   });
 
   it('relays terminal ports to the page with window.postMessage on its own origin', () => {
