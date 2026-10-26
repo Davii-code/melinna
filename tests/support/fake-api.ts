@@ -15,11 +15,14 @@ import type {
   Result,
   KeymapId,
   Preferences,
-  RunCatalog,
+  ProjectSearchQuery,
+  ProjectSearchResult,
   RunChoice,
-  RunCommand,
-  RunCommandInput,
+  RunConfigInput,
+  RunConfigView,
+  RunListing,
   RunNeedsConfirm,
+  RunReorderItem,
   RunStarted,
   SendResult,
   WorkspaceChange,
@@ -190,6 +193,9 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
       ),
       write: vi.fn(() => okR({ path: '/r/a.txt', size: 0, hash: 'b'.repeat(64) })),
       status: vi.fn(() => okR({})),
+      searchProject: vi.fn((_query: ProjectSearchQuery) =>
+        okR<ProjectSearchResult>({ hits: [], truncated: false, scannedFiles: 0, skipped: 0 }),
+      ),
       pathOf: vi.fn((file: DroppedFile) => `/soltos/${file.name}`),
     },
     git: {
@@ -227,6 +233,9 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
       log: vi.fn((_repo: string, _skip: number) => okR<Commit[]>([])),
       commitDiff: vi.fn((_repo: string, _sha: string, path: string) =>
         okR({ path, change: 'modified' as const, hunks: [], lineCount: 0 }),
+      ),
+      fileAtHead: vi.fn((_repo: string, _path: string) =>
+        okR<{ text: string } | { missing: true }>({ missing: true }),
       ),
       onProgress: vi.fn((fn: (e: GitProgress) => void) => {
         gitListeners.add(fn);
@@ -270,25 +279,26 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
       }),
     },
     run: {
-      list: vi.fn(() => okR<RunCatalog>({ commands: [], warnings: [] })),
+      list: vi.fn(() => okR<RunListing>({ configs: [], detected: [], warnings: [] })),
       start: vi.fn(
-        (_groupId: string, _commandId: string, _size: { cols: number; rows: number }, _choice?: RunChoice) =>
+        (_groupId: string, _configId: string, _size: { cols: number; rows: number }, _choice?: RunChoice) =>
           okR<RunStarted | RunNeedsConfirm>({ taskId: 't-cmd', execId: 'e-cmd', reused: false }),
       ),
       rerun: vi.fn((_execId: string, _size: { cols: number; rows: number }) => okR(undefined)),
-      saveCommand: vi.fn((groupId: string, input: RunCommandInput) =>
-        okR<RunCommand>({
+      saveConfig: vi.fn((groupId: string, input: RunConfigInput) =>
+        okR<RunConfigView>({
           ...input,
           id: input.id ?? 'c-novo',
+          order: 0,
           groupId,
-          source: 'custom',
-          tool: 'custom',
           available: true,
           unavailableReason: null,
           searched: input.program,
+          running: 0,
         }),
       ),
-      removeCommand: vi.fn((_groupId: string, _commandId: string) => okR(undefined)),
+      removeConfig: vi.fn((_groupId: string, _configId: string) => okR(undefined)),
+      reorder: vi.fn((_groupId: string, _items: RunReorderItem[]) => okR(undefined)),
     },
     prefs: {
       get: vi.fn(() => okR<Preferences>({ keymap: 'windows', activeRun: null, readOnly: false })),

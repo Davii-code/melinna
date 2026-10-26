@@ -9,7 +9,11 @@ const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2]);
 const PDF = new TextEncoder().encode('%PDF-1.7');
 const THUMB = 'data:image/png;base64,TUlOSQ==';
 
-const WITH_IMAGES = { ...FAKE_AGENTS.fake, id: 'fake-img', images: { template: '{path}', quote: 'when-needed' } };
+const WITH_IMAGES = {
+  ...FAKE_AGENTS.fake,
+  id: 'fake-img',
+  images: { template: '{path}', quote: 'when-needed' },
+};
 const WITH_AT = { ...FAKE_AGENTS.fake, id: 'fake-at', images: { template: '@{path}', quote: 'always' } };
 
 interface Opts {
@@ -46,7 +50,12 @@ async function setup(agentId = 'fake-img', opts: Opts = {}) {
     log: core.log,
   });
   const g = await core.workspace.createGroup('G');
-  const task = await core.workspace.createTask({ groupId: g.id, repoPath: '/repo', baseRef: 'main', prompt: '' });
+  const task = await core.workspace.createTask({
+    groupId: g.id,
+    repoPath: '/repo',
+    baseRef: 'main',
+    prompt: '',
+  });
   const [r] = await core.executions.launch(task.id, [{ agentId }], { cols: 80, rows: 24 });
   if (!r?.ok) throw new Error('lançamento falhou');
   return { core, rec, execId: r.execId };
@@ -151,7 +160,12 @@ describe('attachments IPC', () => {
       ])) as Reply<ImageCheck>;
       expect(r.ok).toBe(true);
       expect(r.value?.accepted.map((a) => a.path)).toEqual(['/meus/foto.png']);
-      expect(r.value?.accepted[0]).toMatchObject({ source: 'file', type: 'png', thumbnail: THUMB, ref: '/meus/foto.png' });
+      expect(r.value?.accepted[0]).toMatchObject({
+        source: 'file',
+        type: 'png',
+        thumbnail: THUMB,
+        ref: '/meus/foto.png',
+      });
       expect(r.value?.rejected).toEqual([
         { path: '/meus/doc.pdf', reason: 'Formato não aceito: use PNG, JPEG, GIF ou WebP.' },
         { path: '/meus/sumiu.png', reason: 'O arquivo /meus/sumiu.png não existe.' },
@@ -161,7 +175,9 @@ describe('attachments IPC', () => {
     it('quotes a path with a space in the reference', async () => {
       const { rec, core, execId } = await setup();
       core.fs.seed('/meus dados/foto.jpg', JPEG);
-      const r = (await rec.call('attachments:checkFiles', execId, ['/meus dados/foto.jpg'])) as Reply<ImageCheck>;
+      const r = (await rec.call('attachments:checkFiles', execId, [
+        '/meus dados/foto.jpg',
+      ])) as Reply<ImageCheck>;
       expect(r.value?.accepted[0]?.ref).toBe('"/meus dados/foto.jpg"');
     });
 
@@ -183,7 +199,9 @@ describe('attachments IPC', () => {
         core.fs.seed(`/m/${i}.png`, PNG);
         return `/m/${i}.png`;
       });
-      expect(((await rec.call('attachments:checkFiles', execId, paths)) as Reply<ImageCheck>).value?.accepted).toHaveLength(20);
+      expect(
+        ((await rec.call('attachments:checkFiles', execId, paths)) as Reply<ImageCheck>).value?.accepted,
+      ).toHaveLength(20);
       expect((await rec.call('attachments:checkFiles', execId, [])).error?.code).toBe('INPUT_INVALID');
       expect(await rec.call('attachments:checkFiles', execId, [...paths, '/m/extra.png'])).toMatchObject({
         ok: false,
@@ -203,9 +221,9 @@ describe('attachments IPC', () => {
 
     it('refuses an agent without images and a stopped execution', async () => {
       const plain = await setup('fake');
-      expect((await plain.rec.call('attachments:checkFiles', plain.execId, ['/m/a.png'])).error?.message).toBe(
-        'Este agente não recebe imagens.',
-      );
+      expect(
+        (await plain.rec.call('attachments:checkFiles', plain.execId, ['/m/a.png'])).error?.message,
+      ).toBe('Este agente não recebe imagens.');
       const { rec, core, execId } = await setup();
       core.model.mutate((s) => {
         const e = s.executions.find((x) => x.id === execId);
@@ -304,7 +322,9 @@ describe('attachments IPC', () => {
         const e = s.executions.find((x) => x.id === execId);
         if (e) e.status = 'exited';
       });
-      expect((await rec.call('attachments:send', execId, ['/m/a.png'])).error?.code).toBe('EXECUTION_NOT_RUNNING');
+      expect((await rec.call('attachments:send', execId, ['/m/a.png'])).error?.code).toBe(
+        'EXECUTION_NOT_RUNNING',
+      );
       expect(core.host.writes).toEqual([]);
     });
 
@@ -320,7 +340,10 @@ describe('attachments IPC', () => {
       const { rec, core, execId } = await setup();
       core.fs.seed('/segredo/a.png', PNG);
       await rec.call('attachments:send', execId, ['/segredo/a.png']);
-      expect(core.log.records.find((r) => r.event === 'attachment.sent')?.fields).toEqual({ execId, count: 1 });
+      expect(core.log.records.find((r) => r.event === 'attachment.sent')?.fields).toEqual({
+        execId,
+        count: 1,
+      });
       expect(core.log.text()).not.toContain('segredo');
     });
   });

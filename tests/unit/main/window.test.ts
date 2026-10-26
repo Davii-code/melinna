@@ -80,7 +80,7 @@ describe('main window', () => {
     expect(csp).toContain("script-src 'self' 'unsafe-inline' http://localhost:5173");
     expect(csp).toContain('connect-src');
     // produção continua sem 'unsafe-inline' para scripts
-    expect(CONTENT_SECURITY_POLICY).not.toContain('unsafe-inline\' http');
+    expect(CONTENT_SECURITY_POLICY).not.toContain("unsafe-inline' http");
   });
 
   it('blocks navigation and denies new windows', () => {

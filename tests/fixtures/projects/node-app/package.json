@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "node server.js",
+    "start": "node print-env.js",
+    "fail": "node -e \"process.exit(1)\"",
     "test": "node --test"
   }
 }

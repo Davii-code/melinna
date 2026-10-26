@@ -33,6 +33,15 @@ export type ErrorCode =
   | 'FILE_CONFLICT'
   | 'PROGRAM_NOT_FOUND'
   | 'COMMAND_STALE'
+  | 'RUN_CONFIG_INVALID'
+  | 'RUN_CONFIG_CYCLE'
+  | 'RUN_CONFIG_RUNNING'
+  | 'RUN_CONFIG_MISSING'
+  | 'RUN_BEFORE_LAUNCH_FAILED'
+  | 'RUN_UNSAFE_TARGET'
+  | 'SEARCH_REGEX_INVALID'
+  | 'SEARCH_CANCELLED'
+  | 'SEARCH_TIMEOUT'
   | 'INTERNAL';
 
 export const ERROR_CODES: readonly ErrorCode[] = [
@@ -70,6 +79,15 @@ export const ERROR_CODES: readonly ErrorCode[] = [
   'FILE_CONFLICT',
   'PROGRAM_NOT_FOUND',
   'COMMAND_STALE',
+  'RUN_CONFIG_INVALID',
+  'RUN_CONFIG_CYCLE',
+  'RUN_CONFIG_RUNNING',
+  'RUN_CONFIG_MISSING',
+  'RUN_BEFORE_LAUNCH_FAILED',
+  'RUN_UNSAFE_TARGET',
+  'SEARCH_REGEX_INVALID',
+  'SEARCH_CANCELLED',
+  'SEARCH_TIMEOUT',
   'INTERNAL',
 ];
 
@@ -110,6 +128,15 @@ const DEFAULT_MESSAGES: Record<ErrorCode, string> = {
   FILE_CONFLICT: 'O arquivo mudou no disco desde que foi aberto.',
   PROGRAM_NOT_FOUND: 'Programa não encontrado.',
   COMMAND_STALE: 'A configuração mudou; abra o seletor de novo.',
+  RUN_CONFIG_INVALID: 'A configuração de execução tem um valor inválido.',
+  RUN_CONFIG_CYCLE: 'As configurações de "Antes de lançar" formam um ciclo.',
+  RUN_CONFIG_RUNNING: 'A configuração está rodando. Pare-a antes.',
+  RUN_CONFIG_MISSING: 'A configuração não existe mais.',
+  RUN_BEFORE_LAUNCH_FAILED: 'Uma etapa de "Antes de lançar" não terminou com sucesso.',
+  RUN_UNSAFE_TARGET: 'Não há como lançar este programa com segurança.',
+  SEARCH_REGEX_INVALID: 'A expressão regular é inválida.',
+  SEARCH_CANCELLED: 'A busca foi cancelada.',
+  SEARCH_TIMEOUT: 'A busca demorou demais e foi interrompida.',
   INTERNAL: 'Erro interno inesperado. Detalhes no log.',
 };
 

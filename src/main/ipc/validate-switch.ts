@@ -10,7 +10,10 @@ export function parseRequestSwitch(exists: (id: string) => boolean) {
 }
 
 export function parseConfirmSwitch(exists: (id: string) => boolean) {
-  return (args: unknown[]): [string, string] => [existing(args[0], 'Execução', exists), id(args[1], 'plano de troca')];
+  return (args: unknown[]): [string, string] => [
+    existing(args[0], 'Execução', exists),
+    id(args[1], 'plano de troca'),
+  ];
 }
 
 export function parseCancelSwitch(exists: (id: string) => boolean) {

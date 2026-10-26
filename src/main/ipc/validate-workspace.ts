@@ -44,7 +44,10 @@ export function parseUpdateWorkspace(ids: WorkspaceIds) {
     const groupId = existing(args[0], 'Workspace', ids.group);
     switch (oneOf(change.kind, 'tipo da mudança', CHANGE_KINDS)) {
       case 'rename':
-        return [groupId, { kind: 'rename', name: str(change.name, 'nome do workspace', 1, LIMITS.groupName) }];
+        return [
+          groupId,
+          { kind: 'rename', name: str(change.name, 'nome do workspace', 1, LIMITS.groupName) },
+        ];
       case 'addFolders':
         return [groupId, { kind: 'addFolders', folders: folderList(change.folders) }];
       case 'removeFolder':

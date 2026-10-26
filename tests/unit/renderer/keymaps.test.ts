@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ACTIONS,
+  EDITOR_ONLY_ACTIONS,
   KEYMAPS,
   actionFor,
   chordMatches,
@@ -21,6 +22,16 @@ const TABLE: Record<KeymapId, Record<AppAction, string | null>> = {
     promptLibrary: 'Mod+Shift+P',
     runActive: 'Mod+F5',
     stop: 'Shift+F5',
+    goToLine: 'Mod+G',
+    goToSymbol: 'Mod+F12',
+    selectNextOccurrence: 'Mod+D',
+    unselectLastOccurrence: 'Mod+U',
+    findInProject: 'Mod+Shift+F',
+    replaceInFile: 'Mod+H',
+    toggleComment: 'Mod+/',
+    reindent: 'Mod+Alt+I',
+    reopenClosedTab: 'Mod+Shift+T',
+    splitRight: null,
   },
   intellij: {
     goToFile: 'Mod+Shift+N',
@@ -30,6 +41,16 @@ const TABLE: Record<KeymapId, Record<AppAction, string | null>> = {
     promptLibrary: 'Mod+Shift+A',
     runActive: 'Shift+F10',
     stop: 'Mod+F2',
+    goToLine: 'Mod+G',
+    goToSymbol: 'Mod+F12',
+    selectNextOccurrence: 'Alt+J',
+    unselectLastOccurrence: 'Shift+Alt+J',
+    findInProject: 'Mod+Shift+F',
+    replaceInFile: 'Mod+R',
+    toggleComment: 'Mod+/',
+    reindent: 'Mod+Alt+I',
+    reopenClosedTab: 'Mod+Shift+T',
+    splitRight: null,
   },
   eclipse: {
     goToFile: 'Mod+Shift+R',
@@ -39,6 +60,16 @@ const TABLE: Record<KeymapId, Record<AppAction, string | null>> = {
     promptLibrary: 'Mod+Shift+L',
     runActive: 'Mod+F11',
     stop: 'Mod+F2',
+    goToLine: 'Mod+L',
+    goToSymbol: 'Mod+O',
+    selectNextOccurrence: 'Alt+J',
+    unselectLastOccurrence: 'Shift+Alt+J',
+    findInProject: 'Mod+H',
+    replaceInFile: 'Mod+F',
+    toggleComment: 'Mod+/',
+    reindent: 'Mod+I',
+    reopenClosedTab: 'Mod+Shift+T',
+    splitRight: null,
   },
   vscode: {
     goToFile: 'Mod+P',
@@ -48,16 +79,60 @@ const TABLE: Record<KeymapId, Record<AppAction, string | null>> = {
     promptLibrary: 'Mod+Shift+P',
     runActive: 'Mod+F5',
     stop: 'Shift+F5',
+    goToLine: 'Mod+G',
+    goToSymbol: 'Mod+Shift+O',
+    selectNextOccurrence: 'Mod+D',
+    unselectLastOccurrence: 'Mod+U',
+    findInProject: 'Mod+Shift+F',
+    replaceInFile: 'Mod+H',
+    toggleComment: 'Mod+/',
+    reindent: 'Mod+Alt+I',
+    reopenClosedTab: 'Mod+Shift+T',
+    splitRight: 'Mod+\\',
   },
 };
 
 const key = (init: KeyboardEventInit) => new KeyboardEvent('keydown', init);
 
+/** Teclas do terminal (Ctrl+letra) que as ações de editor podem usar, pois só disparam com o editor em foco. */
+const TERMINAL_CTRL_KEYS = ['c', 'd', 'z', 'b', 'm', '['];
+
+/** Regra das teclas que o terminal ou o sistema precisam; ações de EDITOR_ONLY_ACTIONS escapam só do ramo Ctrl+letra. */
+const reserved = (action: AppAction, chord: string): boolean => {
+  const c = parseChord(chord);
+  const k = c.key.toLowerCase();
+  const editorOnly = (EDITOR_ONLY_ACTIONS as readonly string[]).includes(action);
+  if (!editorOnly && c.mod && !c.shift && !c.alt && TERMINAL_CTRL_KEYS.includes(k)) return true;
+  if ((c.mod || c.alt) && /^[0-9]$/.test(k)) return true;
+  if (k.startsWith('arrow') || ['up', 'down', 'left', 'right'].includes(k)) return true;
+  if (c.alt && ['f4', 'tab'].includes(k)) return true;
+  if (['delete', 'del', 'audiovolumeup', 'audiovolumedown', 'mediaplaypause'].includes(k)) return true;
+  return false;
+};
+
 describe('keymap tables', () => {
-  it('has the four maps with the seven actions', () => {
+  it('has the four maps with the seventeen actions', () => {
     expect(Object.keys(KEYMAPS).sort()).toEqual([...KEYMAP_IDS].sort());
     expect([...ACTIONS].sort()).toEqual(
-      ['closeTab', 'goToFile', 'promptLibrary', 'runActive', 'save', 'stop', 'toggleSidebar'].sort(),
+      [
+        'closeTab',
+        'findInProject',
+        'goToFile',
+        'goToLine',
+        'goToSymbol',
+        'promptLibrary',
+        'reindent',
+        'reopenClosedTab',
+        'replaceInFile',
+        'runActive',
+        'save',
+        'selectNextOccurrence',
+        'splitRight',
+        'stop',
+        'toggleComment',
+        'toggleSidebar',
+        'unselectLastOccurrence',
+      ].sort(),
     );
     for (const id of KEYMAP_IDS) {
       expect(Object.keys(KEYMAPS[id]).sort()).toEqual([...ACTIONS].sort());
@@ -86,19 +161,28 @@ describe('keymap tables', () => {
   });
 
   it('never takes the keys the terminal needs or the system reserves', () => {
-    const reserved = (chord: string): boolean => {
-      const c = parseChord(chord);
-      const k = c.key.toLowerCase();
-      if (c.mod && !c.shift && !c.alt && ['c', 'd', 'z', 'b', 'm', '['].includes(k)) return true;
-      if ((c.mod || c.alt) && /^[0-9]$/.test(k)) return true;
-      if (k.startsWith('arrow') || ['up', 'down', 'left', 'right'].includes(k)) return true;
-      if (c.alt && ['f4', 'tab'].includes(k)) return true;
-      if (['delete', 'del', 'audiovolumeup', 'audiovolumedown', 'mediaplaypause'].includes(k)) return true;
-      return false;
-    };
     for (const id of KEYMAP_IDS) {
-      for (const chord of Object.values(KEYMAPS[id])) {
-        if (chord !== null) expect(reserved(chord), `${id}: ${chord}`).toBe(false);
+      for (const action of ACTIONS) {
+        const chord = KEYMAPS[id][action];
+        if (chord !== null) expect(reserved(action, chord), `${id}/${action}: ${chord}`).toBe(false);
+      }
+    }
+  });
+
+  it('lets only editor-only actions use Ctrl+letter keys of the terminal', () => {
+    expect(reserved('save', 'Mod+D')).toBe(true);
+    expect(reserved('findInProject', 'Mod+D')).toBe(true);
+    expect(reserved('selectNextOccurrence', 'Mod+D')).toBe(false);
+    expect(reserved('toggleComment', 'Mod+/')).toBe(false);
+    expect(reserved('selectNextOccurrence', 'Mod+1')).toBe(true);
+    expect(reserved('reindent', 'Alt+F4')).toBe(true);
+    for (const id of KEYMAP_IDS) {
+      for (const action of ACTIONS) {
+        const chord = KEYMAPS[id][action];
+        if (chord === null || (EDITOR_ONLY_ACTIONS as readonly string[]).includes(action)) continue;
+        const c = parseChord(chord);
+        const ctrlTerminalKey = c.mod && !c.shift && !c.alt && TERMINAL_CTRL_KEYS.includes(c.key.toLowerCase());
+        expect(ctrlTerminalKey, `${id}/${action}: ${chord}`).toBe(false);
       }
     }
   });

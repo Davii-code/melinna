@@ -6,8 +6,8 @@ function file(schemaVersion: number, groups: unknown[], extra: Record<string, un
 }
 
 describe('parseState — esquema 2 → 3', () => {
-  it('uses schema version 3', () => {
-    expect(STATE_SCHEMA_VERSION).toBe(3);
+  it('uses schema version 4 (see state-migration-v4.test.ts)', () => {
+    expect(STATE_SCHEMA_VERSION).toBe(4);
   });
 
   it('turns the repoPath of a v2 group into a one-folder workspace with that folder as primary', () => {
@@ -85,17 +85,15 @@ describe('parseState — comandos de projeto (campos opcionais)', () => {
     folder: '/repos/site',
   };
 
-  it('keeps Group.commands, Task.kind and Execution.command when reading and rewriting', () => {
-    const raw = file(
-      3,
-      [{ id: 'g1', name: 'Site', order: 0, commands: [stored] }],
-      {
-        tasks: [{ id: 't1', groupId: 'g1', kind: 'command' }],
-        executions: [{ id: 'e1', taskId: 't1', agentId: 'command', command }],
-      },
-    );
+  it('migrates Group.commands into runConfigs and keeps Task.kind and Execution.command when reading and rewriting', () => {
+    const raw = file(3, [{ id: 'g1', name: 'Site', order: 0, commands: [stored] }], {
+      tasks: [{ id: 't1', groupId: 'g1', kind: 'command' }],
+      executions: [{ id: 'e1', taskId: 't1', agentId: 'command', command }],
+    });
     const once = parseState(raw);
-    expect(once?.groups[0]?.commands).toEqual([stored]);
+    expect(once?.groups[0]?.runConfigs?.map((c) => [c.id, c.name, c.program, c.folder])).toEqual([
+      [stored.id, stored.label, stored.program, stored.folder],
+    ]);
     expect(once?.tasks[0]?.kind).toBe('command');
     expect(once?.executions[0]?.command).toEqual(command);
     const twice = parseState(JSON.parse(JSON.stringify(once)));
@@ -115,6 +113,6 @@ describe('parseState — comandos de projeto (campos opcionais)', () => {
   });
 
   it('does not raise the schema version', () => {
-    expect(STATE_SCHEMA_VERSION).toBe(3);
+    expect(STATE_SCHEMA_VERSION).toBe(4);
   });
 });

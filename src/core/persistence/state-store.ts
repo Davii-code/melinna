@@ -20,8 +20,9 @@ export class StateStore {
   private cancelTimer: Cancel | undefined;
   private writing: Promise<void> = Promise.resolve();
   private readOnly = false;
-  /** Bytes do arquivo de esquema anterior, copiados para `.v2.json.bak` antes da primeira gravação nova. */
+  /** Bytes do arquivo de esquema anterior, copiados para `.bak` antes da primeira gravação nova. */
   private legacyBytes: Uint8Array | undefined;
+  private legacyVersion = 0;
 
   constructor(
     private readonly fs: FileSystem,
@@ -56,7 +57,10 @@ export class StateStore {
       this.log.warn('state.newer_schema', { schemaVersion: parsed.schemaVersion });
       return { state: parsed, readOnly: true, warning: 'newer-schema' };
     }
-    if (parsed.schemaVersion < STATE_SCHEMA_VERSION) this.legacyBytes = bytes;
+    if (parsed.schemaVersion < STATE_SCHEMA_VERSION) {
+      this.legacyBytes = bytes;
+      this.legacyVersion = parsed.schemaVersion;
+    }
     return { state: parsed, readOnly: false };
   }
 
@@ -98,7 +102,9 @@ export class StateStore {
     const bytes = this.legacyBytes;
     if (!bytes) return;
     this.legacyBytes = undefined;
-    const backup = this.path.replace(/state\.json$/, 'state.v2.json.bak');
+    // Esquema 3 tem o nome da 009 (`state.v3.bak`); os anteriores mantêm o nome de antes.
+    const name = this.legacyVersion === 3 ? 'state.v3.bak' : 'state.v2.json.bak';
+    const backup = this.path.replace(/state\.json$/, name);
     try {
       await writeFileAtomic(this.fs, backup, bytes);
       this.log.info('state.legacy_backup', {});

@@ -13,6 +13,7 @@ export default defineConfig({
         input: {
           'main/main': resolve(__dirname, 'src/main/main.ts'),
           'host/main': resolve(__dirname, 'src/host/main.ts'),
+          'main/search-worker-thread': resolve(__dirname, 'src/main/search-worker-thread.ts'),
         },
         output: { entryFileNames: '[name].js', format: 'cjs' },
       },

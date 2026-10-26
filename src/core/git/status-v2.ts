@@ -34,7 +34,14 @@ function splitFields(entry: string, count: number): string[] {
 
 /** Lê `git status --porcelain=v2 -z --branch --untracked-files=all`; entradas ignoradas (`!`) são descartadas. */
 export function parseStatusV2(out: string): ParsedStatus {
-  const result: ParsedStatus = { branch: null, head: '', upstream: null, ahead: null, behind: null, changes: [] };
+  const result: ParsedStatus = {
+    branch: null,
+    head: '',
+    upstream: null,
+    ahead: null,
+    behind: null,
+    changes: [],
+  };
   const parts = out.split('\0');
   for (let i = 0; i < parts.length; i++) {
     const entry = parts[i];
@@ -84,7 +91,12 @@ export function parseStatusV2(out: string): ParsedStatus {
       const f = splitFields(entry, 10);
       result.changes.push({ path: f[10] ?? '', kind: 'conflict', indexChanged: true, worktreeChanged: true });
     } else if (type === '?') {
-      result.changes.push({ path: entry.slice(2), kind: 'untracked', indexChanged: false, worktreeChanged: true });
+      result.changes.push({
+        path: entry.slice(2),
+        kind: 'untracked',
+        indexChanged: false,
+        worktreeChanged: true,
+      });
     }
   }
   return result;

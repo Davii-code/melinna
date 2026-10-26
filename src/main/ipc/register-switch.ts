@@ -24,10 +24,14 @@ export function registerSwitch(handle: Handle, deps: SwitchIpcDeps): void {
   );
   handle(
     C.confirmSwitch,
-    handler(log, C.confirmSwitch, parseConfirmSwitch(exists), (id, planId) => executions.confirmSwitch(id, planId)),
+    handler(log, C.confirmSwitch, parseConfirmSwitch(exists), (id, planId) =>
+      executions.confirmSwitch(id, planId),
+    ),
   );
   handle(
     C.cancelPendingSwitch,
-    handler(log, C.cancelPendingSwitch, parseCancelSwitch(exists), (id) => executions.cancelPendingSwitch(id)),
+    handler(log, C.cancelPendingSwitch, parseCancelSwitch(exists), (id) =>
+      executions.cancelPendingSwitch(id),
+    ),
   );
 }

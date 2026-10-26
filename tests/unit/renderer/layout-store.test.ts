@@ -101,3 +101,150 @@ describe('layout store', () => {
     expect(store.get().focusedPaneId).toBeNull();
   });
 });
+
+describe('layout store — fechar por caminho e reabrir na posição', () => {
+  const editor = (store: ReturnType<typeof createLayoutStore>, paneId = 'editor-1') => {
+    const pane = store.get().panes.find((p) => p.id === paneId);
+    return pane && pane.kind === 'editor' ? pane : undefined;
+  };
+
+  function withDocs(...paths: string[]) {
+    const store = createLayoutStore(fakeApi(), manualSchedule().schedule);
+    for (const path of paths) store.openDoc(path);
+    return store;
+  }
+
+  it('closeDoc closes the tab by path over the current state', () => {
+    const store = withDocs('/a', '/b', '/c');
+    store.closeDoc('editor-1', '/a');
+    store.closeDoc('editor-1', '/b');
+    expect(editor(store)?.docs).toEqual(['/c']);
+  });
+
+  it('closeDoc ignores a path that is not open, a missing pane and a terminal pane', () => {
+    const store = withDocs('/a', '/b');
+    store.open('exec-1');
+    const before = store.get();
+    store.closeDoc('editor-1', '/nada');
+    store.closeDoc('nao-existe', '/a');
+    store.closeDoc('exec-1', '/a');
+    expect(store.get()).toBe(before);
+  });
+
+  it('closeDoc on the last tab closes the pane', () => {
+    const store = withDocs('/a');
+    store.closeDoc('editor-1', '/a');
+    expect(store.get().panes).toEqual([]);
+  });
+
+  it('openDocAt puts the file back at its position and activates it', () => {
+    const store = withDocs('/a', '/b', '/c');
+    store.closeDoc('editor-1', '/b');
+    store.openDocAt('editor-1', '/b', 1);
+    expect(editor(store)).toMatchObject({ docs: ['/a', '/b', '/c'], activeIndex: 1 });
+    expect(store.get().focusedPaneId).toBe('editor-1');
+  });
+
+  it('openDocAt clamps a position past the end and a negative one', () => {
+    const store = withDocs('/a', '/b');
+    store.openDocAt('editor-1', '/z', 99);
+    expect(editor(store)?.docs).toEqual(['/a', '/b', '/z']);
+    store.openDocAt('editor-1', '/y', -4);
+    expect(editor(store)?.docs).toEqual(['/y', '/a', '/b', '/z']);
+    expect(editor(store)?.activeIndex).toBe(0);
+  });
+
+  it('openDocAt only activates a file that is already open', () => {
+    const store = withDocs('/a', '/b');
+    store.openDocAt('editor-1', '/a', 1);
+    expect(editor(store)).toMatchObject({ docs: ['/a', '/b'], activeIndex: 0 });
+  });
+
+  it('openDocAt recreates a pane that was closed, with the same id', () => {
+    const store = withDocs('/a');
+    store.closeDoc('editor-1', '/a');
+    store.openDocAt('editor-1', '/a', 0);
+    expect(editor(store)).toMatchObject({ id: 'editor-1', docs: ['/a'], activeIndex: 0 });
+    expect(store.get().focusedPaneId).toBe('editor-1');
+  });
+
+  it('openDocAt creates a new editor pane when the old id belongs to a terminal pane', () => {
+    const store = createLayoutStore(fakeApi(), manualSchedule().schedule);
+    store.open('editor-1');
+    store.openDocAt('editor-1', '/z', 0);
+    const created = store.get().panes.find((p) => p.kind === 'editor');
+    expect(created).toMatchObject({ id: 'editor-2', docs: ['/z'], activeIndex: 0 });
+    expect(store.get().panes.find((p) => p.id === 'editor-1')?.kind).toBe('executions');
+  });
+});
+
+describe('layout store — editor dividido (splitDoc)', () => {
+  function withDocs(...paths: string[]) {
+    const store = createLayoutStore(fakeApi(), manualSchedule().schedule);
+    for (const path of paths) store.openDoc(path);
+    return store;
+  }
+  const docsOf = (store: ReturnType<typeof createLayoutStore>) =>
+    store.get().panes.map((p) => (p.kind === 'editor' ? [p.id, ...p.docs] : [p.id]));
+
+  it('opens the same file in a new editor pane right after the source, focused', () => {
+    const store = withDocs('/a', '/b');
+    store.open('exec-1');
+    store.splitDoc('editor-1', '/a', 'right');
+    expect(docsOf(store)).toEqual([['editor-1', '/a', '/b'], ['editor-2', '/a'], ['exec-1']]);
+    expect(store.get().focusedPaneId).toBe('editor-2');
+  });
+
+  it('down puts the new pane at the end of the grid', () => {
+    const store = withDocs('/a');
+    store.open('exec-1');
+    store.splitDoc('editor-1', '/a', 'down');
+    expect(docsOf(store)).toEqual([['editor-1', '/a'], ['exec-1'], ['editor-2', '/a']]);
+  });
+
+  it('openDoc keeps reusing the first pane that has the path', () => {
+    const store = withDocs('/a', '/b');
+    store.splitDoc('editor-1', '/a', 'right');
+    store.focus('editor-2');
+    store.openDoc('/a');
+    expect(store.get().focusedPaneId).toBe('editor-1');
+    expect(docsOf(store)).toEqual([
+      ['editor-1', '/a', '/b'],
+      ['editor-2', '/a'],
+    ]);
+  });
+
+  it('ignores an unknown source pane and respects the limit of 12 panes', () => {
+    const store = withDocs('/a');
+    store.splitDoc('nao-existe', '/a', 'right');
+    expect(store.get().panes).toHaveLength(1);
+    for (let i = 0; i < 11; i++) store.open(`exec-${i}`);
+    expect(store.get().panes).toHaveLength(12);
+    store.splitDoc('editor-1', '/a', 'right');
+    expect(store.get().panes).toHaveLength(12);
+  });
+
+  it('loads and prunes a state with the same path in two editor panes', async () => {
+    const api = fakeApi();
+    api.layout.get.mockImplementation(() =>
+      okR({
+        mode: 'auto' as const,
+        panes: [
+          { id: 'editor-1', kind: 'editor' as const, docs: ['/a'], activeIndex: 0 },
+          { id: 'editor-2', kind: 'editor' as const, docs: ['/a'], activeIndex: 0 },
+          { id: 'x', kind: 'executions' as const, execIds: ['x'], activeIndex: 0 },
+        ],
+        focusedPaneId: 'editor-2',
+        custom: { columns: [1], rows: [1], cells: {} },
+      }),
+    );
+    const store = createLayoutStore(api, manualSchedule().schedule);
+    await store.load();
+    store.prune(new Set());
+    expect(docsOf(store)).toEqual([
+      ['editor-1', '/a'],
+      ['editor-2', '/a'],
+    ]);
+    expect(store.get().focusedPaneId).toBe('editor-2');
+  });
+});

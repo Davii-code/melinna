@@ -14,7 +14,8 @@ export interface GitCommitArgs {
 function confirmList(v: unknown): Confirm[] {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v) || v.length > CONFIRMS.length) throw invalid('confirmações');
-  for (const c of v) if (typeof c !== 'string' || !CONFIRMS.includes(c as Confirm)) throw invalid('confirmação');
+  for (const c of v)
+    if (typeof c !== 'string' || !CONFIRMS.includes(c as Confirm)) throw invalid('confirmação');
   return v as Confirm[];
 }
 
@@ -45,6 +46,11 @@ export function gitParsers(isRoot: (path: string) => boolean) {
     repoOnly: (args: unknown[]): [string] => [repo(args[0])],
     repoConfirm: (args: unknown[]): [string, Confirm[]] => [repo(args[0]), confirmList(args[1])],
     diffFile: (args: unknown[]): [string, string] => [repo(args[0]), paths([args[1]], 1)[0]!],
+    /** Caminho absoluto do arquivo; a contenção na pasta é conferida pelo núcleo. */
+    fileAtHead: (args: unknown[]): [string, string] => [
+      repo(args[0]),
+      str(args[1], 'caminho do arquivo', 1, LIMITS.path),
+    ],
     commit: (args: unknown[]): [string, GitCommitArgs] => {
       const r = repo(args[0]);
       const input = args[1];
@@ -62,7 +68,10 @@ export function gitParsers(isRoot: (path: string) => boolean) {
     ],
     markResolved: (args: unknown[]): [string, string[]] => [repo(args[0]), paths(args[1], 1)],
     opId: (args: unknown[]): [string] => [id(args[0], 'operação')],
-    branchName: (args: unknown[]): [string, string] => [repo(args[0]), branchShape(args[1], 'nome da branch')],
+    branchName: (args: unknown[]): [string, string] => [
+      repo(args[0]),
+      branchShape(args[1], 'nome da branch'),
+    ],
     branchConfirm: (args: unknown[]): [string, string, Confirm[]] => [
       repo(args[0]),
       branchShape(args[1], 'branch'),

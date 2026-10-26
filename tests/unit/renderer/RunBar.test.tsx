@@ -6,13 +6,14 @@ import { createRunStore } from '../../../src/renderer/store/run-store';
 import type {
   ActiveRunRef,
   Group,
-  RunCatalog,
   RunCommand,
+  RunConfigView,
+  RunWarning,
   Task,
   WorkspaceSnapshot,
 } from '../../../src/shared/ipc-contract';
 import { fakeApi, okR, snapshot } from '../../support/fake-api';
-import { execution, runCommand } from '../../support/renderer-fixtures';
+import { execution, runCommand, runConfig } from '../../support/renderer-fixtures';
 
 const SIZE = { cols: 100, rows: 30 };
 
@@ -55,21 +56,24 @@ const runningExec = (over = {}) =>
   });
 
 interface Options {
-  commands?: RunCommand[];
-  warnings?: RunCatalog['warnings'];
+  configs?: RunConfigView[];
+  detected?: RunCommand[];
+  warnings?: RunWarning[];
   active?: ActiveRunRef | null;
   snap?: WorkspaceSnapshot;
 }
 
 async function setup(opts: Options = {}) {
-  const commands = opts.commands ?? [
-    runCommand({ id: 'c0', source: 'custom', tool: 'custom', label: 'Servidor', program: 'node' }),
-    runCommand({ id: 'c1', label: 'dev' }),
-    runCommand({ id: 'c2', label: 'test', args: ['run', 'test'] }),
+  const configs = opts.configs ?? [
+    runConfig({ id: 'c0', name: 'Servidor', tool: 'program', script: null, program: 'node' }),
+    runConfig({ id: 'c1', name: 'dev' }),
+    runConfig({ id: 'c2', name: 'test', script: 'test' }),
   ];
   const snap = opts.snap ?? snapshot({ groups: [group] });
   const api = fakeApi();
-  api.run.list.mockImplementation(() => okR({ commands, warnings: opts.warnings ?? [] }));
+  api.run.list.mockImplementation(() =>
+    okR({ configs, detected: opts.detected ?? [], warnings: opts.warnings ?? [] }),
+  );
   api.prefs.get.mockImplementation(() =>
     okR({ keymap: 'windows' as const, activeRun: opts.active ?? null, readOnly: false }),
   );
@@ -150,7 +154,9 @@ describe('RunBar', () => {
   it('disables play with the reason when the active configuration is unavailable', async () => {
     await setup({
       active: { groupId: 'g1', commandId: 'c1' },
-      commands: [runCommand({ id: 'c1', available: false, unavailableReason: 'not-found', searched: 'mvn' })],
+      configs: [
+        runConfig({ id: 'c1', available: false, unavailableReason: 'program-missing', searched: 'mvn' }),
+      ],
     });
     expect(play().disabled).toBe(true);
     expect(play().title).toBe('não encontrado: mvn');
@@ -178,7 +184,7 @@ describe('RunBar', () => {
 });
 
 describe('RunBar — selector', () => {
-  it('opens the list grouped by workspace and folder and chooses a configuration', async () => {
+  it('opens the list of saved configs grouped by workspace and tool and chooses one', async () => {
     const { api } = await setup();
     fireEvent.click(selector());
     const list = screen.getByRole('listbox', { name: 'Configurações de execução' });
@@ -192,7 +198,7 @@ describe('RunBar — selector', () => {
     expect(play().disabled).toBe(false);
   });
 
-  it('refreshes the catalog when the selector opens', async () => {
+  it('refreshes the configs when the selector opens', async () => {
     const { api } = await setup();
     const before = api.run.list.mock.calls.length;
     fireEvent.click(selector());
@@ -204,12 +210,12 @@ describe('RunBar — wrapper without the execute bit', () => {
   async function confirmSetup() {
     const ctx = await setup({
       active: { groupId: 'g1', commandId: 'c1' },
-      commands: [
-        runCommand({
+      configs: [
+        runConfig({
           id: 'c1',
-          source: 'maven',
+          name: 'Maven: compile',
           tool: 'maven',
-          label: 'Maven: compile',
+          script: 'compile',
           program: '/repo/mvnw',
         }),
       ],
@@ -299,5 +305,84 @@ describe('RunBar — menu', () => {
     fireEvent.click(more());
     fireEvent.click(screen.getByRole('menuitem', { name: 'Editar configurações' }));
     expect(await screen.findByRole('dialog', { name: 'Configurações de execução' })).toBeTruthy();
+  });
+});
+
+describe('RunBar — adicionar a partir de um script detectado', () => {
+  const detected = [
+    runCommand({ id: 'd1', label: 'lint', args: ['run', 'lint'] }),
+    runCommand({ id: 'd2', label: 'build', args: ['run', 'build'] }),
+  ];
+
+  it('opens the picker from the selector, creates the config, makes it active and lists it', async () => {
+    const { api, store } = await setup({ detected, configs: [runConfig({ id: 'c1', name: 'dev' })] });
+    api.run.saveConfig.mockImplementation((groupId, input) => {
+      const view = runConfig({ ...input, id: 'novo', groupId });
+      api.run.list.mockImplementation(() =>
+        okR({ configs: [runConfig({ id: 'c1', name: 'dev' }), view], detected, warnings: [] }),
+      );
+      return okR(view);
+    });
+    fireEvent.click(selector());
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar a partir de um script detectado…' }));
+    const picker = screen.getByRole('dialog', { name: 'Scripts detectados' });
+    fireEvent.click(within(picker).getByRole('button', { name: /lint/ }));
+    await waitFor(() =>
+      expect(api.prefs.setActiveRun).toHaveBeenCalledWith({ groupId: 'g1', commandId: 'novo' }),
+    );
+    expect(api.run.saveConfig).toHaveBeenCalledWith(
+      'g1',
+      expect.objectContaining({ name: 'lint', tool: 'npm', script: 'lint' }),
+    );
+    expect(screen.queryByRole('dialog', { name: 'Scripts detectados' })).toBeNull();
+    expect(store.get().configs?.map((c) => c.id)).toEqual(['c1', 'novo']);
+    await waitFor(() => expect(selector().textContent).toContain('lint'));
+  });
+
+  it('offers only the scripts of the active workspace', async () => {
+    const other = runCommand({ id: 'x', groupId: 'g2', label: 'outro', folder: '/other' });
+    await setup({ detected: [...detected, other] });
+    fireEvent.click(selector());
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar a partir de um script detectado…' }));
+    const picker = screen.getByRole('dialog', { name: 'Scripts detectados' });
+    expect(within(picker).queryByRole('button', { name: /outro/ })).toBeNull();
+    expect(within(picker).getByRole('button', { name: /lint/ })).toBeTruthy();
+  });
+});
+
+describe('RunBar — antes de lançar', () => {
+  const chain = () => [
+    runConfig({ id: 'c1', name: 'dev', beforeLaunch: 'c9' }),
+    runConfig({ id: 'c9', name: 'build', script: 'build' }),
+  ];
+
+  it('shows "Aguardando <etapa>…" while the launch waits for the step, and cancels it', async () => {
+    const stepTask = commandTask({ id: 't-step', title: 'build' });
+    const stepExec = execution('e-step', {
+      taskId: 't-step',
+      agentId: 'command',
+      model: null,
+      permissionMode: null,
+      status: 'running',
+      command: { commandId: 'c9', label: 'build', file: '/bin/npm', args: ['run', 'build'] },
+    });
+    const { api } = await setup({
+      configs: chain(),
+      active: { groupId: 'g1', commandId: 'c1' },
+      snap: snapshot({ groups: [group], tasks: [stepTask], executions: [stepExec] }),
+    });
+    api.run.start.mockImplementation(() => new Promise(() => undefined));
+    fireEvent.click(play());
+    const bar = await screen.findByTestId('run-waiting-bar');
+    expect(bar.textContent).toContain('Aguardando build…');
+    fireEvent.click(within(bar).getByRole('button', { name: 'Cancelar' }));
+    await waitFor(() => expect(api.executions.stop).toHaveBeenCalledWith('e-step'));
+  });
+
+  it('shows nothing when the config has no step', async () => {
+    const { api } = await setup({ active: { groupId: 'g1', commandId: 'c1' } });
+    api.run.start.mockImplementation(() => new Promise(() => undefined));
+    fireEvent.click(play());
+    expect(screen.queryByTestId('run-waiting-bar')).toBeNull();
   });
 });

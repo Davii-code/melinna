@@ -7,7 +7,12 @@ async function setup(agentId = 'fake') {
   const rec = handleRecorder();
   registerSwitch(rec.handle, { executions: core.executions, model: core.model, log: core.log });
   const g = await core.workspace.createGroup('G');
-  const task = await core.workspace.createTask({ groupId: g.id, repoPath: '/repo', baseRef: 'main', prompt: 'X' });
+  const task = await core.workspace.createTask({
+    groupId: g.id,
+    repoPath: '/repo',
+    baseRef: 'main',
+    prompt: 'X',
+  });
   const [r] = await core.executions.launch(task.id, [{ agentId }], { cols: 80, rows: 24 });
   if (!r?.ok) throw new Error('lançamento falhou');
   core.clock.advance(2000);
@@ -28,7 +33,10 @@ describe('switch IPC', () => {
     const plan = await rec.call('executions:requestSwitch', execId, 'model', 'esperto');
     expect(plan).toMatchObject({ ok: true, value: { kind: 'pty-command', waitsForIdle: false } });
     const planId = (plan.value as { planId: string }).planId;
-    expect(await rec.call('executions:confirmSwitch', execId, planId)).toEqual({ ok: true, value: undefined });
+    expect(await rec.call('executions:confirmSwitch', execId, planId)).toEqual({
+      ok: true,
+      value: undefined,
+    });
     expect(core.host.writes.at(-1)).toEqual({ execId, data: '/model esperto\r' });
     expect(core.model.execution(execId)?.model).toBe('esperto');
   });
@@ -48,18 +56,23 @@ describe('switch IPC', () => {
 
   it('maps catalog errors and validates the payload', async () => {
     const { rec, execId } = await setup();
-    const code = async (...args: unknown[]) => (await rec.call('executions:requestSwitch', ...args)).error?.code;
+    const code = async (...args: unknown[]) =>
+      (await rec.call('executions:requestSwitch', ...args)).error?.code;
     expect(await code(execId, 'model', 'nome inválido!')).toBe('INPUT_INVALID');
     expect(await code(execId, 'cor', 'azul')).toBe('INPUT_INVALID');
     expect(await code(execId, 'model', '')).toBe('INPUT_INVALID');
     expect(await code(execId, 'model', 'x'.repeat(101))).toBe('INPUT_INVALID');
     expect(await code('nao-existe', 'model', 'esperto')).toBe('INPUT_INVALID');
-    expect((await rec.call('executions:confirmSwitch', execId, 'plano-velho')).error?.code).toBe('INPUT_INVALID');
+    expect((await rec.call('executions:confirmSwitch', execId, 'plano-velho')).error?.code).toBe(
+      'INPUT_INVALID',
+    );
     expect((await rec.call('executions:confirmSwitch', execId)).error?.code).toBe('INPUT_INVALID');
   });
 
   it('refuses switching a shell', async () => {
     const { rec, execId } = await setup('bash');
-    expect((await rec.call('executions:requestSwitch', execId, 'model', 'x')).error?.code).toBe('SWITCH_UNSUPPORTED');
+    expect((await rec.call('executions:requestSwitch', execId, 'model', 'x')).error?.code).toBe(
+      'SWITCH_UNSUPPORTED',
+    );
   });
 });

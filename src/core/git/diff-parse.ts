@@ -21,7 +21,17 @@ export function unquoteGitPath(raw: string): string {
       i += 3;
       continue;
     }
-    const map: Record<string, string> = { n: '\n', t: '\t', r: '\r', '"': '"', '\\': '\\', a: '\x07', b: '\b', f: '\f', v: '\v' };
+    const map: Record<string, string> = {
+      n: '\n',
+      t: '\t',
+      r: '\r',
+      '"': '"',
+      '\\': '\\',
+      a: '\x07',
+      b: '\b',
+      f: '\f',
+      v: '\v',
+    };
     pushText(map[next] ?? next);
     i += 1;
   }
@@ -73,7 +83,10 @@ function finish(b: Builder): FileDiff {
   else if (b.added) change = 'added';
   else if (b.deleted) change = 'deleted';
   const path =
-    b.renameTo ?? (b.deleted ? (b.oldPath ?? b.gitPaths?.a) : (b.newPath ?? b.gitPaths?.b)) ?? b.oldPath ?? '';
+    b.renameTo ??
+    (b.deleted ? (b.oldPath ?? b.gitPaths?.a) : (b.newPath ?? b.gitPaths?.b)) ??
+    b.oldPath ??
+    '';
   const file: FileDiff = {
     path,
     change,
@@ -117,7 +130,8 @@ export function parseUnifiedDiff(text: string): FileDiff[] {
     if (hunk === null) {
       if (line.startsWith('new file mode')) cur.added = true;
       else if (line.startsWith('deleted file mode')) cur.deleted = true;
-      else if (line.startsWith('rename from ')) cur.renameFrom = unquoteGitPath(line.slice('rename from '.length));
+      else if (line.startsWith('rename from '))
+        cur.renameFrom = unquoteGitPath(line.slice('rename from '.length));
       else if (line.startsWith('rename to ')) cur.renameTo = unquoteGitPath(line.slice('rename to '.length));
       else if (line.startsWith('Binary files ')) {
         cur.binary = true;

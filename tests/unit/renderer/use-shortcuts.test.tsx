@@ -1,13 +1,21 @@
 import { act, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { registerEditorSaver, saveEditor } from '../../../src/renderer/keymap/editor-save';
-import { ACTIONS, KEYMAPS, parseChord, type AppAction } from '../../../src/renderer/keymap/keymaps';
+import { ACTIONS, EDITOR_ONLY_ACTIONS, KEYMAPS, parseChord, type AppAction } from '../../../src/renderer/keymap/keymaps';
 import {
   runShortcutHandlers,
   useShortcuts,
   type ShortcutHandlers,
 } from '../../../src/renderer/keymap/use-shortcuts';
 import { KEYMAP_IDS, type KeymapId } from '../../../src/shared/ipc-contract';
+
+/** Com o terminal em foco estas teclas seguem para o PTY. */
+const TERMINAL_KEEPS: readonly AppAction[] = [
+  ...EDITOR_ONLY_ACTIONS,
+  'findInProject',
+  'reopenClosedTab',
+  'splitRight',
+];
 
 function Harness({ keymap, handlers }: { keymap: KeymapId; handlers: ShortcutHandlers }) {
   useShortcuts(keymap, handlers);
@@ -63,6 +71,7 @@ describe.each([...KEYMAP_IDS])('shortcuts — mapa %s', (id) => {
       for (const action of ACTIONS) {
         const chord = KEYMAPS[id][action];
         if (chord === null) continue;
+        if (where === 'terminal' && TERMINAL_KEEPS.includes(action)) continue;
         const reachedTarget = vi.fn();
         target().addEventListener('keydown', reachedTarget, { once: true });
         const event = press(target(), eventFor(chord));
@@ -72,6 +81,38 @@ describe.each([...KEYMAP_IDS])('shortcuts — mapa %s', (id) => {
       }
     });
   }
+
+  it('leaves the editor actions to the terminal when it has the focus', () => {
+    const handlers = handlersFor();
+    render(<Harness keymap={id} handlers={handlers} />);
+    for (const action of TERMINAL_KEEPS) {
+      const chord = KEYMAPS[id][action];
+      if (chord === null) continue;
+      const reachedTarget = vi.fn();
+      terminal().addEventListener('keydown', reachedTarget, { once: true });
+      const event = press(terminal(), eventFor(chord));
+      expect(handlers[action], `${id}/${action}`).not.toHaveBeenCalled();
+      expect(event.defaultPrevented, `${id}/${action}`).toBe(false);
+      expect(reachedTarget, `${id}/${action} chegou ao PTY`).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('does not fire the editor-only actions outside an editor', () => {
+    const handlers = handlersFor();
+    render(
+      <>
+        <Harness keymap={id} handlers={handlers} />
+        <button type="button">fora</button>
+      </>,
+    );
+    const outside = document.querySelector('button') as HTMLButtonElement;
+    for (const action of EDITOR_ONLY_ACTIONS) {
+      const chord = KEYMAPS[id][action];
+      if (chord === null) continue;
+      expect(press(outside, eventFor(chord)).defaultPrevented, `${id}/${action}`).toBe(false);
+      expect(handlers[action], `${id}/${action}`).not.toHaveBeenCalled();
+    }
+  });
 
   it('does not fire an action that has no key in the map', () => {
     const handlers = handlersFor();

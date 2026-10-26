@@ -1,15 +1,23 @@
-import type { ActiveRunRef, Group, RunCatalog, RunCommand } from '../../../shared/ipc-contract';
+import type { ActiveRunRef, Group, RunConfigView, RunWarning } from '../../../shared/ipc-contract';
 import { ToolIcon } from './ToolIcon';
+import { buildSelectorModel, unavailableNote } from './selector-model';
+
+export { unavailableNote };
 
 export interface RunSelectorProps {
-  /** `null` até a primeira leitura. */
-  catalog: RunCatalog | null;
+  /** Configurações salvas; `null` até a primeira leitura. */
+  configs: RunConfigView[] | null;
+  warnings: readonly RunWarning[];
   groups: readonly Group[];
   active: ActiveRunRef | null;
-  /** Configurações com execução viva, como `groupId:commandId`. */
+  /** Configurações com execução viva, como `groupId:configId`. */
   runningIds: ReadonlySet<string>;
+  /** Etapa de "antes de lançar" que a configuração ativa espera agora; `null` quando não espera. */
+  waiting: { name: string } | null;
   onChoose: (ref: ActiveRunRef) => void;
   onEdit: () => void;
+  onAddDetected: () => void;
+  onCancelWaiting: () => void;
 }
 
 export function baseName(path: string): string {
@@ -17,96 +25,89 @@ export function baseName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-function samePath(a: string, b: string): boolean {
-  return a.replace(/[\\/]+$/, '').toLowerCase() === b.replace(/[\\/]+$/, '').toLowerCase();
-}
-
-/** Pastas de um workspace na ordem em que ele as guarda, mais as que só aparecem nas configurações. */
-function foldersOf(group: Group, commands: readonly RunCommand[]): string[] {
-  const folders = (group.folders ?? []).map((f) => f.path);
-  if (folders.length === 0 && group.repoPath) folders.push(group.repoPath);
-  for (const c of commands) if (!folders.some((f) => samePath(f, c.folder))) folders.push(c.folder);
-  return folders;
-}
-
-export function unavailableNote(c: RunCommand): string | null {
-  if (c.unavailableReason === 'folder-outside') return 'pasta fora do workspace';
-  if (!c.available) return `não encontrado: ${c.searched}`;
-  return null;
-}
-
-/** Lista de configurações por workspace e pasta; as personalizadas vêm antes das detectadas (ordem do catálogo). */
-export function RunSelector({ catalog, groups, active, runningIds, onChoose, onEdit }: RunSelectorProps) {
-  const ordered = [...groups].sort((a, b) => a.order - b.order);
-  const hasAny = (catalog?.commands.length ?? 0) > 0;
+/** Lista das configurações salvas por workspace e ferramenta, com as ações de editar e de criar a partir de um script. */
+export function RunSelector({
+  configs,
+  warnings,
+  groups,
+  active,
+  runningIds,
+  waiting,
+  onChoose,
+  onEdit,
+  onAddDetected,
+  onCancelWaiting,
+}: RunSelectorProps) {
+  const model = configs === null ? [] : buildSelectorModel(configs, groups, warnings);
+  const hasAny = (configs?.length ?? 0) > 0;
   return (
     <div className="run-selector" role="presentation">
-      {catalog === null && <p className="run-empty">Carregando…</p>}
-      {catalog !== null && !hasAny && <p className="run-empty">Nenhuma configuração</p>}
-      {catalog !== null && hasAny && (
+      {waiting !== null && (
+        <div className="run-waiting" data-testid="run-waiting">
+          <span>{`Aguardando ${waiting.name}…`}</span>
+          <button type="button" onClick={onCancelWaiting}>
+            Cancelar
+          </button>
+        </div>
+      )}
+      {configs === null && <p className="run-empty">Carregando…</p>}
+      {configs !== null && !hasAny && <p className="run-empty">Nenhuma configuração</p>}
+      {model.length > 0 && (
         <div role="listbox" aria-label="Configurações de execução" className="run-list">
-          {ordered.map((group) => {
-            const commands = catalog.commands.filter((c) => c.groupId === group.id);
-            const warnings = catalog.warnings.filter((w) => w.groupId === group.id);
-            if (commands.length === 0 && warnings.length === 0) return null;
-            return (
-              <div key={group.id} className="run-group" data-testid={`run-group-${group.id}`}>
-                <div className="run-group-name">{group.name}</div>
-                {foldersOf(group, commands).map((folder) => {
-                  const inFolder = commands.filter((c) => samePath(c.folder, folder));
-                  const folderWarnings = warnings.filter((w) => samePath(w.folder, folder));
-                  if (inFolder.length === 0 && folderWarnings.length === 0) return null;
-                  return (
-                    <div
-                      key={folder}
-                      className="run-folder"
-                      data-testid={`run-folder-${group.id}-${baseName(folder)}`}
-                      data-folder={folder}
-                    >
-                      <div className="run-folder-name" title={folder}>
-                        {baseName(folder)}
-                      </div>
-                      {inFolder.map((c) => {
-                        const selected = active?.groupId === c.groupId && active.commandId === c.id;
-                        const note = unavailableNote(c);
-                        const running = runningIds.has(`${c.groupId}:${c.id}`);
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            role="option"
-                            aria-selected={selected}
-                            aria-disabled={note !== null}
-                            className={`run-option${selected ? ' selected' : ''}`}
-                            onClick={() => {
-                              if (note === null) onChoose({ groupId: c.groupId, commandId: c.id });
-                            }}
-                          >
-                            <ToolIcon tool={c.tool} />
-                            <span className="run-option-label">{c.label}</span>
-                            {running && (
-                              <span className="run-dot" data-testid="run-option-running" title="Rodando" />
-                            )}
-                            {note !== null && <span className="run-option-note">{note}</span>}
-                          </button>
-                        );
-                      })}
-                      {folderWarnings.map((w) => (
-                        <p key={w.message} className="run-warning" role="status">
-                          {`${baseName(w.folder)}: ${w.message}`}
-                        </p>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+          {model.map(({ group, tools, warnings: groupWarnings }) => (
+            <div key={group.id} className="run-group" data-testid={`run-group-${group.id}`}>
+              <div className="run-group-name">{group.name}</div>
+              {tools.map((tool) => (
+                <div
+                  key={tool.id}
+                  className="run-folder"
+                  data-testid={`run-tool-group-${group.id}-${tool.id}`}
+                  data-tool-group={tool.id}
+                >
+                  <div className="run-folder-name">{tool.label}</div>
+                  {tool.configs.map((c) => {
+                    const selected = active?.groupId === c.groupId && active.commandId === c.id;
+                    const note = unavailableNote(c);
+                    const running = runningIds.has(`${c.groupId}:${c.id}`);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        aria-disabled={note !== null}
+                        title={c.folder}
+                        className={`run-option${selected ? ' selected' : ''}`}
+                        onClick={() => {
+                          if (note === null) onChoose({ groupId: c.groupId, commandId: c.id });
+                        }}
+                      >
+                        <ToolIcon tool={c.tool} />
+                        <span className="run-option-label">{c.name}</span>
+                        {running && (
+                          <span className="run-dot" data-testid="run-option-running" title="Rodando" />
+                        )}
+                        {note !== null && <span className="run-option-note">{note}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+              {groupWarnings.map((w) => (
+                <p key={`${w.folder}|${w.message}`} className="run-warning" role="status">
+                  {`${baseName(w.folder)}: ${w.message}`}
+                </p>
+              ))}
+            </div>
+          ))}
         </div>
       )}
       <div className="run-selector-footer">
         <button type="button" onClick={onEdit}>
-          Editar configurações
+          Editar configurações…
+        </button>
+        <button type="button" onClick={onAddDetected}>
+          Adicionar a partir de um script detectado…
         </button>
       </div>
     </div>

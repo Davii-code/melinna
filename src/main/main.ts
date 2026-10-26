@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Worker } from 'node:worker_threads';
 import {
   BrowserWindow,
   MessageChannelMain,
@@ -50,6 +52,7 @@ import { CloseFlow } from './close-flow';
 import { NodeHostClient } from './host-client';
 import { HostLauncher } from './host-launcher';
 import { registerIpc } from './ipc/register';
+import { ProjectSearcher, type SearchWorkerLike } from './search-worker';
 import { createThumbnail } from './thumbnail';
 import type { Handle } from './ipc/result';
 import { TerminalBridge } from './ipc/terminal-ports';
@@ -232,6 +235,16 @@ async function boot(): Promise<void> {
     log: log.child('files'),
     roots: navigationRootsOf,
   });
+  // A busca no projeto roda numa thread (encerrada se passar do tempo); o script dela é outra entrada do build.
+  const search = new ProjectSearcher({
+    createWorker: (query) =>
+      new Worker(join(__dirname, 'search-worker-thread.js'), {
+        workerData: { query },
+      }) as unknown as SearchWorkerLike,
+    isRootAllowed: (root) => files.containsPath(root),
+    clock,
+    log: log.child('files'),
+  });
 
   // Anexos de execuções que não existem mais (removidas com o app fechado ou por falha) saem agora.
   await attachments
@@ -356,6 +369,7 @@ async function boot(): Promise<void> {
     },
     files,
     fileStatus,
+    search,
     run,
     prefs,
     model,

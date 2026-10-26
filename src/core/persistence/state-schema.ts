@@ -1,11 +1,11 @@
 import type { Pane } from '../layout/panes';
 import { paneOfExecution } from '../layout/panes';
-import type { ExecutionCommand, StoredCommand } from '../run/types';
+import type { ExecutionCommand, RunConfig } from '../run/types';
 
 export type { Pane };
 export { paneOfExecution };
 
-export const STATE_SCHEMA_VERSION = 3;
+export const STATE_SCHEMA_VERSION = 4;
 
 /** Pasta de um workspace; `path` é absoluto e normalizado. */
 export interface WorkspaceFolder {
@@ -29,8 +29,8 @@ export interface Group {
   /** Índice da faixa de cor do workspace (0..5). */
   colorIndex?: number;
   lastOpenedAt?: string;
-  /** Comandos personalizados do workspace; ausente = nenhum. */
-  commands?: StoredCommand[];
+  /** Configurações de execução salvas do workspace (esquema 4); ausente = nenhuma. */
+  runConfigs?: RunConfig[];
 }
 
 /**
@@ -76,8 +76,7 @@ export interface PendingSwitch {
 
 /** Aviso do lançamento sobre as pastas extras do workspace. */
 export type ExecutionNotice =
-  | { kind: 'extra-dirs-unsupported' }
-  | { kind: 'extra-dirs-omitted'; count: number };
+  { kind: 'extra-dirs-unsupported' } | { kind: 'extra-dirs-omitted'; count: number };
 
 export interface Execution {
   id: string;
@@ -245,6 +244,37 @@ function migrateGroup(group: Group): Group {
   return { ...group, folders: [folder], primaryFolderId: folder.id };
 }
 
+/**
+ * Esquema 3 → 4: `commands` (comandos personalizados) vira `runConfigs` com a ferramenta `program`, mantendo
+ * id, programa, argumentos e pasta; o nome é o antigo rótulo e a ordem, a posição na lista.
+ */
+export function migrateRunConfigs(group: Group & { commands?: unknown }): Group {
+  const { commands, ...rest } = group;
+  // Sem `commands`, o grupo já está no formato novo (ou nunca teve comandos): relê sem perder o que há.
+  if (!Array.isArray(commands)) return { ...rest, runConfigs: group.runConfigs ?? [] };
+  const list = commands;
+  const runConfigs: RunConfig[] = [];
+  for (const raw of list) {
+    if (!isObj(raw) || typeof raw.id !== 'string' || typeof raw.program !== 'string') continue;
+    runConfigs.push({
+      id: raw.id,
+      name: typeof raw.label === 'string' ? raw.label : raw.program,
+      tool: 'program',
+      folder: typeof raw.folder === 'string' ? raw.folder : '',
+      script: null,
+      program: raw.program,
+      args: strings(raw.args),
+      runtimeOptions: '',
+      env: [],
+      beforeLaunch: null,
+      allowParallel: false,
+      folderGroup: null,
+      order: runConfigs.length,
+    });
+  }
+  return { ...rest, runConfigs };
+}
+
 /** Validação estrutural do arquivo de estado. Devolve `null` se a forma não confere. */
 export function parseState(raw: unknown): StateFile | null {
   if (!isObj(raw)) return null;
@@ -270,7 +300,10 @@ export function parseState(raw: unknown): StateFile | null {
     // A versão relatada é a do arquivo lido: o `StateStore` usa isso para abrir em somente-leitura
     // um estado gravado por uma versão mais nova do app. O layout, esse sim, sai sempre migrado.
     schemaVersion,
-    groups: (raw.groups as Group[]).map((g) => (schemaVersion < 3 ? migrateGroup(g) : g)),
+    groups: (raw.groups as Group[]).map((g) => {
+      const v3 = schemaVersion < 3 ? migrateGroup(g) : g;
+      return schemaVersion < 4 ? migrateRunConfigs(v3) : v3;
+    }),
     tasks: raw.tasks as Task[],
     executions: raw.executions as Execution[],
     layout: parsedLayout,

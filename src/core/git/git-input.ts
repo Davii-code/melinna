@@ -24,5 +24,6 @@ export function assertSafeRelPaths(paths: unknown, max = 5000): asserts paths is
 }
 
 export function assertSha(sha: unknown): asserts sha is string {
-  if (typeof sha !== 'string' || !/^[0-9a-f]{7,64}$/.test(sha)) throw invalidInput('Identificador de commit inválido.');
+  if (typeof sha !== 'string' || !/^[0-9a-f]{7,64}$/.test(sha))
+    throw invalidInput('Identificador de commit inválido.');
 }

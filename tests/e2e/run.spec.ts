@@ -27,12 +27,15 @@ test.afterEach(async () => {
 async function openProjectWorkspace() {
   const { page } = app;
   // O diálogo nativo não é dirigível pelo Playwright: o principal devolve a pasta escolhida.
-  await app.app.evaluate(({ dialog }, folders) => {
-    dialog.showOpenDialog = (async () => ({
-      canceled: false,
-      filePaths: folders,
-    })) as typeof dialog.showOpenDialog;
-  }, [project]);
+  await app.app.evaluate(
+    ({ dialog }, folders) => {
+      dialog.showOpenDialog = (async () => ({
+        canceled: false,
+        filePaths: folders,
+      })) as typeof dialog.showOpenDialog;
+    },
+    [project],
+  );
   await page.getByRole('button', { name: 'Novo workspace' }).click();
   const dialog = page.getByRole('dialog', { name: 'Novo workspace' });
   await dialog.getByLabel('Nome').fill('Exemplo');
@@ -47,8 +50,13 @@ test('choose "dev" of the node-app, run it and see the output', async () => {
 
   const play = page.getByRole('button', { name: 'Rodar', exact: true });
   await expect(play).toBeDisabled();
+  // o seletor lista só as configurações salvas: cria a de `dev` a partir do script detectado
   await page.getByRole('button', { name: /Configuração de execução/ }).click();
-  await page.getByRole('option', { name: /dev/ }).click();
+  await page.getByRole('button', { name: 'Adicionar a partir de um script detectado…' }).click();
+  await page
+    .getByRole('dialog', { name: 'Scripts detectados' })
+    .getByRole('button', { name: 'dev', exact: true })
+    .click();
   await expect(page.getByRole('button', { name: /Configuração de execução/ })).toContainText('dev');
 
   await expect(play).toBeEnabled();

@@ -3,6 +3,7 @@ import type { CatalogService } from '../../core/catalog/catalog-service';
 import type { ExecutionService } from '../../core/execution/execution-service';
 import type { FileStatusService } from '../../core/files/file-status';
 import type { FilesService } from '../../core/files/files-service';
+import type { ProjectSearcher } from '../search-worker';
 import type { DiffService } from '../../core/git/diff';
 import type { GitService } from '../../core/git/git-service';
 import type { GitProgress } from '../../core/git/git-types';
@@ -45,6 +46,7 @@ export interface IpcServices {
   emitGitProgress: (event: GitProgress) => void;
   files: FilesService;
   fileStatus: FileStatusService;
+  search: ProjectSearcher;
   run: RunService;
   prefs: PreferencesStore;
   model: WorkspaceModel;
@@ -80,7 +82,7 @@ export function registerIpc(handle: Handle, s: IpcServices): void {
   registerDiff(handle, { diff: s.diff, executions: s.executions, model: s.model, log: s.log });
   registerSwitch(handle, { executions: s.executions, model: s.model, log: s.log });
   registerLayout(handle, { model: s.model, files: s.files, log: s.log });
-  registerFiles(handle, { files: s.files, status: s.fileStatus, log: s.log });
+  registerFiles(handle, { files: s.files, status: s.fileStatus, search: s.search, log: s.log });
   registerGit(handle, { git: s.git, roots: s.gitRoots, os: s.os, emit: s.emitGitProgress, log: s.log });
   registerAttachments(handle, {
     attachments: s.attachments,

@@ -21,6 +21,19 @@ export interface LayoutStore {
   setActive(paneId: string, index: number): void;
   /** Fecha uma aba; fechar a última aba fecha o painel. */
   closeTab(paneId: string, index: number): void;
+  /** Fecha a aba do arquivo no painel (pelo caminho, sobre o estado de agora); sem a aba, nada acontece. */
+  closeDoc(paneId: string, path: string): void;
+  /**
+   * Põe o arquivo no painel na posição pedida e o ativa (reabrir aba fechada). Se o painel já não existe,
+   * recria um painel de editor com o mesmo id.
+   */
+  openDocAt(paneId: string, path: string, index: number): void;
+  /**
+   * Abre o arquivo num painel de editor novo, ao lado do painel de origem (editor dividido): o mesmo caminho
+   * passa a estar em dois painéis. Na grade automática, "à direita" põe o painel logo depois do original e
+   * "abaixo", no fim da grade (a linha de baixo). Sem vaga (12 painéis), nada acontece.
+   */
+  splitDoc(paneId: string, path: string, direction: 'right' | 'down'): void;
   setMode(mode: LayoutMode): void;
   /** Grava as proporções da grade personalizada. */
   setCustom(grid: CustomGrid): void;
@@ -62,6 +75,11 @@ function withPanes(state: LayoutState, panes: Pane[]): LayoutState {
   return { ...state, panes, focusedPaneId, custom: { ...state.custom, cells } };
 }
 
+function insertAt(docs: readonly string[], path: string, index: number): string[] {
+  const at = Math.max(0, Math.min(index, docs.length));
+  return [...docs.slice(0, at), path, ...docs.slice(at)];
+}
+
 function nextPaneId(state: LayoutState, prefix: string): string {
   const taken = new Set(paneIds(state));
   for (let i = 1; ; i++) {
@@ -96,7 +114,23 @@ export function createLayoutStore(
 
   const closePane = (paneId: string) => {
     if (!state.panes.some((pane) => pane.id === paneId)) return;
-    update(withPanes(state, state.panes.filter((pane) => pane.id !== paneId)));
+    update(
+      withPanes(
+        state,
+        state.panes.filter((pane) => pane.id !== paneId),
+      ),
+    );
+  };
+
+  const closeTabAt = (paneId: string, index: number) => {
+    const pane = state.panes.find((p) => p.id === paneId);
+    if (!pane) return;
+    const next = paneWithoutTab(pane, index);
+    if (next === null) {
+      closePane(paneId);
+      return;
+    }
+    update({ ...state, panes: state.panes.map((p) => (p.id === paneId ? next : p)) });
   };
 
   return {
@@ -133,9 +167,7 @@ export function createLayoutStore(
       update(withPanes({ ...state, focusedPaneId: execId }, panes));
     },
     openDoc(path) {
-      const holder = state.panes.find(
-        (pane) => pane.kind === 'editor' && pane.docs.includes(path),
-      );
+      const holder = state.panes.find((pane) => pane.kind === 'editor' && pane.docs.includes(path));
       if (holder) {
         update({
           ...state,
@@ -188,15 +220,40 @@ export function createLayoutStore(
         ),
       });
     },
-    closeTab(paneId, index) {
+    closeTab: closeTabAt,
+    closeDoc(paneId, path) {
       const pane = state.panes.find((p) => p.id === paneId);
-      if (!pane) return;
-      const next = paneWithoutTab(pane, index);
-      if (next === null) {
-        closePane(paneId);
+      if (!pane || pane.kind !== 'editor') return;
+      const index = pane.docs.indexOf(path);
+      if (index >= 0) closeTabAt(paneId, index);
+    },
+    splitDoc(paneId, path, direction) {
+      const at = state.panes.findIndex((p) => p.id === paneId);
+      if (at < 0 || state.panes.length >= MAX_PANELS) return;
+      const created: Pane = { id: nextPaneId(state, 'editor'), kind: 'editor', docs: [path], activeIndex: 0 };
+      const panes = [...state.panes];
+      panes.splice(direction === 'right' ? at + 1 : panes.length, 0, created);
+      update(withPanes({ ...state, focusedPaneId: created.id }, panes));
+    },
+    openDocAt(paneId, path, index) {
+      const pane = state.panes.find((p) => p.id === paneId);
+      if (pane && pane.kind === 'editor') {
+        const present = pane.docs.indexOf(path);
+        const docs = present >= 0 ? pane.docs : insertAt(pane.docs, path, index);
+        update({
+          ...state,
+          panes: state.panes.map((p) =>
+            p.id === paneId && p.kind === 'editor'
+              ? { ...p, docs, activeIndex: present >= 0 ? present : docs.indexOf(path) }
+              : p,
+          ),
+          focusedPaneId: paneId,
+        });
         return;
       }
-      update({ ...state, panes: state.panes.map((p) => (p.id === paneId ? next : p)) });
+      const id = paneIds(state).includes(paneId) ? nextPaneId(state, 'editor') : paneId;
+      const created: Pane = { id, kind: 'editor', docs: [path], activeIndex: 0 };
+      update(withPanes({ ...state, focusedPaneId: id }, [...state.panes, created].slice(-MAX_PANELS)));
     },
     setMode(mode) {
       if (state.mode === mode) return;

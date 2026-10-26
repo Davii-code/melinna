@@ -1,7 +1,24 @@
 import { useEffect, useRef } from 'react';
 import type { KeymapId } from '../../shared/ipc-contract';
 import type { RunStore } from '../store/run-store';
-import { actionFor, isMac, type AppAction } from './keymaps';
+import { actionFor, EDITOR_ONLY_ACTIONS, isMac, type AppAction } from './keymaps';
+
+/** Ações que não são do editor, mas também não valem no terminal (a tecla segue para o PTY). */
+const NOT_IN_TERMINAL: readonly AppAction[] = ['findInProject', 'reopenClosedTab', 'splitRight'];
+
+function within(target: EventTarget | null, selector: string): boolean {
+  return target instanceof Element && target.closest(selector) !== null;
+}
+
+/**
+ * Ações de editor só valem com um editor em foco; com o terminal em foco a tecla segue para o PTY e o
+ * evento não é tocado. Ações do app (arquivo, barra lateral, rodar…) valem com qualquer foco.
+ */
+function appliesAt(action: AppAction, target: EventTarget | null): boolean {
+  if (EDITOR_ONLY_ACTIONS.includes(action)) return within(target, '.cm-editor');
+  if (NOT_IN_TERMINAL.includes(action)) return !within(target, '.xterm');
+  return true;
+}
 
 /** `false` = a ação não se aplica agora (ex.: salvar sem editor em foco): a tecla segue para quem estava em foco. */
 export type ShortcutHandlers = Partial<Record<AppAction, () => boolean | void>>;
@@ -19,6 +36,7 @@ export function useShortcuts(keymap: KeymapId, handlers: ShortcutHandlers): void
       if (e.isComposing) return;
       const action = actionFor(current.current.keymap, e, isMac());
       if (action === null) return;
+      if (!appliesAt(action, e.target)) return;
       const handler = current.current.handlers[action];
       if (!handler) return;
       if (e.repeat) {

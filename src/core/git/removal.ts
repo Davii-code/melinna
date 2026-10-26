@@ -100,9 +100,7 @@ export async function removeExecutionArtifacts(
     force: opts.force,
   });
   if (opts.deleteBranch && (await branchExists(deps.git, t.repoRoot, t.branch))) {
-    await deps.mutex.run(t.repoId, () =>
-      deps.git.run(['branch', '-D', '--', t.branch], { cwd: t.repoRoot }),
-    );
+    await deps.mutex.run(t.repoId, () => deps.git.run(['branch', '-D', '--', t.branch], { cwd: t.repoRoot }));
     deps.log.info('branch.deleted', { repoId: t.repoId, forced: opts.force });
   }
   await releaseLease(deps.fs, t.leasePath);

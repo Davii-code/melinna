@@ -4,7 +4,7 @@ import type { WorkspaceModel } from '../../core/workspace/workspace-model';
 import { CHANNELS } from '../../shared/ipc-contract';
 import { handler, type Handle } from './result';
 import { noArgs } from './validate-common';
-import { parseRemoveCommand, parseRerun, parseRunStart, parseSaveCommand } from './validate-run';
+import { parseRemoveConfig, parseReorder, parseRerun, parseRunStart, parseSaveConfig } from './validate-run';
 
 export interface RunIpcDeps {
   run: RunService;
@@ -27,8 +27,8 @@ export function registerRun(handle: Handle, deps: RunIpcDeps): void {
   );
   handle(
     C.start,
-    handler(log, C.start, parseRunStart(groupExists), (groupId, commandId, size, choice) =>
-      run.start(groupId, commandId, size, choice),
+    handler(log, C.start, parseRunStart(groupExists), (groupId, configId, size, choice) =>
+      run.start(groupId, configId, size, choice),
     ),
   );
   handle(
@@ -36,15 +36,19 @@ export function registerRun(handle: Handle, deps: RunIpcDeps): void {
     handler(log, C.rerun, parseRerun(isCommandExecution), (execId, size) => run.rerun(execId, size)),
   );
   handle(
-    C.saveCommand,
-    handler(log, C.saveCommand, parseSaveCommand(groupExists), (groupId, input) =>
-      run.saveCommand(groupId, input),
+    C.saveConfig,
+    handler(log, C.saveConfig, parseSaveConfig(groupExists), (groupId, input) =>
+      run.saveConfig(groupId, input),
     ),
   );
   handle(
-    C.removeCommand,
-    handler(log, C.removeCommand, parseRemoveCommand(groupExists), (groupId, commandId) =>
-      run.removeCommand(groupId, commandId),
+    C.removeConfig,
+    handler(log, C.removeConfig, parseRemoveConfig(groupExists), (groupId, configId) =>
+      run.removeConfig(groupId, configId),
     ),
+  );
+  handle(
+    C.reorder,
+    handler(log, C.reorder, parseReorder(groupExists), (groupId, items) => run.reorder(groupId, items)),
   );
 }

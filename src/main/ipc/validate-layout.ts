@@ -46,7 +46,12 @@ function parsePane(v: unknown): Pane {
       throw invalid('execuções do painel');
     const execIds = v.execIds.map((x) => id(x, 'execução'));
     if (new Set(execIds).size !== execIds.length) throw invalid('execuções repetidas no painel');
-    return { id: paneId, kind: 'executions', execIds, activeIndex: activeIndex(v.activeIndex, execIds.length) };
+    return {
+      id: paneId,
+      kind: 'executions',
+      execIds,
+      activeIndex: activeIndex(v.activeIndex, execIds.length),
+    };
   }
   if (v.kind === 'editor') {
     if (!Array.isArray(v.docs) || v.docs.length === 0 || v.docs.length > MAX_OPEN_PANELS)

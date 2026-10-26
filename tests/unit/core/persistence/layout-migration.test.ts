@@ -28,13 +28,22 @@ describe('layout migration to schema 2', () => {
 
   it('falls back to the first panel when the focused execution no longer exists', () => {
     const parsed = parseState(
-      base({ layout: { mode: 'auto', openExecutionIds: ['a'], focusedExecutionId: 'z', custom: { columns: [1], rows: [1], cells: {} } } }),
+      base({
+        layout: {
+          mode: 'auto',
+          openExecutionIds: ['a'],
+          focusedExecutionId: 'z',
+          custom: { columns: [1], rows: [1], cells: {} },
+        },
+      }),
     );
     expect(parsed?.layout.focusedPaneId).toBe('a');
   });
 
   it('ignores a v1 layout without open panels and yields an empty panel list', () => {
-    const parsed = parseState(base({ layout: { mode: 'lixo', openExecutionIds: [], focusedExecutionId: null } }));
+    const parsed = parseState(
+      base({ layout: { mode: 'lixo', openExecutionIds: [], focusedExecutionId: null } }),
+    );
     expect(parsed?.layout).toEqual({
       mode: 'auto',
       panes: [],

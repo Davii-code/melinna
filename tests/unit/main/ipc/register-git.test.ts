@@ -13,7 +13,12 @@ function fakeGit() {
   const status = { root: REPO, branch: 'main', changes: [] };
   return {
     status: vi.fn(async (_repo: string) => status),
-    diffFile: vi.fn(async (_repo: string, path: string) => ({ path, change: 'modified', hunks: [], lineCount: 0 })),
+    diffFile: vi.fn(async (_repo: string, path: string) => ({
+      path,
+      change: 'modified',
+      hunks: [],
+      lineCount: 0,
+    })),
     commit: vi.fn(async (_repo: string, _input: unknown) => ({ sha: SHA })),
     discard: vi.fn(async (_repo: string, _paths: string[], _confirm?: unknown) => undefined),
     checkPull: vi.fn(async (_repo: string, _confirm?: unknown) => null),
@@ -24,10 +29,13 @@ function fakeGit() {
     branches: vi.fn(async (_repo: string) => [{ name: 'main', kind: 'local', current: true }]),
     createBranch: vi.fn(async (_repo: string, _name: string) => undefined),
     checkout: vi.fn(async (_repo: string, _branch: string, _confirm?: unknown) => undefined),
-    merge: vi.fn(async (_repo: string, _branch: string, _confirm?: unknown) => ({ conflicts: [] as string[] })),
+    merge: vi.fn(async (_repo: string, _branch: string, _confirm?: unknown) => ({
+      conflicts: [] as string[],
+    })),
     abortMerge: vi.fn(async (_repo: string, _confirm?: unknown) => undefined),
     markResolved: vi.fn(async (_repo: string, _paths: string[]) => undefined),
     log: vi.fn(async (_repo: string, _skip: number) => []),
+    fileAtHead: vi.fn(async (_repo: string, _path: string) => ({ text: 'conteudo' })),
     commitDiff: vi.fn(async (_repo: string, _sha: string, path: string) => ({
       path,
       change: 'modified',
@@ -72,6 +80,7 @@ describe('git IPC', () => {
       'git:diffFile',
       'git:discard',
       'git:fetch',
+      'git:fileAtHead',
       'git:log',
       'git:markResolved',
       'git:merge',
@@ -140,27 +149,37 @@ describe('git IPC', () => {
 
     it('allows an empty path list only with amend', async () => {
       const { rec, git } = setup();
-      expect((await rec.call('git:commit', REPO, { paths: [], message: 'x', amend: false })).error?.code).toBe(
-        'INPUT_INVALID',
-      );
+      expect(
+        (await rec.call('git:commit', REPO, { paths: [], message: 'x', amend: false })).error?.code,
+      ).toBe('INPUT_INVALID');
       expect((await rec.call('git:commit', REPO, { paths: [], message: 'x', amend: true })).ok).toBe(true);
       expect(git.commit).toHaveBeenCalledTimes(1);
     });
 
     it('validates the paths of commit, discard and markResolved', async () => {
       const { rec, git } = setup();
-      const bad = ['../fora.txt', 'a/../../b', '-rf', '/abs/path', 'C:\\abs', 'com\u0000nulo', 'com\nquebra', '', 42];
+      const bad = [
+        '../fora.txt',
+        'a/../../b',
+        '-rf',
+        '/abs/path',
+        'C:\\abs',
+        'com\u0000nulo',
+        'com\nquebra',
+        '',
+        42,
+      ];
       for (const path of bad) {
-        expect((await rec.call('git:commit', REPO, { paths: [path], message: 'x', amend: false })).error?.code).toBe(
-          'INPUT_INVALID',
-        );
+        expect(
+          (await rec.call('git:commit', REPO, { paths: [path], message: 'x', amend: false })).error?.code,
+        ).toBe('INPUT_INVALID');
         expect((await rec.call('git:discard', REPO, [path])).error?.code).toBe('INPUT_INVALID');
         expect((await rec.call('git:markResolved', REPO, [path])).error?.code).toBe('INPUT_INVALID');
         expect((await rec.call('git:diffFile', REPO, path)).error?.code).toBe('INPUT_INVALID');
       }
-      expect((await rec.call('git:commit', REPO, { paths: 'a.txt', message: 'x', amend: false })).error?.code).toBe(
-        'INPUT_INVALID',
-      );
+      expect(
+        (await rec.call('git:commit', REPO, { paths: 'a.txt', message: 'x', amend: false })).error?.code,
+      ).toBe('INPUT_INVALID');
       expect(git.commit).not.toHaveBeenCalled();
       expect(git.discard).not.toHaveBeenCalled();
     });
@@ -168,16 +187,19 @@ describe('git IPC', () => {
     it('accepts 5000 paths and refuses 5001', async () => {
       const { rec, git } = setup();
       const many = (n: number) => Array.from({ length: n }, (_, i) => `d/f${i}.txt`);
-      expect((await rec.call('git:commit', REPO, { paths: many(5000), message: 'x', amend: false })).ok).toBe(true);
-      expect((await rec.call('git:commit', REPO, { paths: many(5001), message: 'x', amend: false })).error?.code).toBe(
-        'INPUT_INVALID',
+      expect((await rec.call('git:commit', REPO, { paths: many(5000), message: 'x', amend: false })).ok).toBe(
+        true,
       );
+      expect(
+        (await rec.call('git:commit', REPO, { paths: many(5001), message: 'x', amend: false })).error?.code,
+      ).toBe('INPUT_INVALID');
       expect(git.commit).toHaveBeenCalledTimes(1);
     });
 
     it('validates the message length', async () => {
       const { rec } = setup();
-      const commit = (message: unknown) => rec.call('git:commit', REPO, { paths: ['a'], message, amend: false });
+      const commit = (message: unknown) =>
+        rec.call('git:commit', REPO, { paths: ['a'], message, amend: false });
       expect((await commit('')).error?.code).toBe('INPUT_INVALID');
       expect((await commit('   ')).error?.code).toBe('INPUT_INVALID');
       expect((await commit(7)).error?.code).toBe('INPUT_INVALID');
@@ -202,9 +224,14 @@ describe('git IPC', () => {
 
     it('turns core errors into error results and unknown ones into INTERNAL', async () => {
       const { rec, git, log } = setup();
-      git.commit.mockRejectedValueOnce(new MelinnaError('GIT_HOOK_FAILED', { userMessage: 'hook recusou\nsaída' }));
+      git.commit.mockRejectedValueOnce(
+        new MelinnaError('GIT_HOOK_FAILED', { userMessage: 'hook recusou\nsaída' }),
+      );
       const r = await rec.call('git:commit', REPO, { paths: ['a'], message: 'x', amend: false });
-      expect(r).toMatchObject({ ok: false, error: { code: 'GIT_HOOK_FAILED', message: 'hook recusou\nsaída' } });
+      expect(r).toMatchObject({
+        ok: false,
+        error: { code: 'GIT_HOOK_FAILED', message: 'hook recusou\nsaída' },
+      });
       git.status.mockRejectedValueOnce(new TypeError('segredo'));
       const internal = await rec.call('git:status', REPO);
       expect(internal.error?.code).toBe('INTERNAL');
@@ -236,7 +263,12 @@ describe('git IPC', () => {
       expect(git.checkPull).toHaveBeenCalledWith(REPO, ['merge-dirty']);
       await settle();
       expect(git.pull).toHaveBeenCalledWith(REPO, expect.objectContaining({ confirm: ['merge-dirty'] }));
-      expect(events.at(-1)).toEqual({ opId: 'op-1', phase: 'pull', done: true, result: { conflicts: ['a.txt'] } });
+      expect(events.at(-1)).toEqual({
+        opId: 'op-1',
+        phase: 'pull',
+        done: true,
+        result: { conflicts: ['a.txt'] },
+      });
     });
 
     it('asks for confirmation before starting a pull or a push', async () => {
@@ -257,7 +289,10 @@ describe('git IPC', () => {
       const r = await rec.call('git:push', REPO, ['push-main', 'set-upstream']);
       expect(r).toEqual({ ok: true, value: { opId: 'op-1' } });
       await settle();
-      expect(git.push).toHaveBeenCalledWith(REPO, expect.objectContaining({ confirm: ['push-main', 'set-upstream'] }));
+      expect(git.push).toHaveBeenCalledWith(
+        REPO,
+        expect.objectContaining({ confirm: ['push-main', 'set-upstream'] }),
+      );
       expect(events.at(-1)).toEqual({ opId: 'op-1', phase: 'push', done: true });
     });
 
@@ -276,7 +311,9 @@ describe('git IPC', () => {
         (_repo: string, io: unknown) =>
           new Promise<undefined>((_resolve, reject) => {
             signal = (io as { signal: AbortSignal }).signal;
-            signal.addEventListener('abort', () => reject(new MelinnaError('GIT_FAILED', { userMessage: 'Operação cancelada.' })));
+            signal.addEventListener('abort', () =>
+              reject(new MelinnaError('GIT_FAILED', { userMessage: 'Operação cancelada.' })),
+            );
           }),
       );
       await rec.call('git:fetch', REPO);
@@ -284,7 +321,11 @@ describe('git IPC', () => {
       expect(await rec.call('git:cancel', 'op-1')).toEqual({ ok: true });
       expect(signal?.aborted).toBe(true);
       await settle();
-      expect(events.at(-1)).toMatchObject({ opId: 'op-1', done: true, error: { message: 'Operação cancelada.' } });
+      expect(events.at(-1)).toMatchObject({
+        opId: 'op-1',
+        done: true,
+        error: { message: 'Operação cancelada.' },
+      });
     });
 
     it('refuses to cancel an unknown or finished operation', async () => {
@@ -356,5 +397,40 @@ describe('git IPC', () => {
       }
       expect((await rec.call('git:commitDiff', REPO, 'abcdef1', '../x')).error?.code).toBe('INPUT_INVALID');
     });
+  });
+});
+
+describe('git IPC — fileAtHead', () => {
+  const FILE = currentOs === 'win32' ? String.raw`C:\ws\repo\src\a.ts` : '/ws/repo/src/a.ts';
+
+  it('answers with the text at HEAD for a file of a registered folder', async () => {
+    const { rec, git } = setup();
+    expect(await rec.call('git:fileAtHead', REPO, FILE)).toEqual({ ok: true, value: { text: 'conteudo' } });
+    expect(git.fileAtHead).toHaveBeenCalledWith(REPO, FILE);
+  });
+
+  it('passes on missing as an ordinary answer', async () => {
+    const { rec, git } = setup();
+    git.fileAtHead.mockImplementationOnce(async () => ({ missing: true }) as never);
+    expect(await rec.call('git:fileAtHead', REPO, FILE)).toEqual({ ok: true, value: { missing: true } });
+  });
+
+  it('refuses a folder that is not a registered workspace root', async () => {
+    const { rec, git } = setup();
+    expect((await rec.call('git:fileAtHead', '/outro/lugar', FILE)).error?.code).toBe('FILE_OUTSIDE_ROOT');
+    expect(git.fileAtHead).not.toHaveBeenCalled();
+  });
+
+  it('maps FILE_OUTSIDE_ROOT from the core for a file outside the folder', async () => {
+    const { rec, git } = setup();
+    git.fileAtHead.mockRejectedValueOnce(new MelinnaError('FILE_OUTSIDE_ROOT'));
+    expect((await rec.call('git:fileAtHead', REPO, '/etc/passwd')).error?.code).toBe('FILE_OUTSIDE_ROOT');
+  });
+
+  it('validates the arguments', async () => {
+    const { rec } = setup();
+    expect((await rec.call('git:fileAtHead', REPO)).error?.code).toBe('INPUT_INVALID');
+    expect((await rec.call('git:fileAtHead', REPO, 42)).error?.code).toBe('INPUT_INVALID');
+    expect((await rec.call('git:fileAtHead', REPO, '')).error?.code).toBe('INPUT_INVALID');
   });
 });

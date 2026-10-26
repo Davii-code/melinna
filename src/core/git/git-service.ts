@@ -7,6 +7,7 @@ import type { FileSystem } from '../ports/file-system';
 import type { Logger } from '../ports/logger';
 import type { OsName } from '../ports/platform';
 import { DIFF_FLAGS, fillBinarySizes } from './diff';
+import { fileAtHead, type FileAtHead } from './file-at-head';
 import { parseUnifiedDiff } from './diff-parse';
 import { classifyGitFailure } from './git-errors';
 import { assertSafeRelPath, assertSafeRelPaths, assertSha, invalidInput } from './git-input';
@@ -154,10 +155,14 @@ export class GitService {
     );
     const lines = probe.stdout.split(/\r?\n/);
     if (probe.exitCode !== 0 || (lines[0] ?? '') !== '') {
-      throw new MelinnaError('REPO_INVALID', { userMessage: 'Esta pasta não é a raiz de um repositório git.' });
+      throw new MelinnaError('REPO_INVALID', {
+        userMessage: 'Esta pasta não é a raiz de um repositório git.',
+      });
     }
     const [st, remotes] = await Promise.all([
-      this.exec(repo, ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all'], { read: true }),
+      this.exec(repo, ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all'], {
+        read: true,
+      }),
       this.exec(repo, ['remote'], { read: true }),
     ]);
     const parsed = parseStatusV2(st.stdout);
@@ -227,7 +232,10 @@ export class GitService {
     if (head.exitCode === 0 && target.startsWith(prefix)) return target.slice(prefix.length);
     for (const name of ['main', 'master']) {
       for (const ref of [`refs/remotes/${remote}/${name}`, `refs/heads/${name}`]) {
-        const r = await this.exec(repo, ['rev-parse', '--verify', '--quiet', ref], { read: true, allowFail: true });
+        const r = await this.exec(repo, ['rev-parse', '--verify', '--quiet', ref], {
+          read: true,
+          allowFail: true,
+        });
         if (r.exitCode === 0) return name;
       }
     }
@@ -248,9 +256,13 @@ export class GitService {
         if (change.kind === 'conflict') return empty;
         const base = st.head === '' ? EMPTY_TREE : 'HEAD';
         if (change.kind === 'untracked') return this.untrackedDiff(repo, path);
-        const r = await this.exec(repo, ['diff', ...DIFF_FLAGS, base, '--', ...unique([change.oldPath ?? path, path])], {
-          read: true,
-        });
+        const r = await this.exec(
+          repo,
+          ['diff', ...DIFF_FLAGS, base, '--', ...unique([change.oldPath ?? path, path])],
+          {
+            read: true,
+          },
+        );
         return this.toFileDiff(repo, base, path, r, change.kind === 'added' ? 'added' : undefined);
       },
       { locked: false },
@@ -295,7 +307,8 @@ export class GitService {
     const { paths, message, amend } = input;
     const confirm = input.confirm ?? [];
     assertSafeRelPaths(paths);
-    if (typeof message !== 'string' || message.trim().length === 0) throw invalidInput('Escreva a mensagem do commit.');
+    if (typeof message !== 'string' || message.trim().length === 0)
+      throw invalidInput('Escreva a mensagem do commit.');
     if (message.length > MESSAGE_LIMIT) throw invalidInput('A mensagem do commit é longa demais.');
     if (paths.length === 0 && !amend) throw invalidInput('Selecione ao menos um arquivo para o commit.');
 
@@ -355,7 +368,10 @@ export class GitService {
 
   /** O último commit já está no upstream? Sem upstream, não está publicado. */
   private async isPublished(repo: string): Promise<boolean> {
-    const r = await this.exec(repo, ['merge-base', '--is-ancestor', 'HEAD', '@{u}'], { read: true, allowFail: true });
+    const r = await this.exec(repo, ['merge-base', '--is-ancestor', 'HEAD', '@{u}'], {
+      read: true,
+      allowFail: true,
+    });
     return r.exitCode === 0;
   }
 
@@ -373,20 +389,27 @@ export class GitService {
         for (const path of unique(paths)) {
           const change = known.get(path);
           if (!change) throw invalidInput(`O arquivo ${path} não tem alterações para descartar.`);
-          if (change.kind === 'conflict') throw invalidInput('Resolva os conflitos ou aborte o merge em vez de descartar.');
+          if (change.kind === 'conflict')
+            throw invalidInput('Resolva os conflitos ou aborte o merge em vez de descartar.');
           chosen.push(change);
         }
         const deletes = (c: Change) => c.kind === 'untracked' || c.kind === 'added';
         if (!confirm.includes('discard')) {
           return {
             needsConfirm: 'discard',
-            details: { files: chosen.map((c) => ({ path: c.path, action: deletes(c) ? 'apagar' : 'reverter' })) },
+            details: {
+              files: chosen.map((c) => ({ path: c.path, action: deletes(c) ? 'apagar' : 'reverter' })),
+            },
           } satisfies NeedsConfirm;
         }
         const restore = unique(
-          chosen.flatMap((c) => (c.kind === 'renamed' && c.oldPath ? [c.oldPath] : deletes(c) ? [] : [c.path])),
+          chosen.flatMap((c) =>
+            c.kind === 'renamed' && c.oldPath ? [c.oldPath] : deletes(c) ? [] : [c.path],
+          ),
         );
-        const dropFromIndex = chosen.filter((c) => c.indexChanged && (c.kind === 'added' || c.kind === 'renamed'));
+        const dropFromIndex = chosen.filter(
+          (c) => c.indexChanged && (c.kind === 'added' || c.kind === 'renamed'),
+        );
         if (dropFromIndex.length > 0) {
           await this.exec(repo, ['rm', '-q', '-f', '--cached', '--', ...dropFromIndex.map((c) => c.path)]);
         }
@@ -408,7 +431,8 @@ export class GitService {
   async checkPull(repo: string, confirm: Confirm[] = []): Promise<NeedsConfirm | null> {
     const st = await this.status(repo);
     this.assertCanSync(st, 'pull');
-    if (st.upstream === null) throw invalidInput('Esta branch ainda não tem upstream. Faça o push dela primeiro.');
+    if (st.upstream === null)
+      throw invalidInput('Esta branch ainda não tem upstream. Faça o push dela primeiro.');
     if (st.changes.length > 0 && !confirm.includes('merge-dirty')) {
       return { needsConfirm: 'merge-dirty', details: { files: st.changes.map((c) => ({ path: c.path })) } };
     }
@@ -435,7 +459,8 @@ export class GitService {
     if (st.state === 'rebasing' || st.state === 'cherry-picking') {
       throw invalidInput('Conclua o rebase ou o cherry-pick fora do app antes.');
     }
-    if (what === 'pull' && st.state === 'merging') throw invalidInput('Conclua ou aborte o merge em andamento antes.');
+    if (what === 'pull' && st.state === 'merging')
+      throw invalidInput('Conclua ou aborte o merge em andamento antes.');
   }
 
   /** Remoto da branch atual (o do upstream) ou, sem upstream, `origin` / o primeiro remoto. */
@@ -469,14 +494,19 @@ export class GitService {
       return r;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        throw new MelinnaError('GIT_FAILED', { userMessage: 'Operação cancelada.', details: { command: name } });
+        throw new MelinnaError('GIT_FAILED', {
+          userMessage: 'Operação cancelada.',
+          details: { command: name },
+        });
       }
       throw err;
     }
   }
 
   async fetch(repo: string, io: GitIo): Promise<void> {
-    await this.op('fetch', repo, () => this.network('fetch', repo, io, ['fetch', '--progress']), { locked: true });
+    await this.op('fetch', repo, () => this.network('fetch', repo, io, ['fetch', '--progress']), {
+      locked: true,
+    });
   }
 
   /** Pull com merge (`--no-rebase`); conflitos voltam como lista, não como erro. */
@@ -488,18 +518,24 @@ export class GitService {
       repo,
       async () => {
         let conflicts: string[] = [];
-        await this.network('pull', repo, io, ['pull', '--no-rebase', '--no-edit', '--progress'], async (r) => {
-          if (r.exitCode === 0) return;
-          const after = await this.readStatus(repo);
-          conflicts = after.changes.filter((c) => c.kind === 'conflict').map((c) => c.path);
-          if (after.state !== 'merging' || conflicts.length === 0) {
-            throw classifyGitFailure(r.stderr.trim().length > 0 ? r.stderr : r.stdout, {
-              command: 'pull',
-              exitCode: r.exitCode,
-              canRunHooks: true,
-            });
-          }
-        });
+        await this.network(
+          'pull',
+          repo,
+          io,
+          ['pull', '--no-rebase', '--no-edit', '--progress'],
+          async (r) => {
+            if (r.exitCode === 0) return;
+            const after = await this.readStatus(repo);
+            conflicts = after.changes.filter((c) => c.kind === 'conflict').map((c) => c.path);
+            if (after.state !== 'merging' || conflicts.length === 0) {
+              throw classifyGitFailure(r.stderr.trim().length > 0 ? r.stderr : r.stdout, {
+                command: 'pull',
+                exitCode: r.exitCode,
+                canRunHooks: true,
+              });
+            }
+          },
+        );
         return { conflicts };
       },
       { locked: true },
@@ -557,14 +593,23 @@ export class GitService {
 
   /** Cria a branch a partir da atual e passa a ser a atual. */
   async createBranch(repo: string, name: string): Promise<void> {
-    if (typeof name !== 'string' || name.length === 0 || name.length > 255 || name.startsWith('-') || name.includes('@{')) {
+    if (
+      typeof name !== 'string' ||
+      name.length === 0 ||
+      name.length > 255 ||
+      name.startsWith('-') ||
+      name.includes('@{')
+    ) {
       throw new MelinnaError('INPUT_INVALID', { userMessage: BRANCH_RULE });
     }
     await this.op(
       'createBranch',
       repo,
       async () => {
-        const valid = await this.exec(repo, ['check-ref-format', '--branch', name], { read: true, allowFail: true });
+        const valid = await this.exec(repo, ['check-ref-format', '--branch', name], {
+          read: true,
+          allowFail: true,
+        });
         if (valid.exitCode !== 0) throw new MelinnaError('INPUT_INVALID', { userMessage: BRANCH_RULE });
         const exists = await this.exec(repo, ['rev-parse', '--verify', '--quiet', `refs/heads/${name}`], {
           read: true,
@@ -590,7 +635,8 @@ export class GitService {
       repo,
       async () => {
         const st = await this.readStatus(repo);
-        if (st.state === 'merging') throw invalidInput('Conclua ou aborte o merge em andamento antes de trocar de branch.');
+        if (st.state === 'merging')
+          throw invalidInput('Conclua ou aborte o merge em andamento antes de trocar de branch.');
         if (st.changes.length > 0 && !confirm.includes('checkout-dirty')) {
           return {
             needsConfirm: 'checkout-dirty',
@@ -611,21 +657,28 @@ export class GitService {
     );
   }
 
-  async merge(repo: string, branch: string, confirm: Confirm[] = []): Promise<{ conflicts: string[] } | NeedsConfirm> {
+  async merge(
+    repo: string,
+    branch: string,
+    confirm: Confirm[] = [],
+  ): Promise<{ conflicts: string[] } | NeedsConfirm> {
     await this.requireBranch(repo, branch);
     return this.op(
       'merge',
       repo,
       async () => {
         const st = await this.readStatus(repo);
-        if (st.state !== 'normal') throw invalidInput('Termine ou aborte a operação em andamento antes de mesclar.');
+        if (st.state !== 'normal')
+          throw invalidInput('Termine ou aborte a operação em andamento antes de mesclar.');
         if (st.changes.length > 0 && !confirm.includes('merge-dirty')) {
           return {
             needsConfirm: 'merge-dirty',
             details: { files: st.changes.map((c) => ({ path: c.path })), branch },
           } satisfies NeedsConfirm;
         }
-        const r = await this.exec(repo, ['merge', '--no-edit', '--end-of-options', branch], { allowFail: true });
+        const r = await this.exec(repo, ['merge', '--no-edit', '--end-of-options', branch], {
+          allowFail: true,
+        });
         if (r.exitCode === 0) return { conflicts: [] };
         const after = await this.readStatus(repo);
         const conflicts = after.changes.filter((c) => c.kind === 'conflict').map((c) => c.path);
@@ -648,7 +701,8 @@ export class GitService {
       async () => {
         const st = await this.readStatus(repo);
         if (st.state !== 'merging') throw invalidInput('Não há merge em andamento.');
-        if (!confirm.includes('abort-merge')) return { needsConfirm: 'abort-merge', details: {} } satisfies NeedsConfirm;
+        if (!confirm.includes('abort-merge'))
+          return { needsConfirm: 'abort-merge', details: {} } satisfies NeedsConfirm;
         await this.exec(repo, ['merge', '--abort']);
         return undefined;
       },
@@ -684,16 +738,37 @@ export class GitService {
       async () => {
         const r = await this.exec(
           repo,
-          ['log', '-z', '--name-status', '-M', `--max-count=${LOG_PAGE}`, `--skip=${skip}`, `--format=${LOG_FORMAT}`],
+          [
+            'log',
+            '-z',
+            '--name-status',
+            '-M',
+            `--max-count=${LOG_PAGE}`,
+            `--skip=${skip}`,
+            `--format=${LOG_FORMAT}`,
+          ],
           { read: true, allowFail: true },
         );
         if (r.exitCode !== 0) {
-          if (/does not have any commits yet|unknown revision|bad default revision/i.test(r.stderr)) return [];
+          if (/does not have any commits yet|unknown revision|bad default revision/i.test(r.stderr))
+            return [];
           throw classifyGitFailure(r.stderr, { command: 'log', exitCode: r.exitCode });
         }
         return parseLog(r.stdout);
       },
       { locked: false },
+    );
+  }
+
+  /** O arquivo (caminho absoluto dentro da pasta) como está no último commit; só leitura. */
+  fileAtHead(repo: string, path: string): Promise<FileAtHead> {
+    return this.op(
+      'fileAtHead',
+      repo,
+      () => fileAtHead({ git: this.deps.git, os: this.deps.os }, repo, path),
+      {
+        locked: false,
+      },
     );
   }
 
@@ -732,10 +807,16 @@ export class GitService {
         if (r.stdoutBytes.length > DIFF_LIMIT_BYTES) {
           return { path, change: 'modified', hunks: [], lineCount: 0, tooLarge: true };
         }
-        const file: FileDiff = parseUnifiedDiff(r.stdout)[0] ?? { path, change: 'modified', hunks: [], lineCount: 0 };
+        const file: FileDiff = parseUnifiedDiff(r.stdout)[0] ?? {
+          path,
+          change: 'modified',
+          hunks: [],
+          lineCount: 0,
+        };
         if (file.binary) {
           file.binary = {
-            oldSize: file.change === 'added' ? null : await this.blobSize(repo, `${sha}^`, file.oldPath ?? path),
+            oldSize:
+              file.change === 'added' ? null : await this.blobSize(repo, `${sha}^`, file.oldPath ?? path),
             newSize: file.change === 'deleted' ? null : await this.blobSize(repo, sha, path),
           };
         }

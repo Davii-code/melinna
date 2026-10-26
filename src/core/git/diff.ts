@@ -84,7 +84,9 @@ export async function fillBinarySizes(
     const oldPath = f.oldPath ?? f.path;
     f.binary = {
       oldSize:
-        f.change === 'added' || f.change === 'untracked' ? null : await blobSize(git, cwd, baseCommit, oldPath),
+        f.change === 'added' || f.change === 'untracked'
+          ? null
+          : await blobSize(git, cwd, baseCommit, oldPath),
       newSize: f.change === 'deleted' ? null : await fileSize(fs, p.join(cwd, f.path)),
     };
   }

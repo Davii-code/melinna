@@ -1,15 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import type { WorkspaceSnapshot } from '../../../shared/ipc-contract';
 import { isLiveStatus } from '../../labels';
-import { commandOf, executionOfCommand, runningKeys, useRun, type RunStore } from '../../store/run-store';
+import {
+  configOf,
+  executionOfCommand,
+  liveExecutionsOf,
+  runningKeys,
+  stepsOf,
+  useRun,
+  type RunState,
+  type RunStore,
+} from '../../store/run-store';
 import { useShortcutLabel, withShortcut } from '../../keymap/keymap-store';
-import { RunConfigDialog } from './RunConfigDialog';
+import { DetectedPicker } from './DetectedPicker';
+import { RunConfigsDialog } from './RunConfigsDialog';
 import { RunSelector, baseName, unavailableNote } from './RunSelector';
 import { ToolIcon } from './ToolIcon';
 
 export interface RunBarProps {
   store: RunStore;
   snapshot: WorkspaceSnapshot | null;
+  /** Workspace ativo da janela: origem dos scripts detectados oferecidos em "Adicionar a partir de…". */
+  activeGroupId?: string | null;
 }
 
 const NONE = 'Nenhuma configuração ativa';
@@ -19,12 +31,30 @@ function systemToolOf(wrapper: string): string {
   return baseName(wrapper).toLowerCase().startsWith('gradlew') ? 'gradle' : 'mvn';
 }
 
+/**
+ * A etapa de "antes de lançar" que o lançamento em andamento espera: a que está viva ou, se nenhuma ainda
+ * subiu, a primeira da cadeia. `null` quando não há lançamento esperando etapas.
+ */
+function waitingStep(
+  busy: boolean,
+  configs: RunState['configs'],
+  config: ReturnType<typeof configOf>,
+  snapshot: WorkspaceSnapshot | null,
+): { name: string } | null {
+  if (!busy || !config || config.beforeLaunch === null) return null;
+  const inOrder = stepsOf(configs, config).reverse();
+  const live = inOrder.find((s) => liveExecutionsOf(snapshot, config.groupId, s.id).length > 0);
+  const step = live ?? inOrder[0];
+  return step ? { name: step.name } : null;
+}
+
 /** Barra de execução: seletor da configuração ativa, ▶ Rodar e o menu com rodar de novo, parar e editar. */
-export function RunBar({ store, snapshot }: RunBarProps) {
+export function RunBar({ store, snapshot, activeGroupId = null }: RunBarProps) {
   const state = useRun(store);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,16 +79,17 @@ export function RunBar({ store, snapshot }: RunBarProps) {
     };
   }, [selectorOpen, menuOpen]);
 
-  const command = commandOf(state.catalog, state.active);
+  const config = configOf(state.configs, state.active);
   const exec = executionOfCommand(snapshot, state.active);
   const running = exec !== undefined && isLiveStatus(exec.status);
-  const note = command ? unavailableNote(command) : null;
-  const canRun = command !== undefined && note === null && !state.busy;
+  const note = config ? unavailableNote(config) : null;
+  const canRun = config !== undefined && note === null && !state.busy;
+  const waiting = waitingStep(state.busy, state.configs, config, snapshot);
   const runShortcut = useShortcutLabel('runActive');
   const stopShortcut = useShortcutLabel('stop');
-  const playTitle = !command
+  const playTitle = !config
     ? 'Escolha uma configuração'
-    : (note ?? withShortcut(`Rodar ${command.label}`, runShortcut));
+    : (note ?? withShortcut(`Rodar ${config.name}`, runShortcut));
   const groups = snapshot?.groups ?? [];
 
   const openSelector = () => {
@@ -78,17 +109,25 @@ export function RunBar({ store, snapshot }: RunBarProps) {
       <button
         type="button"
         className="run-selector-button"
-        aria-label={`Configuração de execução: ${command?.label ?? NONE}`}
+        aria-label={`Configuração de execução: ${config?.name ?? NONE}`}
         aria-haspopup="listbox"
         aria-expanded={selectorOpen}
         title="Escolher a configuração de execução"
         onClick={openSelector}
       >
-        {command && <ToolIcon tool={command.tool} />}
-        <span className="run-name">{command?.label ?? NONE}</span>
+        {config && <ToolIcon tool={config.tool} />}
+        <span className="run-name">{config?.name ?? NONE}</span>
         <span aria-hidden="true">▾</span>
       </button>
       {running && <span className="run-dot" data-testid="run-running" title="Rodando" />}
+      {waiting !== null && (
+        <span className="run-waiting-inline" data-testid="run-waiting-bar">
+          {`Aguardando ${waiting.name}…`}
+          <button type="button" onClick={() => void store.cancelBeforeLaunch()}>
+            Cancelar
+          </button>
+        </span>
+      )}
       <button
         type="button"
         className="icon-button run-play"
@@ -115,7 +154,9 @@ export function RunBar({ store, snapshot }: RunBarProps) {
       {selectorOpen && (
         <div className="run-popup">
           <RunSelector
-            catalog={state.catalog}
+            configs={state.configs}
+            warnings={state.warnings}
+            waiting={waiting}
             groups={groups}
             active={state.active}
             runningIds={runningKeys(snapshot)}
@@ -124,6 +165,11 @@ export function RunBar({ store, snapshot }: RunBarProps) {
               void store.choose(ref);
             }}
             onEdit={openConfig}
+            onAddDetected={() => {
+              setSelectorOpen(false);
+              setPickerOpen(true);
+            }}
+            onCancelWaiting={() => void store.cancelBeforeLaunch()}
           />
         </div>
       )}
@@ -164,12 +210,23 @@ export function RunBar({ store, snapshot }: RunBarProps) {
         </ul>
       )}
       {configOpen && (
-        <RunConfigDialog
-          catalog={state.catalog}
+        <RunConfigsDialog
+          store={store}
           groups={groups}
           initialSelection={state.active}
-          onChanged={() => void store.refresh()}
           onClose={() => setConfigOpen(false)}
+        />
+      )}
+      {pickerOpen && (
+        <DetectedPicker
+          detected={state.detected}
+          groups={groups}
+          groupId={activeGroupId ?? state.active?.groupId ?? groups[0]?.id ?? null}
+          onPick={(command) => {
+            setPickerOpen(false);
+            void store.addFromDetected(command);
+          }}
+          onClose={() => setPickerOpen(false)}
         />
       )}
       {state.confirm && (

@@ -43,7 +43,8 @@ export function classifyGitFailure(stderr: string, ctx: GitFailureContext): Meli
   if (HOOK_NAMED.test(clean)) return hookError(clean, details);
   if (REJECTED.test(clean)) return new MelinnaError('GIT_REJECTED', { details });
   if (IDENTITY.test(clean)) return new MelinnaError('GIT_IDENTITY', { details });
-  if (NOTHING.test(clean)) return new MelinnaError('INPUT_INVALID', { userMessage: 'Não há alterações para commitar.' });
+  if (NOTHING.test(clean))
+    return new MelinnaError('INPUT_INVALID', { userMessage: 'Não há alterações para commitar.' });
   const line = pickErrorLine(clean);
   if (ctx.canRunHooks && clean.trim().length > 0 && !(line && ERROR_LINE.test(line))) {
     return hookError(clean, details);

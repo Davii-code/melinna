@@ -69,9 +69,9 @@ describe('lifecycle IPC', () => {
 
   it('refuses stop of an ended execution and remove of a live one', async () => {
     const { rec, execId } = await setup();
-    expect((await rec.call('executions:remove', execId, { deleteBranch: true, force: true })).error?.code).toBe(
-      'EXECUTION_RUNNING',
-    );
+    expect(
+      (await rec.call('executions:remove', execId, { deleteBranch: true, force: true })).error?.code,
+    ).toBe('EXECUTION_RUNNING');
     await rec.call('executions:stop', execId);
     expect((await rec.call('executions:stop', execId)).error?.code).toBe('EXECUTION_NOT_RUNNING');
   });
@@ -84,7 +84,9 @@ describe('lifecycle IPC', () => {
     expect(await code('executions:relaunch', execId, { cols: 5, rows: 5 })).toBe('INPUT_INVALID');
     expect(await code('executions:relaunch', execId)).toBe('INPUT_INVALID');
     expect(await code('executions:removalCheck', 'nao-existe')).toBe('INPUT_INVALID');
-    expect(await code('executions:remove', execId, { deleteBranch: 'sim', force: false })).toBe('INPUT_INVALID');
+    expect(await code('executions:remove', execId, { deleteBranch: 'sim', force: false })).toBe(
+      'INPUT_INVALID',
+    );
     expect(await code('executions:remove', execId, { deleteBranch: true })).toBe('INPUT_INVALID');
     expect(await code('executions:remove', execId, null)).toBe('INPUT_INVALID');
     expect(core.host.kills).toHaveLength(0);
@@ -93,7 +95,9 @@ describe('lifecycle IPC', () => {
   it('reports git failures of removalCheck as GIT_FAILED', async () => {
     const { rec, core, execId } = await setup();
     await rec.call('executions:stop', execId);
-    core.runner.prepend((_f, args) => (args.includes('rev-list') ? failed(128, 'fatal: bad revision') : undefined));
+    core.runner.prepend((_f, args) =>
+      args.includes('rev-list') ? failed(128, 'fatal: bad revision') : undefined,
+    );
     expect((await rec.call('executions:removalCheck', execId)).error?.code).toBe('GIT_FAILED');
   });
 });

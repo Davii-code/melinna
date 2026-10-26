@@ -41,7 +41,9 @@ describe('createThumbnail', () => {
 
   it('never enlarges a smaller image', () => {
     expect(decode(createThumbnail(bytes, native(100, 40)))).toBe('png:100x40');
-    expect(decode(createThumbnail(bytes, native(THUMBNAIL_MAX_SIDE, 10)))).toBe(`png:${THUMBNAIL_MAX_SIDE}x10`);
+    expect(decode(createThumbnail(bytes, native(THUMBNAIL_MAX_SIDE, 10)))).toBe(
+      `png:${THUMBNAIL_MAX_SIDE}x10`,
+    );
   });
 
   it('keeps at least 1 px on the short side of a very thin image', () => {

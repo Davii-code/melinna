@@ -26,6 +26,7 @@ export class ExecutionService {
   private readonly busyListeners = new Set<(execId: string) => void>();
   private readonly idleListeners = new Set<(execId: string) => void>();
   private readonly endedListeners = new Set<(execId: string, reason: EndedReason) => void>();
+  private readonly stopListeners = new Set<(execId: string) => void>();
   private readonly switches: SwitchService;
 
   constructor(deps: ExecutionDeps) {
@@ -66,6 +67,12 @@ export class ExecutionService {
   onExit(fn: (e: ExitEvent) => void): () => void {
     this.exitListeners.add(fn);
     return () => this.exitListeners.delete(fn);
+  }
+
+  /** O usuário (ou outro serviço) pediu para parar a execução; chamado antes de o processo ser encerrado. */
+  onStopRequested(fn: (execId: string) => void): () => void {
+    this.stopListeners.add(fn);
+    return () => this.stopListeners.delete(fn);
   }
 
   /** A execução ficou ocupada (houve saída), depois de o estado ser atualizado. */
@@ -188,6 +195,7 @@ export class ExecutionService {
 
   /** Para o processo; worktree e lease ficam. */
   stop(execId: string): Promise<void> {
+    for (const fn of [...this.stopListeners]) fn(execId);
     return stopExecution(this.ctx, execId);
   }
 

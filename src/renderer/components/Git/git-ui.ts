@@ -1,4 +1,4 @@
-import type { Change, Commit, NeedsConfirm } from '../../../shared/ipc-contract';
+import type { Change, Commit, NeedsConfirm, RepoStatus } from '../../../shared/ipc-contract';
 
 export function isNeedsConfirm(value: unknown): value is NeedsConfirm {
   return typeof value === 'object' && value !== null && 'needsConfirm' in value;
@@ -68,3 +68,44 @@ export const KIND_LABEL_COMMIT: Record<Commit['files'][number]['kind'], string> 
   copied: 'copiado',
   typechange: 'tipo alterado',
 };
+
+export const BRANCH_RULE =
+  'Nome de branch inválido: sem espaços, sem os caracteres ~ ^ : ? * [ e contrabarra, sem ".." nem "@{", sem começar com "-" e sem terminar com ".lock" ou "/".';
+
+/** Confere só o que dá para ver sem o git; a decisão final é sempre do `git check-ref-format`. */
+export function isPlausibleBranchName(name: string): boolean {
+  return (
+    name.length > 0 &&
+    name.length <= 255 &&
+    !/[\s~^:?*[\\\u0000-\u001f\u007f]/.test(name) &&
+    !name.startsWith('-') &&
+    !name.includes('..') &&
+    !name.includes('@{') &&
+    !name.endsWith('/') &&
+    !name.endsWith('.') &&
+    !name.endsWith('.lock')
+  );
+}
+
+const OUTSIDE_NOTE = 'conclua fora do app';
+
+/** Nome da branch atual, ou o HEAD solto com o início do hash. */
+export function branchLabel(status: Pick<RepoStatus, 'branch' | 'head'>): string {
+  return status.branch ?? `HEAD solto em ${status.head.slice(0, 7)}`;
+}
+
+/** Frase sobre o estado do repositório que pede atenção; `null` no estado normal. */
+export function stateNote(status: Pick<RepoStatus, 'state' | 'head'>): string | null {
+  switch (status.state) {
+    case 'merging':
+      return 'Merge em andamento';
+    case 'rebasing':
+      return `Rebase em andamento — ${OUTSIDE_NOTE} (git rebase --continue ou --abort)`;
+    case 'cherry-picking':
+      return `Cherry-pick em andamento — ${OUTSIDE_NOTE} (git cherry-pick --continue ou --abort)`;
+    case 'detached':
+      return `HEAD solto em ${status.head.slice(0, 7)}`;
+    default:
+      return null;
+  }
+}

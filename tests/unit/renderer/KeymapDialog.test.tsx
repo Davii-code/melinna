@@ -15,7 +15,7 @@ import {
 import { createRunStore } from '../../../src/renderer/store/run-store';
 import type { KeymapId, Pane } from '../../../src/shared/ipc-contract';
 import { fakeApi, okR, snapshot } from '../../support/fake-api';
-import { execution, runCommand } from '../../support/renderer-fixtures';
+import { execution, runCommand, runConfig } from '../../support/renderer-fixtures';
 
 async function dialogSetup(initial: KeymapId = 'windows') {
   const api = fakeApi();
@@ -197,7 +197,7 @@ describe('dicas com a tecla do mapa atual', () => {
         }),
       ],
     });
-    api.run.list.mockImplementation(() => okR({ commands: [runCommand()], warnings: [] }));
+    api.run.list.mockImplementation(() => okR({ configs: [runConfig()], detected: [runCommand()], warnings: [] }));
     api.prefs.get.mockImplementation(() =>
       okR({ keymap: 'intellij' as const, activeRun: { groupId: 'g1', commandId: 'c1' }, readOnly: false }),
     );

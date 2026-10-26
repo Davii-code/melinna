@@ -26,7 +26,20 @@ import {
   lineNumbers,
   rectangularSelection,
 } from '@codemirror/view';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { gitGutter, gitGutterState, revertChange, setGitBase } from './extensions/git-gutter';
+import type { LineChange } from './line-diff';
+import { registerSharedView, sharedDoc } from './shared-doc';
+import { createEditorController, registerEditorController } from './editor-controller';
+import { onReveal } from './editor-reveal';
+import { occurrenceExtensions, rectangularFilter } from './extensions/occurrences';
+
+/**
+ * Atalhos do CodeMirror que o mapa do app assume: ir para linha (Ctrl+G) e próxima ocorrência (Ctrl+D) têm
+ * a tecla de cada mapa, tratada antes do editor.
+ */
+const APP_OWNED_KEYS = new Set(['Mod-d', 'Mod-g', 'Mod-Alt-g']);
+const editorSearchKeymap = searchKeymap.filter((binding) => !APP_OWNED_KEYS.has(binding.key ?? ''));
 
 /** Realce por extensão; sem extensão conhecida, texto puro. */
 export function languageFor(path: string): Extension {
@@ -100,17 +113,24 @@ const appTheme = EditorView.theme(
 );
 
 export interface CodeEditorProps {
+  /** Painel dono do editor; os comandos do app (ir para linha, comentar…) chegam a ele por este id. */
+  paneId?: string;
   /** Trocar de arquivo recria o editor com o conteúdo daquele arquivo. */
   path: string;
   value: string;
   onChange(value: string): void;
   onSave(): void;
+  /** Texto do arquivo no último commit, para a margem do git; `null` ou ausente = sem marcas. */
+  gitBase?: string | null;
 }
 
-export function CodeEditor({ path, value, onChange, onSave }: CodeEditorProps) {
+export function CodeEditor({ paneId, path, value, onChange, onSave, gitBase = null }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
   const callbacks = useRef({ onChange, onSave });
   callbacks.current = { onChange, onSave };
+  const [openChange, setOpenChange] = useState<LineChange | null>(null);
+  const [tooLarge, setTooLarge] = useState(false);
 
   useEffect(() => {
     const el = host.current;
@@ -125,8 +145,9 @@ export function CodeEditor({ path, value, onChange, onSave }: CodeEditorProps) {
           highlightActiveLine(),
           history(),
           drawSelection(),
+          occurrenceExtensions,
           dropCursor(),
-          rectangularSelection(),
+          rectangularSelection({ eventFilter: rectangularFilter }),
           crosshairCursor(),
           indentOnInput(),
           bracketMatching(),
@@ -144,21 +165,85 @@ export function CodeEditor({ path, value, onChange, onSave }: CodeEditorProps) {
             },
             ...defaultKeymap,
             ...historyKeymap,
-            ...searchKeymap,
+            ...editorSearchKeymap,
             ...foldKeymap,
             indentWithTab,
           ]),
           languageFor(path),
           appTheme,
+          gitGutter({ onOpen: (change) => setOpenChange(change) }),
+          sharedDoc(path),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) callbacks.current.onChange(update.state.doc.toString());
+            const before = update.startState.field(gitGutterState).changes;
+            const after = update.state.field(gitGutterState).changes;
+            if ((before === 'off') !== (after === 'off')) setTooLarge(after === 'off');
           }),
         ],
       }),
     });
-    return () => view.destroy();
+    viewRef.current = view;
+    const controller = createEditorController(view);
+    const unregister = paneId === undefined ? undefined : registerEditorController(paneId, controller);
+    const stopReveal = onReveal(path, (r) => controller.revealMatch(r.line, r.column, r.length));
+    const stopShared = registerSharedView(path, view);
+    return () => {
+      stopShared();
+      stopReveal();
+      unregister?.();
+      viewRef.current = null;
+      setOpenChange(null);
+      view.destroy();
+    };
     // `value` entra só na criação: quem recria ao trocar de arquivo é o `path`.
-  }, [path]);
+  }, [path, paneId]);
 
-  return <div className="editor-host" ref={host} data-testid="code-editor" />;
+  // A base do git chega depois (é lida do repositório) e muda a cada commit: vai como efeito ao editor.
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: setGitBase.of(gitBase) });
+  }, [gitBase, path, paneId]);
+
+  return (
+    <div className="editor-host-wrap">
+      <div className="editor-host" ref={host} data-testid="code-editor" />
+      {tooLarge && (
+        <p className="editor-git-hint" data-testid="git-gutter-hint">
+          Alterações demais para marcar na margem do git.
+        </p>
+      )}
+      {openChange !== null && (
+        <div className="git-change-popup" role="dialog" aria-label="Trecho original">
+          <div className="git-change-head">
+            <span>
+              {openChange.kind === 'added'
+                ? 'Linhas adicionadas (não havia nada no último commit)'
+                : 'No último commit'}
+            </span>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Fechar trecho original"
+              onClick={() => setOpenChange(null)}
+            >
+              ×
+            </button>
+          </div>
+          {openChange.kind !== 'added' && <pre className="git-change-original">{openChange.original}</pre>}
+          <div className="actions">
+            <button
+              type="button"
+              onClick={() => {
+                const view = viewRef.current;
+                if (view) revertChange(view, openChange);
+                setOpenChange(null);
+                view?.focus();
+              }}
+            >
+              Reverter este trecho
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

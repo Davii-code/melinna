@@ -18,11 +18,17 @@ import type {
   WorkspaceSnapshot,
 } from '../core/api-types';
 import type {
-  RunCatalog,
   RunChoice,
   RunCommand,
-  RunCommandInput,
+  RunConfig,
+  RunConfigInput,
+  RunConfigTool,
+  RunConfigUnavailableReason,
+  RunConfigView,
+  RunEnvVar,
+  RunListing,
   RunNeedsConfirm,
+  RunReorderItem,
   RunSource,
   RunStarted,
   RunTool,
@@ -32,6 +38,8 @@ import type {
 import { RUN_LIMITS } from '../core/run/limits';
 import { KEYMAP_IDS, type ActiveRunRef, type KeymapId, type Preferences } from '../core/prefs/types';
 import type { AgentDefinition, CatalogIssue } from '../core/catalog/schema';
+import type { ProjectSearchQuery, ProjectSearchResult, SearchHit } from '../core/files/search-types';
+import type { FileAtHead } from '../core/git/file-at-head-types';
 import type { MarkerKind } from '../core/contracts/host-protocol';
 import type { ErrorCode } from '../core/errors';
 import type {
@@ -67,6 +75,10 @@ export type {
   FileRoot,
   FileText,
   FileWriteResult,
+  ProjectSearchQuery,
+  ProjectSearchResult,
+  SearchHit,
+  FileAtHead,
   ExecutionNotice,
   Group,
   LaunchResult,
@@ -82,11 +94,17 @@ export type {
   WorkspaceSnapshot,
 };
 export type {
-  RunCatalog,
   RunChoice,
   RunCommand,
-  RunCommandInput,
+  RunConfig,
+  RunConfigInput,
+  RunConfigTool,
+  RunConfigUnavailableReason,
+  RunConfigView,
+  RunEnvVar,
+  RunListing,
   RunNeedsConfirm,
+  RunReorderItem,
   RunSource,
   RunStarted,
   RunTool,
@@ -220,6 +238,11 @@ export interface MelinnaApi {
     write(path: string, content: string, expectedHash: string): Promise<Result<FileWriteResult>>;
     /** Estado do git por arquivo (caminho relativo à raiz), para decorar a árvore. */
     status(root: string): Promise<Result<Record<string, FileChange>>>;
+    /**
+     * Busca no projeto (num worker do principal). Uma busca nova cancela a anterior; texto vazio só cancela.
+     * As raízes precisam ser as registradas do workspace.
+     */
+    searchProject(query: ProjectSearchQuery): Promise<Result<ProjectSearchResult>>;
     /** Caminho real de um arquivo solto na página (só o preload sabe resolver). */
     pathOf(file: DroppedFile): string;
   };
@@ -262,6 +285,8 @@ export interface MelinnaApi {
     /** 200 commits por página. */
     log(repo: string, skip: number): Promise<Result<Commit[]>>;
     commitDiff(repo: string, sha: string, path: string): Promise<Result<FileDiff>>;
+    /** O arquivo (caminho absoluto dentro da pasta `repo`) como está em `HEAD`; só leitura. */
+    fileAtHead(repo: string, path: string): Promise<Result<FileAtHead>>;
     /** Progresso e fim das operações de rede (fetch, pull, push). */
     onProgress(fn: (e: GitProgress) => void): Unsubscribe;
   };
@@ -287,18 +312,22 @@ export interface MelinnaApi {
     onQueueDiscarded(fn: (e: QueueDiscarded) => void): Unsubscribe;
   };
   run: {
-    /** Configurações de todos os workspaces abertos (personalizadas e detectadas). */
-    list(): Promise<Result<RunCatalog>>;
-    /** O main resolve o comando pelo id; se já roda, devolve a execução existente com `reused`. */
+    /** Configurações salvas de todos os workspaces e os scripts detectados (origem para criar uma salva). */
+    list(): Promise<Result<RunListing>>;
+    /**
+     * O main resolve a configuração pelo id e roda o "antes de lançar" em ordem; se já roda e não permite
+     * várias instâncias, devolve a execução existente com `reused`.
+     */
     start(
       groupId: string,
-      commandId: string,
+      configId: string,
       size: TermSize,
       choice?: RunChoice,
     ): Promise<Result<RunStarted | RunNeedsConfirm>>;
     rerun(execId: string, size: TermSize): Promise<Result<void>>;
-    saveCommand(groupId: string, input: RunCommandInput): Promise<Result<RunCommand>>;
-    removeCommand(groupId: string, commandId: string): Promise<Result<void>>;
+    saveConfig(groupId: string, input: RunConfigInput): Promise<Result<RunConfigView>>;
+    removeConfig(groupId: string, configId: string): Promise<Result<void>>;
+    reorder(groupId: string, items: RunReorderItem[]): Promise<Result<void>>;
   };
   prefs: {
     get(): Promise<Result<Preferences>>;
@@ -353,6 +382,7 @@ export const CHANNELS = {
     read: 'files:read',
     write: 'files:write',
     status: 'files:status',
+    searchProject: 'files:searchProject',
   },
   git: {
     status: 'git:status',
@@ -371,6 +401,7 @@ export const CHANNELS = {
     markResolved: 'git:markResolved',
     log: 'git:log',
     commitDiff: 'git:commitDiff',
+    fileAtHead: 'git:fileAtHead',
   },
   attachments: {
     clipboardHasImage: 'attachments:clipboardHasImage',
@@ -398,8 +429,9 @@ export const CHANNELS = {
     list: 'run:list',
     start: 'run:start',
     rerun: 'run:rerun',
-    saveCommand: 'run:saveCommand',
-    removeCommand: 'run:removeCommand',
+    saveConfig: 'run:saveConfig',
+    removeConfig: 'run:removeConfig',
+    reorder: 'run:reorder',
   },
   prefs: {
     get: 'prefs:get',
@@ -456,6 +488,15 @@ export const LIMITS = {
   commandLabel: RUN_LIMITS.label,
   commandArgs: RUN_LIMITS.args,
   commandArg: RUN_LIMITS.arg,
+  runtimeOptions: RUN_LIMITS.runtimeOptions,
+  envPairs: RUN_LIMITS.envPairs,
+  envValue: RUN_LIMITS.envValue,
+  folderGroup: RUN_LIMITS.folderGroup,
+  script: RUN_LIMITS.script,
+  reorderItems: 100,
+  searchText: 1000,
+  searchMask: 500,
+  searchRoots: 64,
   baseRef: 256,
   modelOrMode: 100,
   urlLength: 2048,

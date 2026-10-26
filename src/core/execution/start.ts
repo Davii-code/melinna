@@ -1,5 +1,6 @@
 import { MelinnaError, toIpcError } from '../errors';
 import type { Execution, ExecutionNotice } from '../persistence/state-schema';
+import { buildEnv } from '../run/run-env';
 import type { ExecutionCommand } from '../run/types';
 import type { ExecutionContext, TermSize } from './context';
 import { resolveExtraDirs } from './prepare';
@@ -23,6 +24,15 @@ function terminalEnv(ctx: ExecutionContext, execId: string): Record<string, stri
   return { ...ctx.baseEnv, TERM: 'xterm-256color', COLORTERM: 'truecolor', MELINNA_EXECUTION_ID: execId };
 }
 
+/** Ambiente do terminal mais as variáveis e as opções do runtime da configuração salva. */
+function commandEnv(ctx: ExecutionContext, execId: string, command: ExecutionCommand): Record<string, string> {
+  return buildEnv(terminalEnv(ctx, execId), {
+    tool: command.tool ?? 'program',
+    env: command.env ?? [],
+    runtimeOptions: command.runtimeOptions ?? '',
+  });
+}
+
 /**
  * Lança um comando de projeto: programa e argumentos já resolvidos ficam na execução, sem catálogo, sem
  * enunciado e sem pastas extras. Roda na pasta da tarefa e vai ao hospedeiro como qualquer sessão.
@@ -41,7 +51,7 @@ async function spawnCommand(
     file: command.file,
     args: command.args,
     cwd: exec.worktreePath,
-    env: terminalEnv(ctx, exec.id),
+    env: commandEnv(ctx, exec.id, command),
     cols,
     rows,
     ...(opts.separator ? { separator: opts.separator } : {}),

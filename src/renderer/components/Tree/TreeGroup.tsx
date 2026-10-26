@@ -1,7 +1,6 @@
 import { LIMITS, type Group, type Task } from '../../../shared/ipc-contract';
 import { isLiveStatus } from '../../labels';
 import { bandColor } from '../../theme/bands';
-import { GitBar } from '../Git/GitBar';
 import { AgentMenu } from './AgentMenu';
 import { InlineEdit, type TreeProps } from './Tree';
 import { TreeTask } from './TreeTask';
@@ -26,17 +25,11 @@ export function gitFolders(group: Group, availability?: Readonly<Record<string, 
   return folders.filter((f) => availability?.[f.id] !== false);
 }
 
-function folderName(path: string): string {
-  const parts = path.split(/[\/]+/).filter((p) => p.length > 0);
-  return parts[parts.length - 1] ?? path;
-}
-
 export function TreeGroup(props: TreeGroupProps) {
   const { group } = props;
   const taskIds = new Set(props.tasks.map((t) => t.id));
   const liveCount = props.executions.filter((e) => taskIds.has(e.taskId) && isLiveStatus(e.status)).length;
   const live = liveCount > 0;
-  const folders = gitFolders(group, props.folderAvailability);
   return (
     <li role="treeitem" aria-expanded="true" className="tree-group" data-testid={`tree-group-${group.id}`}>
       <div className="tree-row tree-group-row" title={folderTooltip(group)}>
@@ -88,16 +81,6 @@ export function TreeGroup(props: TreeGroupProps) {
           </button>
         </span>
       </div>
-      {folders.map((f) => (
-        <GitBar
-          key={f.id}
-          repo={f.path}
-          title={group.name}
-          {...(folders.length > 1 ? { folderLabel: folderName(f.path) } : {})}
-          liveAgents={liveCount}
-          onOpenFile={(path) => props.onOpenFile?.(path)}
-        />
-      ))}
       {props.tasks.length > 0 && (
         <ul role="group">
           {props.tasks.map((t) => (

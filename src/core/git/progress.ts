@@ -8,7 +8,8 @@ const PHASES: Record<string, string> = {
   'Resolving deltas': 'Resolvendo deltas',
 };
 
-const LINE = /(Enumerating objects|Counting objects|Compressing objects|Receiving objects|Writing objects|Unpacking objects|Resolving deltas):\s+(\d+)%/g;
+const LINE =
+  /(Enumerating objects|Counting objects|Compressing objects|Receiving objects|Writing objects|Unpacking objects|Resolving deltas):\s+(\d+)%/g;
 
 /** Última fase com porcentagem num pedaço do stderr do git (`Receiving objects:  45% (9/20)`), ou `null`. */
 export function parseProgress(chunk: string): { phase: string; percent: number } | null {

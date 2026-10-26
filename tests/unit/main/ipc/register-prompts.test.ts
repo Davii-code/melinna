@@ -19,7 +19,12 @@ async function setup() {
   });
   const g = await core.workspace.createGroup('G');
   const g2 = await core.workspace.createGroup('G2');
-  const task = await core.workspace.createTask({ groupId: g.id, repoPath: '/repo', baseRef: 'main', prompt: '' });
+  const task = await core.workspace.createTask({
+    groupId: g.id,
+    repoPath: '/repo',
+    baseRef: 'main',
+    prompt: '',
+  });
   const launched = await core.executions.launch(task.id, [{ agentId: 'fake' }, { agentId: 'fake' }], {
     cols: 80,
     rows: 24,
@@ -57,7 +62,11 @@ describe('prompts IPC', () => {
   describe('save, list, duplicate, remove', () => {
     it('saves a prompt and lists it with its variables', async () => {
       const { rec } = await setup();
-      const saved = await rec.call('prompts:save', { name: 'Revisar', body: 'Revise {{arquivo}}', scope: 'global' });
+      const saved = await rec.call('prompts:save', {
+        name: 'Revisar',
+        body: 'Revise {{arquivo}}',
+        scope: 'global',
+      });
       expect(saved).toMatchObject({ ok: true, value: { name: 'Revisar', variables: ['arquivo'] } });
       const list = await rec.call('prompts:list');
       expect((list.value as Prompt[]).map((p) => p.name)).toEqual(['Revisar']);
@@ -81,7 +90,9 @@ describe('prompts IPC', () => {
 
     it('refuses an unknown workspace scope with the contract message', async () => {
       const { rec } = await setup();
-      expect(await rec.call('prompts:save', { name: 'A', body: 'x', scope: { groupId: 'nao-existe' } })).toMatchObject({
+      expect(
+        await rec.call('prompts:save', { name: 'A', body: 'x', scope: { groupId: 'nao-existe' } }),
+      ).toMatchObject({
         ok: false,
         error: { code: 'INPUT_INVALID', message: 'Workspace não encontrado.' },
       });
@@ -93,7 +104,8 @@ describe('prompts IPC', () => {
         'O nome do prompt deve ter de 1 a 80 caracteres, sem quebra de linha.',
       );
       expect(
-        (await rec.call('prompts:save', { name: 'A', body: 'x'.repeat(100_001), scope: 'global' })).error?.message,
+        (await rec.call('prompts:save', { name: 'A', body: 'x'.repeat(100_001), scope: 'global' })).error
+          ?.message,
       ).toBe('O prompt deve ter até 100.000 caracteres.');
       expect(
         (await rec.call('prompts:save', { name: 'A', body: 'a\x1bb', scope: 'global' })).error?.message,
@@ -102,15 +114,27 @@ describe('prompts IPC', () => {
 
     it('refuses a malformed payload', async () => {
       const { rec } = await setup();
-      for (const arg of [undefined, null, 'x', { name: 1, body: 'x', scope: 'global' }, { name: 'A', body: 'x' }]) {
+      for (const arg of [
+        undefined,
+        null,
+        'x',
+        { name: 1, body: 'x', scope: 'global' },
+        { name: 'A', body: 'x' },
+      ]) {
         expect((await rec.call('prompts:save', arg)).error?.code).toBe('INPUT_INVALID');
       }
     });
 
     it('edits by id, duplicates and removes', async () => {
       const { rec } = await setup();
-      const saved = (await rec.call('prompts:save', { name: 'A', body: 'um', scope: 'global' })).value as Prompt;
-      const edited = await rec.call('prompts:save', { id: saved.id, name: 'B', body: 'dois', scope: 'global' });
+      const saved = (await rec.call('prompts:save', { name: 'A', body: 'um', scope: 'global' }))
+        .value as Prompt;
+      const edited = await rec.call('prompts:save', {
+        id: saved.id,
+        name: 'B',
+        body: 'dois',
+        scope: 'global',
+      });
       expect(edited.value).toMatchObject({ id: saved.id, name: 'B' });
       const copy = (await rec.call('prompts:duplicate', saved.id)).value as Prompt;
       expect(copy.name).toBe('B (cópia)');
@@ -186,11 +210,12 @@ describe('prompts IPC', () => {
 
     it('refuses control characters in the text and in the values before writing anything', async () => {
       const { rec, core, a } = await setup();
-      expect((await rec.call('prompts:send', { ...body({ body: 'x\x1b[201~' }), execIds: [a] })).error?.message).toBe(
-        'O prompt contém caracteres de controle; remova-os.',
-      );
       expect(
-        (await rec.call('prompts:send', { ...body({ values: { arquivo: '\x07' } }), execIds: [a] })).error?.code,
+        (await rec.call('prompts:send', { ...body({ body: 'x\x1b[201~' }), execIds: [a] })).error?.message,
+      ).toBe('O prompt contém caracteres de controle; remova-os.');
+      expect(
+        (await rec.call('prompts:send', { ...body({ values: { arquivo: '\x07' } }), execIds: [a] })).error
+          ?.code,
       ).toBe('INPUT_INVALID');
       expect(core.host.writes.filter((w) => w.execId === a)).toEqual([]);
     });
@@ -201,8 +226,12 @@ describe('prompts IPC', () => {
         (await rec.call('prompts:send', { ...body({ values: { 'a-b': 'x' } }), execIds: [a] })).error?.code,
       ).toBe('INPUT_INVALID');
       expect(
-        (await rec.call('prompts:send', { ...body({ values: { arquivo: 'x'.repeat(10_001) } }), execIds: [a] }))
-          .error?.code,
+        (
+          await rec.call('prompts:send', {
+            ...body({ values: { arquivo: 'x'.repeat(10_001) } }),
+            execIds: [a],
+          })
+        ).error?.code,
       ).toBe('INPUT_INVALID');
     });
 
@@ -226,7 +255,11 @@ describe('prompts IPC', () => {
       execId,
       ...over,
     });
-    const setStatus = (core: Awaited<ReturnType<typeof setup>>['core'], id: string, status: 'idle' | 'exited') =>
+    const setStatus = (
+      core: Awaited<ReturnType<typeof setup>>['core'],
+      id: string,
+      status: 'idle' | 'exited',
+    ) =>
       core.model.mutate((s) => {
         const e = s.executions.find((x) => x.id === id);
         if (e) e.status = status;
@@ -255,12 +288,15 @@ describe('prompts IPC', () => {
       const { rec, core, a, b } = await setup();
       setStatus(core, b, 'exited');
       expect((await rec.call('prompts:queue:enqueue', enqueue(b))).error?.code).toBe('EXECUTION_NOT_RUNNING');
-      expect((await rec.call('prompts:queue:enqueue', enqueue('nao-existe'))).error?.code).toBe('INPUT_INVALID');
+      expect((await rec.call('prompts:queue:enqueue', enqueue('nao-existe'))).error?.code).toBe(
+        'INPUT_INVALID',
+      );
       expect((await rec.call('prompts:queue:enqueue', enqueue(a, { values: {} }))).error?.message).toBe(
         'Preencha a variável {{teste}} ou marque para deixar vazia.',
       );
       expect(
-        (await rec.call('prompts:queue:enqueue', enqueue(a, { body: 'x\x1b[201~', values: {} }))).error?.message,
+        (await rec.call('prompts:queue:enqueue', enqueue(a, { body: 'x\x1b[201~', values: {} }))).error
+          ?.message,
       ).toBe('O prompt contém caracteres de controle; remova-os.');
       expect((await rec.call('prompts:queue:get', a)).value).toEqual([]);
     });
@@ -294,7 +330,9 @@ describe('prompts IPC', () => {
       core.clock.advance(10 ** 12);
       await new Promise((r) => setTimeout(r, 20));
       expect(core.host.writes.filter((w) => w.execId === a).map((w) => w.data)).toEqual(['um\r']);
-      expect(((await rec.call('prompts:queue:get', a)).value as QueueItem[]).map((i) => i.text)).toEqual(['dois']);
+      expect(((await rec.call('prompts:queue:get', a)).value as QueueItem[]).map((i) => i.text)).toEqual([
+        'dois',
+      ]);
     });
 
     it('emits the discard notice when the session ends with items queued', async () => {

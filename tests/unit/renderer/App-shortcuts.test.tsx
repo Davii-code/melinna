@@ -80,7 +80,7 @@ async function setup(withSession: boolean) {
   const workspaceStore = createWorkspaceStore(api);
   const layoutStore = createLayoutStore(api);
   render(<App api={api} terminal={terminal} workspaceStore={workspaceStore} layoutStore={layoutStore} />);
-  await screen.findByRole('button', { name: 'Catálogo' });
+  await screen.findByRole('button', { name: 'Catálogo de agentes' });
   if (withSession) {
     act(() => layoutStore.open('e1'));
     await waitFor(() => expect(document.querySelector('.terminal-host')).not.toBeNull());
@@ -106,7 +106,7 @@ const ctrlShiftP = (target: EventTarget = window, init: KeyboardEventInit = {}) 
 describe('prompt library entry points', () => {
   it('opens the library from the top bar button', async () => {
     const { api } = await setup(false);
-    fireEvent.click(screen.getByRole('button', { name: 'Prompts' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Biblioteca de prompts' }));
     expect(await screen.findByRole('dialog', { name: 'Biblioteca de prompts' })).toBeTruthy();
     expect(api.prompts.list).toHaveBeenCalled();
   });

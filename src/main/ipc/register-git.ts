@@ -29,6 +29,7 @@ export type GitApi = Pick<
   | 'markResolved'
   | 'log'
   | 'commitDiff'
+  | 'fileAtHead'
 >;
 
 export interface GitIpcDeps {
@@ -54,10 +55,7 @@ export function registerGit(handle: Handle, deps: GitIpcDeps): void {
   const ops = new Map<string, AbortController>();
 
   /** Corre a operação em segundo plano: o progresso e o fim saem pelo evento `gitProgress`. */
-  const start = (
-    phase: string,
-    run: (io: GitIo) => Promise<{ conflicts?: string[] } | void>,
-  ): OpStarted => {
+  const start = (phase: string, run: (io: GitIo) => Promise<{ conflicts?: string[] } | void>): OpStarted => {
     const opId = newOpId();
     const controller = new AbortController();
     ops.set(opId, controller);
@@ -133,7 +131,9 @@ export function registerGit(handle: Handle, deps: GitIpcDeps): void {
   );
   handle(
     C.checkout,
-    handler(log, C.checkout, parse.branchConfirm, (repo, branch, confirm) => git.checkout(repo, branch, confirm)),
+    handler(log, C.checkout, parse.branchConfirm, (repo, branch, confirm) =>
+      git.checkout(repo, branch, confirm),
+    ),
   );
   handle(
     C.merge,
@@ -154,5 +154,9 @@ export function registerGit(handle: Handle, deps: GitIpcDeps): void {
   handle(
     C.commitDiff,
     handler(log, C.commitDiff, parse.commitDiff, (repo, sha, path) => git.commitDiff(repo, sha, path)),
+  );
+  handle(
+    C.fileAtHead,
+    handler(log, C.fileAtHead, parse.fileAtHead, (repo, path) => git.fileAtHead(repo, path)),
   );
 }

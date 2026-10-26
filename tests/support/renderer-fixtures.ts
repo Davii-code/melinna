@@ -1,4 +1,4 @@
-import type { AgentDefinition, Execution, RunCommand } from '../../src/shared/ipc-contract';
+import type { AgentDefinition, Execution, RunCommand, RunConfigView } from '../../src/shared/ipc-contract';
 
 export function agentDef(id: string, over: Partial<AgentDefinition> = {}): AgentDefinition {
   return {
@@ -76,6 +76,31 @@ export function runCommand(over: Partial<RunCommand> = {}): RunCommand {
     available: true,
     unavailableReason: null,
     searched: 'npm',
+    ...over,
+  };
+}
+
+/** Configuração salva disponível, ferramenta npm; `over` ajusta o que o teste precisa. */
+export function runConfig(over: Partial<RunConfigView> = {}): RunConfigView {
+  return {
+    id: 'c1',
+    groupId: 'g1',
+    name: 'dev',
+    tool: 'npm',
+    folder: '/repo',
+    script: 'dev',
+    program: 'npm',
+    args: [],
+    runtimeOptions: '',
+    env: [],
+    beforeLaunch: null,
+    allowParallel: false,
+    folderGroup: null,
+    order: 0,
+    available: true,
+    unavailableReason: null,
+    searched: 'npm',
+    running: 0,
     ...over,
   };
 }

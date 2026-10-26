@@ -85,9 +85,7 @@ describe('layout IPC', () => {
     const { rec } = await setup();
     await rec.call('layout:set', {
       mode: 'auto',
-      panes: [
-        { id: 'editor-1', kind: 'editor', docs: ['/repo/a.txt', '/fora/segredo.txt'], activeIndex: 1 },
-      ],
+      panes: [{ id: 'editor-1', kind: 'editor', docs: ['/repo/a.txt', '/fora/segredo.txt'], activeIndex: 1 }],
       focusedPaneId: 'editor-1',
       custom: { columns: [1], rows: [1], cells: {} },
     });
@@ -138,7 +136,10 @@ describe('layout IPC', () => {
       }),
     ).toBe('INPUT_INVALID');
     expect(
-      await bad({ ...layout(ids), panes: [{ id: 'vazio', kind: 'executions', execIds: [], activeIndex: 0 }] }),
+      await bad({
+        ...layout(ids),
+        panes: [{ id: 'vazio', kind: 'executions', execIds: [], activeIndex: 0 }],
+      }),
     ).toBe('INPUT_INVALID');
   });
 });

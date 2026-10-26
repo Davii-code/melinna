@@ -20,7 +20,10 @@ export function parseRemove(exists: ExecutionExists) {
     if (!isObj(opts)) throw invalid('opções de remoção');
     return [
       execId,
-      { deleteBranch: bool(opts.deleteBranch, 'apagar a branch'), force: bool(opts.force, 'remoção forçada') },
+      {
+        deleteBranch: bool(opts.deleteBranch, 'apagar a branch'),
+        force: bool(opts.force, 'remoção forçada'),
+      },
     ];
   };
 }

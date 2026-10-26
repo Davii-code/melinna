@@ -8,16 +8,19 @@ export interface TopBarProps {
   freeSlots: number;
   /** Abre o mapa de atalhos; sem isto o botão não aparece. */
   onShortcuts?: () => void;
+  /** Seletores do workspace ativo e da branch, logo depois da marca. */
+  leading?: ReactNode;
   children?: ReactNode;
 }
 
-/** Barra superior: wordmark, seletor de layout e botão de nova tarefa. */
-export function TopBar({ onNewTask, freeSlots, onShortcuts, children }: TopBarProps) {
+/** Barra superior: wordmark, workspace ativo e branch, execução e botão de nova tarefa. */
+export function TopBar({ onNewTask, freeSlots, onShortcuts, leading, children }: TopBarProps) {
   const keymap = useContext(KeymapContext);
   return (
     <header className="topbar">
       <img className="wordmark" src={wordmark} alt="melinna" height={22} />
       <span className="tagline">Um feixe entra. Seis saem.</span>
+      {leading}
       <span className="spacer" />
       {children}
       {onShortcuts && (

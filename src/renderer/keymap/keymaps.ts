@@ -1,7 +1,23 @@
 import type { KeymapId } from '../../shared/ipc-contract';
 
 export type AppAction =
-  'goToFile' | 'save' | 'closeTab' | 'toggleSidebar' | 'promptLibrary' | 'runActive' | 'stop';
+  | 'goToFile'
+  | 'save'
+  | 'closeTab'
+  | 'toggleSidebar'
+  | 'promptLibrary'
+  | 'runActive'
+  | 'stop'
+  | 'goToLine'
+  | 'goToSymbol'
+  | 'selectNextOccurrence'
+  | 'unselectLastOccurrence'
+  | 'findInProject'
+  | 'replaceInFile'
+  | 'toggleComment'
+  | 'reindent'
+  | 'reopenClosedTab'
+  | 'splitRight';
 
 export const ACTIONS: readonly AppAction[] = [
   'goToFile',
@@ -11,6 +27,27 @@ export const ACTIONS: readonly AppAction[] = [
   'promptLibrary',
   'runActive',
   'stop',
+  'goToLine',
+  'goToSymbol',
+  'selectNextOccurrence',
+  'unselectLastOccurrence',
+  'findInProject',
+  'replaceInFile',
+  'toggleComment',
+  'reindent',
+  'reopenClosedTab',
+  'splitRight',
+];
+
+/** Ações que só disparam com um editor em foco; com o terminal em foco a tecla segue ao PTY. */
+export const EDITOR_ONLY_ACTIONS: readonly AppAction[] = [
+  'goToLine',
+  'goToSymbol',
+  'selectNextOccurrence',
+  'unselectLastOccurrence',
+  'replaceInFile',
+  'toggleComment',
+  'reindent',
 ];
 
 export const ACTION_LABEL: Record<AppAction, string> = {
@@ -21,6 +58,16 @@ export const ACTION_LABEL: Record<AppAction, string> = {
   promptLibrary: 'Biblioteca de prompts',
   runActive: 'Rodar configuração ativa',
   stop: 'Parar',
+  goToLine: 'Ir para linha',
+  goToSymbol: 'Ir para símbolo',
+  selectNextOccurrence: 'Selecionar próxima ocorrência',
+  unselectLastOccurrence: 'Desfazer última ocorrência selecionada',
+  findInProject: 'Buscar no projeto',
+  replaceInFile: 'Substituir no arquivo',
+  toggleComment: 'Comentar/descomentar',
+  reindent: 'Reindentar',
+  reopenClosedTab: 'Reabrir aba fechada',
+  splitRight: 'Dividir à direita',
 };
 
 export const KEYMAP_LABEL: Record<KeymapId, string> = {
@@ -35,8 +82,8 @@ export type KeyChord = string;
 
 /**
  * Um mapa por conjunto de hábitos. Fora deles ficam as teclas do terminal (Ctrl+C/D/Z/B, setas, readline) e
- * as reservadas pelo sistema; ação sem tecla (`null`) fica só nos botões. Ctrl+Shift+F (busca no terminal)
- * segue fixo, fora dos mapas.
+ * as reservadas pelo sistema; ação sem tecla (`null`) fica só nos botões. As ações de `EDITOR_ONLY_ACTIONS` só
+ * disparam com o editor em foco: com o terminal em foco, a tecla segue ao PTY (o terminal trata Ctrl+Shift+F).
  */
 export const KEYMAPS: Record<KeymapId, Record<AppAction, KeyChord | null>> = {
   windows: {
@@ -47,6 +94,16 @@ export const KEYMAPS: Record<KeymapId, Record<AppAction, KeyChord | null>> = {
     promptLibrary: 'Mod+Shift+P',
     runActive: 'Mod+F5',
     stop: 'Shift+F5',
+    goToLine: 'Mod+G',
+    goToSymbol: 'Mod+F12',
+    selectNextOccurrence: 'Mod+D',
+    unselectLastOccurrence: 'Mod+U',
+    findInProject: 'Mod+Shift+F',
+    replaceInFile: 'Mod+H',
+    toggleComment: 'Mod+/',
+    reindent: 'Mod+Alt+I',
+    reopenClosedTab: 'Mod+Shift+T',
+    splitRight: null,
   },
   intellij: {
     goToFile: 'Mod+Shift+N',
@@ -56,6 +113,16 @@ export const KEYMAPS: Record<KeymapId, Record<AppAction, KeyChord | null>> = {
     promptLibrary: 'Mod+Shift+A',
     runActive: 'Shift+F10',
     stop: 'Mod+F2',
+    goToLine: 'Mod+G',
+    goToSymbol: 'Mod+F12',
+    selectNextOccurrence: 'Alt+J',
+    unselectLastOccurrence: 'Shift+Alt+J',
+    findInProject: 'Mod+Shift+F',
+    replaceInFile: 'Mod+R',
+    toggleComment: 'Mod+/',
+    reindent: 'Mod+Alt+I',
+    reopenClosedTab: 'Mod+Shift+T',
+    splitRight: null,
   },
   eclipse: {
     goToFile: 'Mod+Shift+R',
@@ -65,6 +132,16 @@ export const KEYMAPS: Record<KeymapId, Record<AppAction, KeyChord | null>> = {
     promptLibrary: 'Mod+Shift+L',
     runActive: 'Mod+F11',
     stop: 'Mod+F2',
+    goToLine: 'Mod+L',
+    goToSymbol: 'Mod+O',
+    selectNextOccurrence: 'Alt+J',
+    unselectLastOccurrence: 'Shift+Alt+J',
+    findInProject: 'Mod+H',
+    replaceInFile: 'Mod+F',
+    toggleComment: 'Mod+/',
+    reindent: 'Mod+I',
+    reopenClosedTab: 'Mod+Shift+T',
+    splitRight: null,
   },
   vscode: {
     goToFile: 'Mod+P',
@@ -74,6 +151,16 @@ export const KEYMAPS: Record<KeymapId, Record<AppAction, KeyChord | null>> = {
     promptLibrary: 'Mod+Shift+P',
     runActive: 'Mod+F5',
     stop: 'Shift+F5',
+    goToLine: 'Mod+G',
+    goToSymbol: 'Mod+Shift+O',
+    selectNextOccurrence: 'Mod+D',
+    unselectLastOccurrence: 'Mod+U',
+    findInProject: 'Mod+Shift+F',
+    replaceInFile: 'Mod+H',
+    toggleComment: 'Mod+/',
+    reindent: 'Mod+Alt+I',
+    reopenClosedTab: 'Mod+Shift+T',
+    splitRight: 'Mod+\\',
   },
 };
 
