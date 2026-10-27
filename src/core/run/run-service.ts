@@ -84,6 +84,7 @@ function beforeLaunchFailed(
  * ids; o programa e os argumentos são resolvidos aqui a cada lançamento.
  */
 export class RunService {
+  private readonly verificationRuns = new Map<string, { cancelled: boolean; activeId: string | null }>();
   private readonly ctx: ExecutionContext;
   private readonly detectDeps: DetectDeps;
 
@@ -164,6 +165,83 @@ export class RunService {
       }
       return this.launch(main, group, specs[chain.length - 1] as LaunchSpec, size, chain.length - 1);
     });
+  }
+
+  /** Runs saved configuration chains against the selected agent's actual files, never another checkout. */
+  async startVerification(
+    sourceExecutionId: string,
+    configId: string,
+    size: { cols: number; rows: number },
+    verificationId: string,
+    choice?: RunChoice,
+  ): Promise<RunStarted | RunNeedsConfirm> {
+    const source = this.ctx.model.execution(sourceExecutionId);
+    const task = source ? this.ctx.model.task(source.taskId) : undefined;
+    const group = task ? this.ctx.model.group(task.groupId) : undefined;
+    if (!source || !task || !group || source.command) throw stale();
+    const chain = chainOf(group.runConfigs ?? [], configId);
+    const p = pathModule(this.ctx.os);
+    const configs = chain.map((config) => {
+      const rel = p.relative(task.repoPath, config.folder);
+      const inside = rel === '' || (!rel.startsWith('..' + p.sep) && rel !== '..' && !p.isAbsolute(rel));
+      if (!inside && !(task.extraDirs ?? []).includes(config.folder))
+        throw new MelinnaError('INPUT_INVALID', {
+          userMessage: 'A configuração precisa usar uma pasta desta tarefa.',
+        });
+      const folder = inside ? p.join(source.worktreePath, rel) : config.folder;
+      const programRel = p.isAbsolute(config.program) ? p.relative(task.repoPath, config.program) : null;
+      const program =
+        programRel !== null && !programRel.startsWith('..') && !p.isAbsolute(programRel)
+          ? p.join(source.worktreePath, programRel)
+          : config.program;
+      return { ...config, folder, program };
+    });
+    const mappedGroup: Group = {
+      ...group,
+      folders: configs.map((c, i) => ({ id: 'verify-' + i, path: c.folder })),
+      primaryFolderId: 'verify-0',
+    };
+    const specs: LaunchSpec[] = [];
+    for (const config of configs) {
+      const result = await this.specOf(config, mappedGroup, choice);
+      if ('needsConfirm' in result) return result;
+      specs.push(result.spec);
+    }
+    const control = { cancelled: false, activeId: null as string | null };
+    this.verificationRuns.set(verificationId, control);
+    try {
+      let started: RunStarted | undefined;
+      for (const [index, config] of configs.entries()) {
+        if (control.cancelled)
+          throw new MelinnaError('INPUT_INVALID', { userMessage: 'Verificação cancelada.' });
+        const spec = specs[index];
+        if (!spec) throw stale();
+        assertWithinLimit(this.ctx.model.liveCount(), 1);
+        const commandTask = this.createTask({ ...config, name: 'Verificar: ' + config.name }, mappedGroup);
+        const command = this.executionCommand(config, spec);
+        command.commandId = 'workflow-verify-' + verificationId + '-' + index;
+        const exec = createCommandExecutionRecord(this.ctx, commandTask, command);
+        control.activeId = exec.id;
+        await prepareExecution(this.ctx, commandTask, exec, new Set());
+        await startExecution(this.ctx, this.ctx.model.execution(exec.id) ?? exec, size, {});
+        started = { taskId: commandTask.id, execId: exec.id, reused: false };
+        if (index < configs.length - 1) {
+          const ended = await this.waitForEnd(exec.id);
+          if (ended.cancelled || ended.exitCode !== 0)
+            throw beforeLaunchFailed(config.name, ended.cancelled ? 'cancelled' : 'exit', ended.exitCode);
+        }
+      }
+      if (!started) throw stale();
+      return started;
+    } finally {
+      this.verificationRuns.delete(verificationId);
+    }
+  }
+  async cancelVerification(verificationId: string): Promise<void> {
+    const running = this.verificationRuns.get(verificationId);
+    if (!running) return;
+    running.cancelled = true;
+    if (running.activeId) await this.stopAndWait(running.activeId);
   }
 
   /** Para (se viva) e relança a execução de comando, com a configuração resolvida de novo. */

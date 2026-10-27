@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useWorkflow } from '../workflow/use-workflow';
+import { useEffect, useMemo, useState } from 'react';
 import type {
   AgentDefinition,
   AgentPick,
@@ -20,6 +21,7 @@ export interface NewTaskDialogProps {
   detect: Record<string, DetectResult>;
   size: TermSize;
   onClose: () => void;
+  onManageProfiles?: () => void;
   onLaunched: (taskId: string, results: LaunchResult[]) => void;
 }
 
@@ -30,8 +32,24 @@ type Step = { kind: 'form' } | { kind: 'confirm-dangerous'; mode: string };
  * "Avançado", já com os padrões do agente. A pasta vira (ou reaproveita) um workspace e o agente roda
  * direto nela.
  */
-export function NewTaskDialog({ snapshot, agents, detect, size, onClose, onLaunched }: NewTaskDialogProps) {
+export function NewTaskDialog({
+  snapshot,
+  agents,
+  detect,
+  size,
+  onClose,
+  onLaunched,
+  onManageProfiles,
+}: NewTaskDialogProps) {
   const api = useApi();
+  const workflow = useWorkflow(api);
+  const [profileId, setProfileId] = useState('');
+  const [checkpointBeforeLaunch, setCheckpointBeforeLaunch] = useState(true);
+  const [checkpointTouched, setCheckpointTouched] = useState(false);
+  useEffect(() => {
+    if (workflow.loaded && !checkpointTouched)
+      setCheckpointBeforeLaunch(workflow.data.preferences.checkpointBeforeLaunch);
+  }, [workflow.loaded, workflow.data.preferences.checkpointBeforeLaunch, checkpointTouched]);
   const installed = useMemo(() => agents.filter((a) => detect[a.id]?.installed), [agents, detect]);
   const [folder, setFolder] = useState(
     () => workspacesOf(snapshot.groups)[0]?.repoPath ?? snapshot.tasks.at(-1)?.repoPath ?? '',
@@ -93,7 +111,15 @@ export function NewTaskDialog({ snapshot, agents, detect, size, onClose, onLaunc
     try {
       const ws = await unwrap(api.workspace.openWorkspace(folder.trim()));
       if (!ws.repoPath) throw new Error('O workspace aberto não tem pasta.');
-      const input = { groupId: ws.id, repoPath: ws.repoPath, baseRef: 'HEAD', prompt, picks: [p], size };
+      const input = {
+        groupId: ws.id,
+        repoPath: ws.repoPath,
+        baseRef: 'HEAD',
+        prompt,
+        picks: [p],
+        size,
+        ...(api.workflow ? { checkpointBeforeLaunch, ...(profileId ? { profileId } : {}) } : {}),
+      };
       const result = await unwrap(
         api.tasks.createAndLaunch(title.trim() ? { ...input, title: title.trim() } : input),
       );
@@ -140,6 +166,83 @@ export function NewTaskDialog({ snapshot, agents, detect, size, onClose, onLaunc
                 Escolher…
               </button>
             </div>
+            {api.workflow && (
+              <div className="profile-launch-controls">
+                <label>
+                  Perfil de uso
+                  <select
+                    aria-label="Perfil de uso"
+                    value={profileId}
+                    onChange={(e) => {
+                      setProfileId(e.target.value);
+                      const selected = workflow.data.profiles.find((p) => p.id === e.target.value);
+                      if (selected) {
+                        chooseAgent(selected.agentId);
+                        const nextAgent = installed.find((a) => a.id === selected.agentId);
+                        if (selected.model) {
+                          const known = nextAgent?.model?.options.some((m) => m.id === selected.model);
+                          setModel(known ? selected.model : CUSTOM_MODEL);
+                          setCustomModel(known ? '' : selected.model);
+                        }
+                        if (selected.permission) setPermission(selected.permission);
+                        setCheckpointBeforeLaunch(selected.checkpointBeforeLaunch);
+                        setCheckpointTouched(true);
+                      }
+                    }}
+                  >
+                    <option value="">Sem perfil</option>
+                    {workflow.data.profiles
+                      .filter(
+                        (p) =>
+                          p.groupId === null ||
+                          snapshot.groups.some(
+                            (g) =>
+                              g.id === p.groupId && g.repoPath?.toLowerCase() === folder.trim().toLowerCase(),
+                          ),
+                      )
+                      .map((p) => (
+                        <option key={p.id} value={p.id} disabled={!installed.some((a) => a.id === p.agentId)}>
+                          {p.name} · {p.agentId}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                {onManageProfiles && (
+                  <button type="button" onClick={onManageProfiles}>
+                    Gerenciar perfis
+                  </button>
+                )}
+                {profileId && (
+                  <details>
+                    <summary>Instruções que serão adicionadas ao objetivo</summary>
+                    <p style={{ whiteSpace: 'pre-wrap' }}>
+                      {workflow.data.profiles.find((p) => p.id === profileId)?.instructions}
+                    </p>
+                  </details>
+                )}
+                <label style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={checkpointBeforeLaunch}
+                    onChange={(e) => {
+                      setCheckpointBeforeLaunch(e.target.checked);
+                      setCheckpointTouched(true);
+                    }}
+                  />
+                  Criar checkpoint antes de iniciar
+                </label>
+                <p className="meta">
+                  Preserva arquivos regulares e alterações locais anteriores no escopo do projeto. O agente só
+                  inicia após a captura.
+                </p>
+                {(workflow.error || workflow.data.warning) && (
+                  <p className="warning">
+                    {workflow.error || workflow.data.warning} Para iniciar sem esses recursos, desmarque o
+                    checkpoint e escolha Sem perfil.
+                  </p>
+                )}
+              </div>
+            )}
             <label>
               Enunciado
               <textarea

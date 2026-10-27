@@ -7,6 +7,7 @@ import { resolveExtraDirs } from './prepare';
 import { deliverPromptAfterFirstOutput } from './prompt-delivery';
 
 export interface StartOptions {
+  prepareFiles?: (execution: Execution) => Promise<void>;
   resume?: boolean;
   separator?: string;
   /** Enunciado: só no primeiro lançamento. */
@@ -25,7 +26,11 @@ function terminalEnv(ctx: ExecutionContext, execId: string): Record<string, stri
 }
 
 /** Ambiente do terminal mais as variáveis e as opções do runtime da configuração salva. */
-function commandEnv(ctx: ExecutionContext, execId: string, command: ExecutionCommand): Record<string, string> {
+function commandEnv(
+  ctx: ExecutionContext,
+  execId: string,
+  command: ExecutionCommand,
+): Record<string, string> {
   return buildEnv(terminalEnv(ctx, execId), {
     tool: command.tool ?? 'program',
     env: command.env ?? [],
@@ -82,6 +87,8 @@ export async function startExecution(
       await spawnCommand(ctx, exec, exec.command, size, opts);
       return;
     }
+    await opts.prepareFiles?.(exec);
+    await ctx.beforeAgentStart?.(exec);
     // As pastas extras são as da tarefa (guardadas na criação); as que sumiram desde então ficam de fora.
     const requested = ctx.model.task(exec.taskId)?.extraDirs ?? [];
     const { dirs, unavailable } = await resolveExtraDirs(ctx, requested);

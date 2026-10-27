@@ -21,6 +21,7 @@ export interface HostProvider {
 export type { TermSize };
 
 export interface ExecutionDeps {
+  beforeAgentStart?: (execution: Execution) => Promise<void>;
   model: WorkspaceModel;
   catalog: CatalogService;
   git: GitRunner;

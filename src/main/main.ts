@@ -1,12 +1,13 @@
+import { Notification as DesktopNotification } from 'electron';
 import { randomUUID } from 'node:crypto';
-import { JsonOrchestrationStore } from '../adapters/orchestration-store';
-import { CliOrchestrationRuntime } from '../adapters/orchestration-runtime';
-import { OrchestrationService } from '../core/orchestration/orchestration-service';
-import { LocalDelegationBridge } from './orchestration/mcp-bridge';
-import { registerOrchestration } from './ipc/register-orchestration';
+import { JsonWorkflowStore } from '../adapters/workflow-store';
+import { ContentCheckpointFiles } from '../adapters/checkpoint-files';
+import { WorkflowService } from '../core/workflow/workflow-service';
+import { registerWorkflow } from './ipc/register-workflow';
+import { MelinnaError } from '../core/errors';
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Worker } from 'node:worker_threads';
@@ -175,6 +176,13 @@ async function boot(): Promise<void> {
     log: log.child('attachments'),
   });
   const executions = new ExecutionService({
+    beforeAgentStart: (execution) => {
+      if (!workflow)
+        throw new MelinnaError('INPUT_INVALID', {
+          userMessage: 'Os checkpoints ainda não foram inicializados.',
+        });
+      return workflow.beforeAgentStart(execution);
+    },
     attachments,
     model,
     catalog,
@@ -258,6 +266,125 @@ async function boot(): Promise<void> {
     .catch((err: unknown) => log.error('attachment.sweep_failed', { err }));
 
   await executions.reconcileWithHost().catch((err: unknown) => log.error('host.reconcile_failed', { err }));
+  const workflowRoot = join(app.getPath('userData'), 'workflow');
+  await fs.mkdir(workflowRoot, { recursive: true });
+  const checkpointFiles = new ContentCheckpointFiles(workflowRoot);
+  const workflow: WorkflowService = new WorkflowService({
+    store: new JsonWorkflowStore(join(workflowRoot, 'state.json')),
+    files: checkpointFiles,
+    id: randomUUID,
+    now: () => new Date().toISOString(),
+    changed: () => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(EVENTS.workflowChanged);
+    },
+    notify: (notice, desktop) => {
+      if (desktop && DesktopNotification.isSupported() && !mainWindow?.isFocused()) {
+        const notification = new DesktopNotification({ title: 'Melinna', body: notice.text });
+        notification.on('click', () => {
+          mainWindow?.show();
+          mainWindow?.focus();
+        });
+        notification.show();
+      }
+    },
+    executions: {
+      execution: (id) => model.execution(id),
+      task: (id) => model.task(id),
+      executions: () => model.raw.executions,
+      groupExists: (id) => model.group(id) !== undefined,
+      validatePick: async (pick) => {
+        await catalog.buildLaunch({
+          agentId: pick.agentId,
+          model: pick.model ?? null,
+          permission: pick.permission ?? null,
+          prompt: '',
+          resume: false,
+        });
+      },
+      launch: (taskId, pick, prompt, size, source) =>
+        executions.launch(taskId, [pick], size, {
+          prompt,
+          ...(source
+            ? {
+                prepareFiles: async (execution) => {
+                  const primary = source.folders[0];
+                  if (!primary)
+                    throw new MelinnaError('INPUT_INVALID', { userMessage: 'Checkpoint de origem vazio.' });
+                  const target = await realpath(execution.worktreePath);
+                  const same =
+                    platform.os === 'win32'
+                      ? target.toLowerCase() === primary.root.toLowerCase()
+                      : target === primary.root;
+                  if (!same) {
+                    const expected = await checkpointFiles.capture([target]);
+                    await checkpointFiles.restore(
+                      { ...source, folders: [{ root: target, files: primary.files }] },
+                      expected,
+                    );
+                  }
+                  const inherited = await checkpointFiles.capture([
+                    execution.worktreePath,
+                    ...(model.task(taskId)?.extraDirs ?? []),
+                  ]);
+                  await workflow?.registerCheckpoint(
+                    execution,
+                    inherited,
+                    'Arquivos recebidos na continuação',
+                    'handoff',
+                  );
+                },
+              }
+            : {}),
+        }),
+      stopAndWait: async (id) => {
+        await executions.stop(id);
+        const deadline = Date.now() + 10000;
+        while (Date.now() < deadline) {
+          const status = model.execution(id)?.status;
+          if (!status || !['running', 'idle', 'starting', 'preparing'].includes(status)) return;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        throw new MelinnaError('EXECUTION_RUNNING', {
+          userMessage: 'A execução ainda não parou. Aguarde antes de continuar.',
+        });
+      },
+      verify: (executionId, configId, size, verificationId, choice) =>
+        run.startVerification(executionId, configId, size, verificationId, choice),
+      cancelVerify: (id) => run.cancelVerification(id),
+      verificationLabel: (taskId, configId) => {
+        const task = model.task(taskId);
+        const config = task
+          ? model.group(task.groupId)?.runConfigs?.find((c) => c.id === configId)
+          : undefined;
+        if (!config) throw new MelinnaError('RUN_CONFIG_MISSING');
+        return config.name;
+      },
+    },
+  });
+  await workflow.load().catch((err: unknown) => log.error('workflow.load_failed', { err }));
+  const workflowService = workflow;
+  executions.onExit((event) => {
+    void workflowService
+      .executionEnded(event.execId, event.exitCode, event.signal)
+      .catch((err) => log.error('workflow.exit_failed', { err }));
+  });
+  executions.onBusy((id) => workflowService.busy(id));
+  executions.onIdle((id) => {
+    void workflowService.idle(id).catch((err) => log.error('workflow.idle_failed', { err }));
+  });
+  const workflowStatuses = new Map(model.raw.executions.map((e) => [e.id, e.status]));
+  model.subscribe(() => {
+    for (const exec of model.raw.executions) {
+      if (
+        workflowStatuses.get(exec.id) !== exec.status &&
+        (exec.status === 'failed_to_start' || exec.status === 'lost')
+      )
+        void workflowService
+          .executionProblem(exec.id)
+          .catch((err) => log.error('workflow.notice_failed', { err }));
+      workflowStatuses.set(exec.id, exec.status);
+    }
+  });
   executions.resumePendingSwitches();
   await promptQueue.resume().catch((err: unknown) => log.error('prompts.queue_resume_failed', { err }));
   const residues = await findOrphanLeases(
@@ -271,24 +398,6 @@ async function boot(): Promise<void> {
     readFile: (p) => readFile(p),
     root: rendererRoot(__dirname),
   });
-
-  const orchestrationRoot = join(app.getPath('userData'), 'orchestration');
-  await fs.mkdir(orchestrationRoot, { recursive: true });
-  const orchestrationBridge = new LocalDelegationBridge((runId, name, args) =>
-    orchestration.tool(runId, name, args),
-  );
-  const orchestration: OrchestrationService = new OrchestrationService({
-    store: new JsonOrchestrationStore(join(orchestrationRoot, 'state.json')),
-    runtime: new CliOrchestrationRuntime({ catalog, fs, platform, root: orchestrationRoot, env: baseEnv }),
-    bridge: orchestrationBridge,
-    newId: randomUUID,
-    workspace: (groupId) => model.group(groupId)?.repoPath,
-    now: () => new Date().toISOString(),
-    changed: () => {
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(EVENTS.orchestrationChanged);
-    },
-  });
-  await orchestration.load().catch((err: unknown) => log.error('orchestration.load_failed', { err }));
 
   const devUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined;
   const originOf = (url: string) => {
@@ -328,22 +437,19 @@ async function boot(): Promise<void> {
   });
 
   const closeFlow = new CloseFlow({
-    liveCount: () => executions.liveCount() + orchestration.liveCount(),
-    stopAll: async (ms) => {
-      await orchestration.shutdown();
-      await executions.stopAll(ms);
-    },
+    liveCount: () => executions.liveCount(),
+    stopAll: (ms) => executions.stopAll(ms),
     askPage: (info) => win.webContents.send(EVENTS.closeRequested, info),
     quit: () => {
-      void orchestration
-        .shutdown()
-        .catch((err: unknown) => log.error('orchestration.shutdown_failed', { err }))
-        .finally(() => bridge.closeAll())
-        .finally(() => {
-          void model.flush().finally(() => {
+      void bridge.closeAll().finally(() => {
+        void workflowService
+          .flush()
+          .catch((err) => log.error('workflow.flush_failed', { err }))
+          .finally(() => model.flush())
+          .finally(() => {
             void sink.flush().finally(() => win.destroy());
           });
-        });
+      });
     },
     log: log.child('close'),
   });
@@ -384,8 +490,9 @@ async function boot(): Promise<void> {
       return fn(...args);
     });
   };
-  registerOrchestration(handle, orchestration, log.child('orchestration'));
+  registerWorkflow(handle, workflowService, log.child('workflow'));
   registerIpc(handle, {
+    workflow: workflowService,
     catalog,
     workspace,
     executions,

@@ -28,6 +28,17 @@ export function TreeTask(props: TreeTaskProps) {
         />
         <span className="spacer" />
         <span className="tree-actions">
+          {props.onReviewTask && !isCommand && (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={'Revisar tarefa ' + task.title}
+              title="Revisar tarefa, checkpoints e continuação"
+              onClick={() => props.onReviewTask?.(task.id)}
+            >
+              ↗
+            </button>
+          )}
           {props.onAddTerminal && !isCommand && (
             <AgentMenu
               label={`Novo terminal na sessão ${task.title}`}

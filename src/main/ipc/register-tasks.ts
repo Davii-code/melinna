@@ -1,3 +1,4 @@
+import type { WorkflowService } from '../../core/workflow/workflow-service';
 import { freeSlots } from '../../core/execution/limits';
 import type { ExecutionService } from '../../core/execution/execution-service';
 import type { Logger } from '../../core/ports/logger';
@@ -8,7 +9,12 @@ import { parseAddExecution, parseCreateAndLaunch, parseGroupId, parseTaskId } fr
 
 export function registerTasks(
   handle: Handle,
-  deps: { workspace: WorkspaceService; executions: ExecutionService; log: Logger },
+  deps: {
+    workspace: WorkspaceService;
+    executions: ExecutionService;
+    log: Logger;
+    workflow?: WorkflowService;
+  },
 ): void {
   const { workspace, executions, log } = deps;
   const C = CHANNELS.tasks;
@@ -22,16 +28,28 @@ export function registerTasks(
       parseCreateAndLaunch(groupExists, () => freeSlots(executions.liveCount())),
       async (input) => {
         // O app sempre roda na pasta escolhida: o terminal vê os arquivos e o histórico do agente dela.
+        const selectedProfile = input.profileId
+          ? deps.workflow?.getProfile(input.profileId, input.groupId)
+          : null;
         const taskInput = {
           groupId: input.groupId,
           repoPath: input.repoPath,
           baseRef: input.baseRef,
-          prompt: input.prompt,
+          prompt: selectedProfile?.instructions
+            ? selectedProfile.instructions + '\n\nObjetivo do usuário:\n' + input.prompt
+            : input.prompt,
           isolation: 'direct' as const,
         };
         const task = await workspace.createTask(
           input.title !== undefined ? { ...taskInput, title: input.title } : taskInput,
         );
+        await deps.workflow?.prepareTask(task.id, {
+          objective: input.prompt,
+          ...(input.profileId ? { profileId: input.profileId } : {}),
+          ...(input.checkpointBeforeLaunch !== undefined
+            ? { checkpointBeforeLaunch: input.checkpointBeforeLaunch }
+            : {}),
+        });
         const results = await executions.launch(task.id, input.picks, input.size);
         return { taskId: task.id, results };
       },

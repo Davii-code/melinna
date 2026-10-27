@@ -110,7 +110,11 @@ export class ExecutionService {
     taskId: string,
     picks: AgentPick[],
     size: TermSize,
-    opts: { withPrompt?: boolean } = {},
+    opts: {
+      withPrompt?: boolean;
+      prompt?: string;
+      prepareFiles?: (execution: Execution) => Promise<void>;
+    } = {},
   ): Promise<LaunchResult[]> {
     const task = this.ctx.model.task(taskId);
     if (!task) throw new MelinnaError('INPUT_INVALID', { userMessage: 'Tarefa não encontrada.' });
@@ -131,12 +135,10 @@ export class ExecutionService {
       }
       const current = this.ctx.model.execution(exec.id) ?? exec;
       results.push(
-        startExecution(
-          this.ctx,
-          current,
-          size,
-          opts.withPrompt === false ? {} : { prompt: task.prompt },
-        ).then(
+        startExecution(this.ctx, current, size, {
+          ...(opts.withPrompt === false ? {} : { prompt: opts.prompt ?? task.prompt }),
+          ...(opts.prepareFiles ? { prepareFiles: opts.prepareFiles } : {}),
+        }).then(
           (): LaunchResult => ({ execId: exec.id, agentId: exec.agentId, ok: true }),
           (err: unknown): LaunchResult => ({
             execId: exec.id,

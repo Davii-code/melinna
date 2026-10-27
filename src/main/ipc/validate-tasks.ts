@@ -35,6 +35,11 @@ export function parseCreateAndLaunch(groupExists: (id: string) => boolean, freeS
       picks,
       size: termSize(v.size),
     };
+    if (v.profileId !== undefined) input.profileId = str(v.profileId, 'perfil', 1, 100);
+    if (v.checkpointBeforeLaunch !== undefined) {
+      if (typeof v.checkpointBeforeLaunch !== 'boolean') throw invalid('checkpoint');
+      input.checkpointBeforeLaunch = v.checkpointBeforeLaunch;
+    }
     const title = optStr(v.title, 'título', LIMITS.taskTitle);
     if (title !== undefined && title.length > 0) input.title = title;
     return [input];

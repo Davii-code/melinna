@@ -3,6 +3,7 @@ import type { AgentDefinition, Execution, Group, QueueItem, Task } from '../../.
 import { TreeGroup } from './TreeGroup';
 
 export interface TreeActions {
+  onReviewTask?: (taskId: string) => void;
   onOpen: (execId: string) => void;
   onStop: (execId: string) => void;
   onRelaunch: (execId: string) => void;

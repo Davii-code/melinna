@@ -1,4 +1,5 @@
-import { OrchestrationWorkspace } from './components/Orchestration/OrchestrationWorkspace';
+import { TaskWorkflowDialog, type WorkflowTab } from './components/Workflow/TaskWorkflowDialog';
+import { useWorkflow } from './workflow/use-workflow';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import type {
   AgentDefinition,
@@ -160,6 +161,11 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const layout = useLayout(layoutStore);
   const [catalog, reloadCatalog] = useCatalog(api);
   const [showNewTask, setShowNewTask] = useState(false);
+  const workflowState = useWorkflow(api);
+  const [workflowDialog, setWorkflowDialog] = useState<{
+    executionId: string | null;
+    tab: WorkflowTab;
+  } | null>(null);
   const [closeAsk, setCloseAsk] = useState<{ liveCount: number } | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [stopping, setStopping] = useState<string[]>([]);
@@ -173,7 +179,6 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   /** Mensagem de sucesso (prompt enviado, por exemplo). */
   const [info, setInfo] = useState<string | null>(null);
   const [showPrompts, setShowPrompts] = useState(false);
-  const [showTeams, setShowTeams] = useState(false);
   /** Prompt em uso (`null` = texto avulso); o diálogo de uso substitui a biblioteca. */
   const [usingPrompt, setUsingPrompt] = useState<{ prompt: Prompt | null } | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
@@ -674,9 +679,17 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                   }}
                   onShortcuts={() => setShowKeymap(true)}
                 >
-                  {api.orchestration && (
-                    <button type="button" aria-pressed={showTeams} onClick={() => setShowTeams(true)}>
-                      Equipes
+                  {api.workflow && (
+                    <button
+                      type="button"
+                      onClick={() => setWorkflowDialog({ executionId: focusedExecId, tab: 'review' })}
+                    >
+                      Revisão
+                      {workflowState.data.notices.some((n) => !n.read) && (
+                        <span className="workflow-badge">
+                          {workflowState.data.notices.filter((n) => !n.read).length}
+                        </span>
+                      )}
                     </button>
                   )}
                   <label className="layout-control">
@@ -720,14 +733,23 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                     Início
                   </button>
                 </TopBar>
-                {api.orchestration && (
-                  <OrchestrationWorkspace
-                    api={api.orchestration}
-                    open={showTeams}
-                    onClose={() => setShowTeams(false)}
-                    groups={snapshot?.groups ?? []}
-                    activeGroupId={activeGroup?.id ?? null}
-                    agents={catalog.agents}
+                {api.workflow && workflowDialog && snapshot && (
+                  <TaskWorkflowDialog
+                    api={api}
+                    workflow={api.workflow}
+                    workspace={snapshot}
+                    agents={catalog.agents.filter(
+                      (a) => a.kind === 'agent' && catalog.detect[a.id]?.installed,
+                    )}
+                    executionId={workflowDialog.executionId}
+                    initialTab={workflowDialog.tab}
+                    onClose={() => setWorkflowDialog(null)}
+                    onOpenExecution={(id) => {
+                      layoutStore.open(id);
+                      setShowHome(false);
+                      setEditorFocus(false);
+                      setWorkflowDialog(null);
+                    }}
                   />
                 )}
                 {layoutStore.getSaveError() && (
@@ -848,6 +870,18 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                           onClearQueue={(execId) => void promptQueues.clear(execId)}
                           onDismissDiscarded={promptQueues.dismissDiscarded}
                           execTools={execTools}
+                          {...(api.workflow
+                            ? {
+                                onReviewTask: (taskId: string) =>
+                                  setWorkflowDialog({
+                                    executionId:
+                                      snapshot.executions
+                                        .filter((e) => e.taskId === taskId && !e.command)
+                                        .at(-1)?.id ?? null,
+                                    tab: 'review' as const,
+                                  }),
+                              }
+                            : {})}
                           stoppingIds={stopping}
                           launchable={launchable}
                           folderAvailability={snapshot.folderAvailability}
@@ -1054,6 +1088,9 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                     agents={catalog.agents}
                     detect={catalog.detect}
                     size={DEFAULT_TERM_SIZE}
+                    onManageProfiles={() =>
+                      setWorkflowDialog({ executionId: focusedExecId, tab: 'profiles' })
+                    }
                     onClose={() => setShowNewTask(false)}
                     onLaunched={onLaunched}
                   />

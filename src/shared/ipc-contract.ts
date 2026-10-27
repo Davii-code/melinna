@@ -1,4 +1,4 @@
-import type { OrchestrationApi } from './orchestration-api';
+import type { WorkflowApi } from './workflow-api';
 // Contrato da API `window.melinna` (contracts/ipc.md). Só tipos e constantes: compartilhado por main, preload e renderer.
 import type {
   AgentPick,
@@ -158,6 +158,8 @@ export type Result<T> = { ok: true; value: T } | { ok: false; error: ResultError
 export type Unsubscribe = () => void;
 
 export interface CreateAndLaunchInput {
+  profileId?: string;
+  checkpointBeforeLaunch?: boolean;
   groupId: string;
   repoPath: string;
   baseRef: string;
@@ -173,8 +175,7 @@ export { KEYMAP_IDS };
 export type { ActiveRunRef, KeymapId, Preferences };
 
 export interface MelinnaApi {
-  /** Optional only for legacy integrations/test doubles. Production preload always provides it. */
-  orchestration?: OrchestrationApi;
+  workflow?: WorkflowApi;
   catalog: {
     list(): Promise<Result<{ agents: AgentDefinition[]; invalid: CatalogIssue[] }>>;
     detectAll(): Promise<Result<Record<string, DetectResult>>>;
@@ -346,18 +347,22 @@ export interface MelinnaApi {
 
 /** Canais de `ipcRenderer.invoke`, por método da API. */
 export const CHANNELS = {
-  orchestration: {
-    snapshot: 'orchestration:snapshot',
-    saveTeam: 'orchestration:saveTeam',
-    removeTeam: 'orchestration:removeTeam',
-    preflight: 'orchestration:preflight',
-    start: 'orchestration:start',
-    message: 'orchestration:message',
-    control: 'orchestration:control',
-    cancelJob: 'orchestration:cancelJob',
-    retryJob: 'orchestration:retryJob',
-    patch: 'orchestration:patch',
-    applyPatch: 'orchestration:applyPatch',
+  workflow: {
+    snapshot: 'workflow:snapshot',
+    saveProfile: 'workflow:saveProfile',
+    removeProfile: 'workflow:removeProfile',
+    preferences: 'workflow:preferences',
+    review: 'workflow:review',
+    saveNotes: 'workflow:saveNotes',
+    checkpoint: 'workflow:checkpoint',
+    diff: 'workflow:diff',
+    previewRestore: 'workflow:previewRestore',
+    restore: 'workflow:restore',
+    draftHandoff: 'workflow:draftHandoff',
+    handoff: 'workflow:handoff',
+    verify: 'workflow:verify',
+    cancelVerification: 'workflow:cancelVerification',
+    markRead: 'workflow:markRead',
   },
   catalog: { list: 'catalog:list', detectAll: 'catalog:detectAll' },
   workspace: {
@@ -459,7 +464,7 @@ export const CHANNELS = {
 
 /** Eventos do principal para a página (`webContents.send` / `postMessage`). */
 export const EVENTS = {
-  orchestrationChanged: 'orchestration:changed',
+  workflowChanged: 'workflow:changed',
   workspaceChanged: 'workspace:changed',
   promptsChanged: 'prompts:changed',
   gitProgress: 'git:progress',

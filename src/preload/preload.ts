@@ -31,9 +31,9 @@ function subscribe<T>(event: string, fn: (payload: T) => void): Unsubscribe {
 
 export function buildApi(): MelinnaApi {
   return {
-    orchestration: {
-      ...group(CHANNELS.orchestration),
-      onChange: (fn) => subscribe<undefined>(EVENTS.orchestrationChanged, () => fn()),
+    workflow: {
+      ...group(CHANNELS.workflow),
+      onChange: (fn) => subscribe<undefined>(EVENTS.workflowChanged, () => fn()),
     },
     catalog: group(CHANNELS.catalog),
     workspace: {
@@ -56,7 +56,7 @@ export function buildApi(): MelinnaApi {
     prompts: {
       ...group(CHANNELS.prompts),
       queue: group(CHANNELS.promptQueue),
-      onChange: (fn) => subscribe<undefined>(EVENTS.promptsChanged, () => fn()),
+      onChange: (fn) => subscribe<void>(EVENTS.promptsChanged, () => fn()),
       onQueueDiscarded: (fn) => subscribe(EVENTS.queueDiscarded, fn),
     },
     run: group(CHANNELS.run),

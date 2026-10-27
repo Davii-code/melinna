@@ -26,6 +26,24 @@ beforeEach(async () => {
 });
 
 const CONTRACT = {
+  workflow: [
+    'cancelVerification',
+    'checkpoint',
+    'diff',
+    'draftHandoff',
+    'handoff',
+    'markRead',
+    'onChange',
+    'preferences',
+    'previewRestore',
+    'removeProfile',
+    'restore',
+    'review',
+    'saveNotes',
+    'saveProfile',
+    'snapshot',
+    'verify',
+  ],
   catalog: ['detectAll', 'list'],
   workspace: [
     'cleanResidue',
@@ -75,20 +93,6 @@ const CONTRACT = {
     'pull',
     'push',
     'status',
-  ],
-  orchestration: [
-    'applyPatch',
-    'cancelJob',
-    'control',
-    'message',
-    'onChange',
-    'patch',
-    'preflight',
-    'removeTeam',
-    'retryJob',
-    'saveTeam',
-    'snapshot',
-    'start',
   ],
   attachments: ['checkFiles', 'clipboardHasImage', 'pasteImage', 'pickImages', 'send'],
   prompts: [

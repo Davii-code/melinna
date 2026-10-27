@@ -1,3 +1,4 @@
+import type { WorkflowService } from '../../core/workflow/workflow-service';
 import type { AttachmentService } from '../../core/attachments/attachment-service';
 import type { CatalogService } from '../../core/catalog/catalog-service';
 import type { ExecutionService } from '../../core/execution/execution-service';
@@ -36,6 +37,7 @@ import type { Handle } from './result';
 import type { TerminalBridge } from './terminal-ports';
 
 export interface IpcServices {
+  workflow?: WorkflowService;
   catalog: CatalogService;
   workspace: WorkspaceService;
   executions: ExecutionService;
@@ -77,7 +79,12 @@ export function registerIpc(handle: Handle, s: IpcServices): void {
     pickRepository: s.pickRepository,
     pickFolders: s.pickFolders,
   });
-  registerTasks(handle, { workspace: s.workspace, executions: s.executions, log: s.log });
+  registerTasks(handle, {
+    workspace: s.workspace,
+    executions: s.executions,
+    log: s.log,
+    ...(s.workflow ? { workflow: s.workflow } : {}),
+  });
   registerLifecycle(handle, { executions: s.executions, model: s.model, log: s.log });
   registerDiff(handle, { diff: s.diff, executions: s.executions, model: s.model, log: s.log });
   registerSwitch(handle, { executions: s.executions, model: s.model, log: s.log });
