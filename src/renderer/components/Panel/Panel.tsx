@@ -26,7 +26,7 @@ function carriesFiles(e: DragEvent<HTMLElement>): boolean {
 /**
  * Painel de uma execução: só o terminal, sem cabeçalho. Agente, estado, modelo, modo e fechar ficam na
  * linha da execução na árvore. Imagens chegam por Ctrl+V, por arquivos soltos no painel ou pelo botão de
- * anexar; todas passam pela mesma prévia antes de a referência ir para o prompt.
+ * anexar. Colar e soltar inserem diretamente; o botão de anexar mantém a prévia.
  */
 export function Panel(p: PanelProps) {
   const api = useApi();
@@ -47,11 +47,25 @@ export function Panel(p: PanelProps) {
   };
 
   /** Mostra a prévia (ou o aviso de erro) do resultado de uma das origens de imagem. */
-  const attempt = async (action: () => Promise<ImageCheck | null>) => {
+  const attempt = async (action: () => Promise<ImageCheck | null>, direct = false) => {
     setNotice(null);
     try {
       const result = await action();
-      if (result && result.accepted.length + result.rejected.length > 0) setCheck(result);
+      if (!result) return;
+      if (!direct) {
+        if (result.accepted.length + result.rejected.length > 0) setCheck(result);
+        return;
+      }
+      if (result.accepted.length > 0) {
+        await unwrap(
+          api.attachments.send(
+            execId,
+            result.accepted.map((image) => image.path),
+          ),
+        );
+        handle.current?.term.focus();
+      }
+      if (result.rejected.length > 0) setNotice(result.rejected.map((file) => file.reason).join(' '));
     } catch (err) {
       setNotice(errorMessage(err));
     }
@@ -65,22 +79,28 @@ export function Panel(p: PanelProps) {
       }
       const image = await unwrap(api.attachments.pasteImage(execId));
       return { accepted: [image], rejected: [] };
-    });
+    }, true);
 
-  const dropFiles = (files: File[]) =>
-    attempt(async () => {
-      if (!supportsImages) {
-        setNotice(NO_IMAGES_NOTICE);
-        return null;
-      }
-      const paths = files.map((file) => api.files.pathOf(file)).filter((path) => path.length > 0);
-      if (paths.length === 0) return null;
-      if (paths.length > MAX_DROPPED_FILES) {
-        setNotice(`Envie até ${MAX_DROPPED_FILES} imagens por vez.`);
-        return null;
-      }
-      return unwrap(api.attachments.checkFiles(execId, paths));
-    });
+  const dropFiles = async (files: File[]) => {
+    setNotice(null);
+    try {
+      if (!live) throw new Error('A execução não está rodando.');
+      const paths = files.map((file) => api.files.pathOf(file)).filter(Boolean);
+      if (paths.length === 0) return;
+      if (paths.length > MAX_DROPPED_FILES)
+        throw new Error(`Envie até ${MAX_DROPPED_FILES} arquivos por vez.`);
+      // Caminhos são texto no prompt, sem Enter nem caracteres de controle.
+      if (paths.some((path) => /[\u0000-\u001f\u007f-\u009f]/.test(path)))
+        throw new Error('O caminho contém caracteres que não podem ir para o terminal.');
+      const text =
+        paths.map((path) => (/[\s"]/.test(path) ? '"' + path.replaceAll('"', '\\"') + '"' : path)).join(' ') +
+        ' ';
+      if (!handle.current?.pasteText?.(text)) throw new Error('Aguarde a conexão do terminal.');
+      handle.current.term.focus();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : errorMessage(err));
+    }
+  };
 
   const pickImages = () => attempt(() => unwrap(api.attachments.pickImages(execId)));
 

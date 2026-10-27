@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiContext } from '../../../src/renderer/api';
 import { TerminalDepsContext, type TerminalDeps } from '../../../src/renderer/components/TerminalView';
 import { Panel } from '../../../src/renderer/components/Panel/Panel';
@@ -51,14 +51,20 @@ afterEach(() => {
   delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
 });
 
-const WITH_IMAGES: AgentDefinition = agentDef('claude', { images: { template: '{path}', quote: 'when-needed' } });
+const WITH_IMAGES: AgentDefinition = agentDef('claude', {
+  images: { template: '{path}', quote: 'when-needed' },
+});
 const WITHOUT_IMAGES: AgentDefinition = shellDef('bash', 'Bash');
 
-function setup(agent: AgentDefinition | null = WITH_IMAGES, exec: Execution = execution('e1', { status: 'running' })) {
+function setup(
+  agent: AgentDefinition | null = WITH_IMAGES,
+  exec: Execution = execution('e1', { status: 'running' }),
+) {
   const api = fakeApi();
   const term = new FakeTerm();
+  const port = { postMessage: vi.fn(), start() {}, close() {}, onmessage: null };
   const receiver: PortReceiver = {
-    expect: () => ({ take: () => new Promise<MessagePort>(() => undefined), cancel: () => undefined }),
+    expect: () => ({ take: () => Promise.resolve(port as unknown as MessagePort), cancel: () => undefined }),
     dispose: () => undefined,
   };
   const deps: TerminalDeps = { factory: () => term, receiver, observeResize: () => () => undefined };
@@ -73,7 +79,7 @@ function setup(agent: AgentDefinition | null = WITH_IMAGES, exec: Execution = ex
   const drop = (files: { name: string }[], types: string[] = ['Files']) =>
     fireEvent.drop(panel(), { dataTransfer: { types, files } });
   const pressCtrlV = () => term.keyHandler?.(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true }));
-  return { api, term, view, panel, drop, pressCtrlV };
+  return { api, term, port, view, panel, drop, pressCtrlV };
 }
 
 const OK_CHECK: ImageCheck = {
@@ -82,38 +88,33 @@ const OK_CHECK: ImageCheck = {
 };
 
 describe('Panel — arquivos soltos', () => {
-  it('resolves each dropped file with files.pathOf and checks them in the main process', async () => {
-    const { api, drop } = setup();
-    api.attachments.checkFiles.mockImplementation(() => okR(OK_CHECK));
+  it('inserts image and ordinary file paths directly without a preview or Enter', async () => {
+    const { api, drop, port } = setup();
+    await tick();
     drop([{ name: 'foto.png' }, { name: 'doc.pdf' }]);
-    const dialog = await screen.findByRole('dialog', { name: 'Anexar imagem' });
     expect(api.files.pathOf).toHaveBeenCalledTimes(2);
-    expect(api.attachments.checkFiles).toHaveBeenCalledWith('e1', ['/soltos/foto.png', '/soltos/doc.pdf']);
-    expect(within(dialog).getByRole('img', { name: 'foto.png' })).toBeTruthy();
-    expect(within(dialog).getByText('doc.pdf')).toBeTruthy();
-    expect(within(dialog).getByText('Formato não aceito: use PNG, JPEG, GIF ou WebP.')).toBeTruthy();
+    expect(api.attachments.checkFiles).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(port.postMessage).toHaveBeenCalledWith({
+      type: 'input',
+      bytes: new TextEncoder().encode('/soltos/foto.png /soltos/doc.pdf '),
+    });
   });
 
-  it('sends the accepted files when the user confirms, and never before', async () => {
-    const { api, drop } = setup();
-    api.attachments.checkFiles.mockImplementation(() => okR(OK_CHECK));
-    drop([{ name: 'foto.png' }, { name: 'doc.pdf' }]);
-    await screen.findByRole('dialog', { name: 'Anexar imagem' });
-    expect(api.attachments.send).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
-    await waitFor(() => expect(api.attachments.send).toHaveBeenCalledWith('e1', ['/soltos/foto.png']));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-  });
-
-  it('shows only the rejected files when none of the dropped files is an image', async () => {
-    const { api, drop } = setup();
-    api.attachments.checkFiles.mockImplementation(() =>
-      okR<ImageCheck>({ accepted: [], rejected: OK_CHECK.rejected }),
-    );
-    drop([{ name: 'doc.pdf' }]);
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('doc.pdf')).toBeTruthy();
-    expect(within(dialog).queryByRole('button', { name: 'Enviar' })).toBeNull();
+  it('quotes paths containing spaces and refuses control characters', async () => {
+    const { api, drop, port } = setup();
+    await tick();
+    api.files.pathOf.mockReturnValueOnce('C:/My Files/a.txt');
+    drop([{ name: 'a.txt' }]);
+    expect(port.postMessage).toHaveBeenCalledWith({
+      type: 'input',
+      bytes: new TextEncoder().encode('"C:/My Files/a.txt" '),
+    });
+    port.postMessage.mockClear();
+    api.files.pathOf.mockReturnValueOnce('bad\npath');
+    drop([{ name: 'bad' }]);
+    expect(port.postMessage).not.toHaveBeenCalled();
+    expect((await screen.findByRole('status')).textContent).toContain('caracteres');
   });
 
   it('ignores a drop that carries no files (dragged text)', async () => {
@@ -135,21 +136,17 @@ describe('Panel — arquivos soltos', () => {
   it('refuses more than 20 files with a notice and checks nothing', async () => {
     const { api, drop } = setup();
     drop(Array.from({ length: 21 }, (_, i) => ({ name: `f${i}.png` })));
-    expect((await screen.findByRole('status')).textContent).toMatch(/Envie até 20 imagens por vez\./);
+    expect((await screen.findByRole('status')).textContent).toMatch(/Envie até 20 arquivos por vez\./);
     expect(api.attachments.checkFiles).not.toHaveBeenCalled();
   });
 
-  it('shows the error from the main process as a notice', async () => {
-    const { api, drop } = setup();
-    api.attachments.checkFiles.mockImplementation(() =>
-      Promise.resolve({
-        ok: false as const,
-        error: { code: 'EXECUTION_NOT_RUNNING' as const, message: 'A execução não está rodando.' },
-      }),
-    );
+  it('refuses dropped files after the execution ends', async () => {
+    const { drop, port } = setup(WITH_IMAGES, execution('e1', { status: 'exited' }));
+    await tick();
+    port.postMessage.mockClear();
     drop([{ name: 'foto.png' }]);
-    expect((await screen.findByRole('status')).textContent).toMatch(/A execução não está rodando\./);
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect((await screen.findByRole('status')).textContent).toContain('não está rodando');
+    expect(port.postMessage).not.toHaveBeenCalled();
   });
 });
 
@@ -183,14 +180,14 @@ describe('Panel — botão Anexar imagem', () => {
 });
 
 describe('Panel — Ctrl+V', () => {
-  it('pastes the clipboard image into a preview of that execution', async () => {
-    const { api, pressCtrlV } = setup();
+  it('inserts the clipboard image directly without confirmation', async () => {
+    const { api, pressCtrlV, term } = setup();
     api.attachments.clipboardHasImage.mockImplementation(() => okR(true));
     await tick();
     pressCtrlV();
-    await screen.findByRole('dialog', { name: 'Anexar imagem' });
-    expect(api.attachments.pasteImage).toHaveBeenCalledWith('e1');
-    expect(screen.getByRole('img', { name: '1-1.png' })).toBeTruthy();
+    await waitFor(() => expect(api.attachments.send).toHaveBeenCalledWith('e1', ['/data/attachments/e1/1-1.png']));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(term.focused).toBeGreaterThan(0);
   });
 
   it('does not open anything when the clipboard has text', async () => {
@@ -202,15 +199,17 @@ describe('Panel — Ctrl+V', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('cancelling the preview closes it and sends nothing', async () => {
+  it('shows a send failure without opening a modal', async () => {
     const { api, pressCtrlV } = setup();
     api.attachments.clipboardHasImage.mockImplementation(() => okR(true));
+    api.attachments.send.mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'EXECUTION_NOT_RUNNING', message: 'A execução terminou.' },
+    });
     await tick();
     pressCtrlV();
-    await screen.findByRole('dialog');
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect((await screen.findByRole('status')).textContent).toContain('A execução terminou.');
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(api.attachments.send).not.toHaveBeenCalled();
   });
 });
 
@@ -226,27 +225,19 @@ describe('Panel — agente sem suporte a imagens', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('warns on a dropped image and also on a dropped file that is not an image', async () => {
-    const { api, drop } = setup(WITHOUT_IMAGES);
-    drop([{ name: 'foto.png' }]);
-    expect((await screen.findByRole('status')).textContent).toMatch(/Este agente não recebe imagens\./);
-    fireEvent.click(screen.getByRole('button', { name: 'Dispensar aviso' }));
-    expect(screen.queryByRole('status')).toBeNull();
+  it('inserts dropped paths even for agents without image attachment support', async () => {
+    const { drop, port } = setup(WITHOUT_IMAGES);
+    await tick();
     drop([{ name: 'planilha.xlsx' }]);
-    expect((await screen.findByRole('status')).textContent).toMatch(/Este agente não recebe imagens\./);
-    expect(api.attachments.checkFiles).not.toHaveBeenCalled();
-    expect(api.attachments.send).not.toHaveBeenCalled();
+    expect(port.postMessage).toHaveBeenCalledWith({
+      type: 'input',
+      bytes: new TextEncoder().encode('/soltos/planilha.xlsx '),
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('has no attach button', () => {
     setup(WITHOUT_IMAGES);
     expect(screen.queryByRole('button', { name: 'Anexar imagem' })).toBeNull();
-  });
-
-  it('an agent that is not in the catalog (undefined) is treated as unsupported', async () => {
-    const { api, drop } = setup(null);
-    drop([{ name: 'foto.png' }]);
-    expect((await screen.findByRole('status')).textContent).toMatch(/Este agente não recebe imagens\./);
-    expect(api.attachments.checkFiles).not.toHaveBeenCalled();
   });
 });

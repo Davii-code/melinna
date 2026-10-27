@@ -20,6 +20,8 @@ export const TerminalDepsContext = createContext<TerminalDeps | null>(null);
 export interface TerminalHandle {
   term: TerminalLike;
   refit(): void;
+  /** Insere texto pelo canal de entrada existente, sem Enter. */
+  pasteText?(text: string): boolean;
 }
 
 export interface TerminalViewProps {
@@ -184,7 +186,15 @@ export function TerminalView({
         p.start();
         lastSize = { cols: 0, rows: 0 };
         refit();
-        callbacks.current.onReady?.({ term, refit: () => refitRef.current() });
+        callbacks.current.onReady?.({
+          term,
+          refit: () => refitRef.current(),
+          pasteText: (text) => {
+            if (!port || replaying) return false;
+            sendInput(text, false);
+            return true;
+          },
+        });
       } catch {
         term.write('\x1b[31mNão foi possível conectar o terminal.\x1b[0m\r\n');
       }
