@@ -1,3 +1,4 @@
+import { OrchestrationWorkspace } from './components/Orchestration/OrchestrationWorkspace';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import type {
   AgentDefinition,
@@ -172,6 +173,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   /** Mensagem de sucesso (prompt enviado, por exemplo). */
   const [info, setInfo] = useState<string | null>(null);
   const [showPrompts, setShowPrompts] = useState(false);
+  const [showTeams, setShowTeams] = useState(false);
   /** Prompt em uso (`null` = texto avulso); o diálogo de uso substitui a biblioteca. */
   const [usingPrompt, setUsingPrompt] = useState<{ prompt: Prompt | null } | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
@@ -672,6 +674,11 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                   }}
                   onShortcuts={() => setShowKeymap(true)}
                 >
+                  {api.orchestration && (
+                    <button type="button" aria-pressed={showTeams} onClick={() => setShowTeams(true)}>
+                      Equipes
+                    </button>
+                  )}
                   <label className="layout-control">
                     <span className="sr-only">Modo de layout</span>
                     <select
@@ -713,6 +720,16 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                     Início
                   </button>
                 </TopBar>
+                {api.orchestration && (
+                  <OrchestrationWorkspace
+                    api={api.orchestration}
+                    open={showTeams}
+                    onClose={() => setShowTeams(false)}
+                    groups={snapshot?.groups ?? []}
+                    activeGroupId={activeGroup?.id ?? null}
+                    agents={catalog.agents}
+                  />
+                )}
                 {layoutStore.getSaveError() && (
                   <div className="panel-banner error" role="alert">
                     Layout não salvo: {layoutStore.getSaveError()}

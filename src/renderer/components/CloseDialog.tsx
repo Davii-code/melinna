@@ -25,6 +25,10 @@ export function CloseDialog({ liveCount, onAnswer }: CloseDialogProps) {
           {liveCount === 1 ? 'Há 1 execução viva.' : `Há ${liveCount} execuções vivas.`} Os agentes podem
           continuar rodando em segundo plano e os painéis voltam com o histórico quando você reabrir o app.
         </p>
+        <p className="meta">
+          Equipes de orquestração são interrompidas ao fechar e ficam disponíveis para retomada. A opção de
+          segundo plano se aplica aos terminais interativos.
+        </p>
         <div className="actions">
           <button type="button" onClick={() => onAnswer('cancel')}>
             Cancelar

@@ -15,6 +15,7 @@ function within(target: EventTarget | null, selector: string): boolean {
  * evento não é tocado. Ações do app (arquivo, barra lateral, rodar…) valem com qualquer foco.
  */
 function appliesAt(action: AppAction, target: EventTarget | null): boolean {
+  if (within(target, '[data-shortcut-scope="orchestration"]')) return false;
   if (action === 'toggleEditorFocus' && within(target, '[role="dialog"], [role="alertdialog"]')) return false;
   if (EDITOR_ONLY_ACTIONS.includes(action)) return within(target, '.cm-editor');
   if (NOT_IN_TERMINAL.includes(action)) return !within(target, '.xterm');

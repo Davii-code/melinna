@@ -1,3 +1,9 @@
+import { randomUUID } from 'node:crypto';
+import { JsonOrchestrationStore } from '../adapters/orchestration-store';
+import { CliOrchestrationRuntime } from '../adapters/orchestration-runtime';
+import { OrchestrationService } from '../core/orchestration/orchestration-service';
+import { LocalDelegationBridge } from './orchestration/mcp-bridge';
+import { registerOrchestration } from './ipc/register-orchestration';
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
@@ -266,6 +272,24 @@ async function boot(): Promise<void> {
     root: rendererRoot(__dirname),
   });
 
+  const orchestrationRoot = join(app.getPath('userData'), 'orchestration');
+  await fs.mkdir(orchestrationRoot, { recursive: true });
+  const orchestrationBridge = new LocalDelegationBridge((runId, name, args) =>
+    orchestration.tool(runId, name, args),
+  );
+  const orchestration: OrchestrationService = new OrchestrationService({
+    store: new JsonOrchestrationStore(join(orchestrationRoot, 'state.json')),
+    runtime: new CliOrchestrationRuntime({ catalog, fs, platform, root: orchestrationRoot, env: baseEnv }),
+    bridge: orchestrationBridge,
+    newId: randomUUID,
+    workspace: (groupId) => model.group(groupId)?.repoPath,
+    now: () => new Date().toISOString(),
+    changed: () => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(EVENTS.orchestrationChanged);
+    },
+  });
+  await orchestration.load().catch((err: unknown) => log.error('orchestration.load_failed', { err }));
+
   const devUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined;
   const originOf = (url: string) => {
     const u = new URL(url);
@@ -304,15 +328,22 @@ async function boot(): Promise<void> {
   });
 
   const closeFlow = new CloseFlow({
-    liveCount: () => executions.liveCount(),
-    stopAll: (ms) => executions.stopAll(ms),
+    liveCount: () => executions.liveCount() + orchestration.liveCount(),
+    stopAll: async (ms) => {
+      await orchestration.shutdown();
+      await executions.stopAll(ms);
+    },
     askPage: (info) => win.webContents.send(EVENTS.closeRequested, info),
     quit: () => {
-      void bridge.closeAll().finally(() => {
-        void model.flush().finally(() => {
-          void sink.flush().finally(() => win.destroy());
+      void orchestration
+        .shutdown()
+        .catch((err: unknown) => log.error('orchestration.shutdown_failed', { err }))
+        .finally(() => bridge.closeAll())
+        .finally(() => {
+          void model.flush().finally(() => {
+            void sink.flush().finally(() => win.destroy());
+          });
         });
-      });
     },
     log: log.child('close'),
   });
@@ -353,6 +384,7 @@ async function boot(): Promise<void> {
       return fn(...args);
     });
   };
+  registerOrchestration(handle, orchestration, log.child('orchestration'));
   registerIpc(handle, {
     catalog,
     workspace,

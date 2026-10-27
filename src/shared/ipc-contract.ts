@@ -1,3 +1,4 @@
+import type { OrchestrationApi } from './orchestration-api';
 // Contrato da API `window.melinna` (contracts/ipc.md). Só tipos e constantes: compartilhado por main, preload e renderer.
 import type {
   AgentPick,
@@ -172,6 +173,8 @@ export { KEYMAP_IDS };
 export type { ActiveRunRef, KeymapId, Preferences };
 
 export interface MelinnaApi {
+  /** Optional only for legacy integrations/test doubles. Production preload always provides it. */
+  orchestration?: OrchestrationApi;
   catalog: {
     list(): Promise<Result<{ agents: AgentDefinition[]; invalid: CatalogIssue[] }>>;
     detectAll(): Promise<Result<Record<string, DetectResult>>>;
@@ -343,6 +346,19 @@ export interface MelinnaApi {
 
 /** Canais de `ipcRenderer.invoke`, por método da API. */
 export const CHANNELS = {
+  orchestration: {
+    snapshot: 'orchestration:snapshot',
+    saveTeam: 'orchestration:saveTeam',
+    removeTeam: 'orchestration:removeTeam',
+    preflight: 'orchestration:preflight',
+    start: 'orchestration:start',
+    message: 'orchestration:message',
+    control: 'orchestration:control',
+    cancelJob: 'orchestration:cancelJob',
+    retryJob: 'orchestration:retryJob',
+    patch: 'orchestration:patch',
+    applyPatch: 'orchestration:applyPatch',
+  },
   catalog: { list: 'catalog:list', detectAll: 'catalog:detectAll' },
   workspace: {
     snapshot: 'workspace:snapshot',
@@ -443,6 +459,7 @@ export const CHANNELS = {
 
 /** Eventos do principal para a página (`webContents.send` / `postMessage`). */
 export const EVENTS = {
+  orchestrationChanged: 'orchestration:changed',
   workspaceChanged: 'workspace:changed',
   promptsChanged: 'prompts:changed',
   gitProgress: 'git:progress',
