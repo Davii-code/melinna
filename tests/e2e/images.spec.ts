@@ -37,14 +37,23 @@ test('attach a PNG to the fake agent, send it and see the path echoed', async ()
   writeFileSync(png, PNG_1X1);
   // Soltar arquivo de verdade não é reproduzível pelo Playwright (o caminho real vem do Electron) e o
   // diálogo nativo não é dirigível: o principal devolve o arquivo escolhido.
-  await app.app.evaluate(({ dialog }, files) => {
-    dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: files })) as typeof dialog.showOpenDialog;
-  }, [png]);
+  await app.app.evaluate(
+    ({ dialog }, files) => {
+      dialog.showOpenDialog = (async () => ({
+        canceled: false,
+        filePaths: files,
+      })) as typeof dialog.showOpenDialog;
+    },
+    [png],
+  );
 
   await page.getByRole('button', { name: 'Nova tarefa' }).click();
   await page.getByLabel('Pasta').fill(repo.root);
-  await page.getByLabel('Agente').selectOption('fake');
-  await page.getByRole('button', { name: 'Lançar' }).click();
+  await page
+    .getByRole('dialog', { name: 'Nova tarefa' })
+    .getByRole('combobox', { name: /^Agente/ })
+    .selectOption('fake');
+  await page.getByRole('button', { name: 'Lançar', exact: true }).click();
   await expect(page.locator('section.panel')).toHaveCount(1);
   await waitFor(() => Object.values(scrollbackText(userData)).some((t) => t.includes('pronto')));
 

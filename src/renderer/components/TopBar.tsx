@@ -1,6 +1,7 @@
 import { useContext, type ReactNode } from 'react';
 import { KeymapContext } from '../keymap/keymap-store';
 import { KEYMAP_LABEL } from '../keymap/keymaps';
+import avatar from '../../../docs/brand/avatar.jpg?url';
 import wordmark from '../../../docs/brand/logo-wordmark.svg?url';
 
 export interface TopBarProps {
@@ -18,6 +19,7 @@ export function TopBar({ onNewTask, freeSlots, onShortcuts, leading, children }:
   const keymap = useContext(KeymapContext);
   return (
     <header className="topbar">
+      <img className="brand-avatar" src={avatar} alt="" />
       <img className="wordmark" src={wordmark} alt="melinna" height={22} />
       <span className="tagline">Um feixe entra. Seis saem.</span>
       {leading}

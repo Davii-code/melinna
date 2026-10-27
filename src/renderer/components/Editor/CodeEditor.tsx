@@ -97,22 +97,47 @@ export const darkHighlightStyle = HighlightStyle.define([
 const appTheme = EditorView.theme(
   {
     '&': { backgroundColor: 'var(--field)', color: 'var(--text)', height: '100%' },
-    '.cm-content': { fontFamily: 'var(--font-mono)', fontSize: '12.5px', caretColor: 'var(--accent)' },
+    '.cm-content': {
+      fontFamily: 'var(--font-mono)',
+      fontSize: 'var(--editor-font-size)',
+      caretColor: 'var(--accent)',
+      padding: '12px 0',
+      lineHeight: '1.65',
+    },
+    '.cm-scroller': { fontFamily: 'var(--font-mono)', lineHeight: '1.65', overflow: 'auto' },
+    '.cm-line': { padding: '0 16px' },
+    '.cm-gutterElement': { padding: '0 10px 0 16px' },
+    '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--core)' },
+    '.cm-panels': { backgroundColor: 'var(--surface-raised)', color: 'var(--text)' },
+    '.cm-searchMatch': { backgroundColor: 'var(--search-match)', outline: '1px solid var(--border-strong)' },
+    '.cm-searchMatch-selected': { backgroundColor: 'var(--selection)' },
+    '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
+      backgroundColor: 'var(--selection)',
+    },
     '.cm-gutters': {
       backgroundColor: 'var(--field)',
       color: 'var(--prism)',
       border: 'none',
       borderRight: '1px solid var(--border-weak)',
     },
-    '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
+    '.cm-activeLine': { backgroundColor: 'var(--active-line)' },
     '.cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.03)' },
     '&.cm-focused': { outline: 'none' },
-    '.cm-selectionBackground, ::selection': { backgroundColor: 'rgba(79,140,255,0.28)' },
+    '.cm-selectionBackground, ::selection': { backgroundColor: 'var(--selection)' },
   },
   { dark: true },
 );
 
+export interface EditorStatus {
+  line: number;
+  column: number;
+  cursors: number;
+  selected: number;
+}
+
 export interface CodeEditorProps {
+  active?: boolean;
+  onStatus?: (status: EditorStatus) => void;
   /** Painel dono do editor; os comandos do app (ir para linha, comentar…) chegam a ele por este id. */
   paneId?: string;
   /** Trocar de arquivo recria o editor com o conteúdo daquele arquivo. */
@@ -124,11 +149,20 @@ export interface CodeEditorProps {
   gitBase?: string | null;
 }
 
-export function CodeEditor({ paneId, path, value, onChange, onSave, gitBase = null }: CodeEditorProps) {
+export function CodeEditor({
+  paneId,
+  path,
+  value,
+  onChange,
+  onSave,
+  gitBase = null,
+  active = true,
+  onStatus,
+}: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const callbacks = useRef({ onChange, onSave });
-  callbacks.current = { onChange, onSave };
+  const callbacks = useRef({ onChange, onSave, onStatus });
+  callbacks.current = { onChange, onSave, onStatus };
   const [openChange, setOpenChange] = useState<LineChange | null>(null);
   const [tooLarge, setTooLarge] = useState(false);
 
@@ -174,6 +208,16 @@ export function CodeEditor({ paneId, path, value, onChange, onSave, gitBase = nu
           gitGutter({ onOpen: (change) => setOpenChange(change) }),
           sharedDoc(path),
           EditorView.updateListener.of((update) => {
+            if (update.selectionSet || update.docChanged) {
+              const main = update.state.selection.main;
+              const line = update.state.doc.lineAt(main.head);
+              callbacks.current.onStatus?.({
+                line: line.number,
+                column: main.head - line.from + 1,
+                cursors: update.state.selection.ranges.length,
+                selected: update.state.selection.ranges.reduce((n, r) => n + r.to - r.from, 0),
+              });
+            }
             if (update.docChanged) callbacks.current.onChange(update.state.doc.toString());
             const before = update.startState.field(gitGutterState).changes;
             const after = update.state.field(gitGutterState).changes;
@@ -183,20 +227,29 @@ export function CodeEditor({ paneId, path, value, onChange, onSave, gitBase = nu
       }),
     });
     viewRef.current = view;
-    const controller = createEditorController(view);
-    const unregister = paneId === undefined ? undefined : registerEditorController(paneId, controller);
-    const stopReveal = onReveal(path, (r) => controller.revealMatch(r.line, r.column, r.length));
     const stopShared = registerSharedView(path, view);
     return () => {
       stopShared();
-      stopReveal();
-      unregister?.();
       viewRef.current = null;
       setOpenChange(null);
       view.destroy();
     };
     // `value` entra só na criação: quem recria ao trocar de arquivo é o `path`.
   }, [path, paneId]);
+
+  // Inactive tabs remain mounted, but only the active tab owns panel commands and reveal/focus.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !active) return;
+    const controller = createEditorController(view);
+    const unregister = paneId === undefined ? undefined : registerEditorController(paneId, controller);
+    const stopReveal = onReveal(path, (r) => controller.revealMatch(r.line, r.column, r.length));
+    view.requestMeasure();
+    return () => {
+      unregister?.();
+      stopReveal();
+    };
+  }, [active, path, paneId]);
 
   // A base do git chega depois (é lida do repositório) e muda a cada commit: vai como efeito ao editor.
   useEffect(() => {

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import type { Pane } from '../../../shared/ipc-contract';
+import type { FileRoot, Pane } from '../../../shared/ipc-contract';
 import { useApi } from '../../api';
-import { registerEditorSaver } from '../../keymap/editor-save';
+import { registerEditorCloser, registerEditorSaver } from '../../keymap/editor-save';
 import { useShortcutLabel, withShortcut } from '../../keymap/keymap-store';
-import { CodeEditor, type CodeEditorProps } from './CodeEditor';
+import { CodeEditor, type CodeEditorProps, type EditorStatus } from './CodeEditor';
 import { useClosedCount, useDrafts, useEditorSession, type ClosedTab } from './editor-session';
 import { useGitBase } from './use-git-base';
 
@@ -13,6 +13,9 @@ export type SplitDirection = 'right' | 'down';
 
 export interface EditorPaneProps {
   pane: EditorPaneModel;
+  roots?: readonly FileRoot[];
+  editorFocus?: boolean;
+  onToggleFocus?: () => void;
   focused: boolean;
   onFocus(): void;
   onSelect(index: number): void;
@@ -43,6 +46,9 @@ interface PendingClose {
 /** Painel de editor: uma aba por arquivo, texto em memória e salvamento com checagem de hash. */
 export function EditorPane({
   pane,
+  roots = [],
+  editorFocus = false,
+  onToggleFocus,
   focused,
   onFocus,
   onSelect,
@@ -57,11 +63,13 @@ export function EditorPane({
   const closedCount = useClosedCount(session);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [positions, setPositions] = useState<Record<string, EditorStatus>>({});
   const [menu, setMenu] = useState<Menu>(null);
   const [pending, setPending] = useState<PendingClose | null>(null);
 
   const activePath = pane.docs[Math.min(pane.activeIndex, pane.docs.length - 1)] ?? null;
   const saveShortcut = useShortcutLabel('save');
+  const useFocusShortcut = useShortcutLabel('toggleEditorFocus');
   const gitBase = useGitBase(activePath);
 
   // Diz à sessão quais arquivos este painel mostra: fechar uma aba cujo arquivo aparece em outro painel
@@ -176,6 +184,12 @@ export function EditorPane({
     closeTab(path, pane.docs.indexOf(path));
   };
 
+  const closeActive = useRef<() => void>(() => undefined);
+  closeActive.current = () => {
+    if (activePath !== null) requestClose(activePath);
+  };
+  useEffect(() => registerEditorCloser(pane.id, () => closeActive.current()), [pane.id]);
+
   /** Fecha várias abas; se alguma tem alteração não salva, uma pergunta só decide por todas. */
   const closeMany = (paths: string[]) => {
     const dirty = paths.filter((p) => drafts[p]?.dirty === true && !session.panes.holds(p, pane.id));
@@ -216,16 +230,25 @@ export function EditorPane({
     }
   };
 
+  const normalized = activePath?.replace(/\\/g, '/') ?? '';
+  const root = [...roots]
+    .sort((a, b) => b.path.length - a.path.length)
+    .find((r) =>
+      normalized.toLowerCase().startsWith(r.path.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase() + '/'),
+    );
+  const relativePath = root ? normalized.slice(root.path.replace(/\/$/, '').length + 1) : normalized;
+  const position = activePath ? positions[activePath] : undefined;
   const tabMenuPath = menu?.kind === 'tab' ? menu.path : null;
 
   return (
     <section
       className={`editor-pane${focused ? ' focused' : ''}`}
       onMouseDown={onFocus}
+      onFocus={onFocus}
       data-testid={`editor-pane-${pane.id}`}
       aria-label="Editor de arquivos"
     >
-      <div className="editor-tabs" role="tablist" aria-label="Arquivos abertos">
+      <div draggable className="editor-tabs" role="tablist" aria-label="Arquivos abertos">
         {pane.docs.map((path, index) => {
           const draft = drafts[path];
           const active = index === pane.activeIndex;
@@ -268,6 +291,17 @@ export function EditorPane({
           );
         })}
         <span className="spacer" />
+        {onToggleFocus && (
+          <button
+            type="button"
+            className="editor-focus"
+            aria-pressed={editorFocus}
+            title={withShortcut('Editor em Foco', useFocusShortcut)}
+            onClick={onToggleFocus}
+          >
+            {editorFocus ? 'Restaurar' : 'Expandir'}
+          </button>
+        )}
         {activePath !== null ? (
           <button
             type="button"
@@ -291,6 +325,23 @@ export function EditorPane({
         </button>
       </div>
 
+      {activePath && (
+        <nav className="editor-breadcrumbs" aria-label="Caminho do arquivo" title={activePath}>
+          {relativePath
+            .split('/')
+            .filter(Boolean)
+            .map((part, i, parts) => (
+              <span key={i} className={i === parts.length - 1 ? 'breadcrumb-current' : ''}>
+                {i > 0 && (
+                  <span className="breadcrumb-separator" aria-hidden="true">
+                    ›
+                  </span>
+                )}
+                {part}
+              </span>
+            ))}
+        </nav>
+      )}
       {tabMenuPath !== null && (
         <ul className="agent-menu-list editor-menu" role="menu" aria-label="Menu da aba" onKeyDown={menuKey}>
           <li role="none">
@@ -413,20 +464,44 @@ export function EditorPane({
       ) : null}
 
       <div className="editor-body">
-        {activePath === null ? null : drafts[activePath] === undefined ? (
+        {activePath !== null && drafts[activePath] === undefined && (
           <p className="editor-loading">Abrindo {fileName(activePath)}…</p>
-        ) : (
-          (renderEditor ?? ((props) => <CodeEditor {...props} />))({
-            paneId: pane.id,
-            path: activePath,
-            value: drafts[activePath].text,
-            onChange: (text) => change(activePath, text),
-            onSave: () => void save(activePath),
-            gitBase,
-          })
+        )}
+        {pane.docs.map((path) =>
+          drafts[path] === undefined ? null : (
+            <div
+              key={path}
+              className={'editor-document' + (path === activePath ? '' : ' editor-document-hidden')}
+              inert={path !== activePath || undefined}
+              aria-hidden={path !== activePath || undefined}
+            >
+              {(renderEditor ?? ((props) => <CodeEditor {...props} />))({
+                paneId: pane.id,
+                path,
+                active: path === activePath,
+                value: drafts[path].text,
+                onChange: (text) => change(path, text),
+                onSave: () => void save(path),
+                gitBase: path === activePath ? gitBase : null,
+                onStatus: (status) => setPositions((old) => ({ ...old, [path]: status })),
+              })}
+            </div>
+          ),
         )}
       </div>
 
+      <footer className="editor-status" aria-label="Status do editor">
+        <span>
+          {saving ? 'Salvando…' : activePath && drafts[activePath]?.dirty ? 'Alterações não salvas' : 'Salvo'}
+        </span>
+        <span className="spacer" />
+        <span>
+          Ln {position?.line ?? 1}, Col {position?.column ?? 1}
+        </span>
+        {(position?.cursors ?? 1) > 1 && <span>{position?.cursors} cursores</span>}
+        {(position?.selected ?? 0) > 0 && <span>{position?.selected} selecionados</span>}
+        <span>{activePath?.split('.').pop()?.toUpperCase() ?? 'Texto'}</span>
+      </footer>
       {pending !== null && (
         <div className="modal-backdrop" role="presentation">
           <div

@@ -1,9 +1,10 @@
-import { cpSync, mkdtempSync, readFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { MelinnaApi } from '../../src/shared/ipc-contract';
 import { expect, test } from '@playwright/test';
 import { removeDirRecursive } from '../support/temp-dirs';
-import { cleanup, launchApp, makeUserData, waitFor, type E2eApp } from './harness';
+import { cleanup, expectTerminalText, launchApp, makeUserData, waitFor, type E2eApp } from './harness';
 
 const NODE_APP = join(__dirname, '..', 'fixtures', 'projects', 'node-app');
 
@@ -12,7 +13,7 @@ let userData: string;
 let app: E2eApp;
 
 test.beforeEach(async () => {
-  project = mkdtempSync(join(tmpdir(), 'melinna-runcfg-'));
+  project = realpathSync.native(mkdtempSync(join(tmpdir(), 'melinna-runcfg-')));
   cpSync(NODE_APP, project, { recursive: true });
   userData = makeUserData();
   app = await launchApp(userData);
@@ -118,19 +119,23 @@ test('run the saved config with PORT=4000 and see the port in the terminal', asy
   await dialog.getByRole('button', { name: 'Rodar' }).click();
 
   await expect(page.locator('section.panel')).toHaveCount(1);
-  await expect(page.locator('section.panel .xterm-rows')).toContainText('PORT=4000');
+  await expectTerminalText(page, page.locator('section.panel'), 'PORT=4000');
 });
 
 test('the selector lists only the saved configs, not the detected scripts', async () => {
   const { page } = app;
   await openProjectWorkspace();
   await selectorButton().click();
-  await expect(page.getByText('Nenhuma configuração')).toBeVisible();
-  await expect(page.getByRole('option')).toHaveCount(0);
+  await expect(page.getByText('Nenhuma configuração', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('listbox', { name: 'Configurações de execução' }).getByRole('option'),
+  ).toHaveCount(0);
   await page.keyboard.press('Escape');
   await addFromDetected('dev');
   await selectorButton().click();
-  await expect(page.getByRole('option')).toHaveCount(1);
+  await expect(
+    page.getByRole('listbox', { name: 'Configurações de execução' }).getByRole('option'),
+  ).toHaveCount(1);
 });
 
 test('a "Antes de lançar" step that fails keeps the main config from launching', async () => {
@@ -148,6 +153,12 @@ test('a "Antes de lançar" step that fails keeps the main config from launching'
   await page.getByRole('button', { name: 'Rodar', exact: true }).click();
   await expect(page.getByText(/terminou com código 1/)).toBeVisible();
   // só a etapa foi lançada: a principal ("servidor de exemplo no ar") nunca roda
-  await expect(page.locator('section.panel')).toHaveCount(1);
-  await expect(page.locator('section.panel .xterm-rows')).not.toContainText('servidor de exemplo no ar');
+  const state = await page.evaluate(() =>
+    (window as unknown as { melinna: MelinnaApi }).melinna.workspace.snapshot(),
+  );
+  expect(state.ok).toBe(true);
+  if (state.ok) {
+    expect(state.value.executions.some((e) => e.command?.label === 'fail')).toBe(true);
+    expect(state.value.executions.some((e) => e.command?.label === 'dev')).toBe(false);
+  }
 });

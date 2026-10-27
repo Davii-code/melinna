@@ -12,12 +12,15 @@ const BRANCHES: Branch[] = [
   { name: 'origin/so-no-remoto', kind: 'remote', current: false },
 ];
 
-function setup(statuses: Record<string, Partial<RepoStatus>> = { '/repo': {} }, roots = Object.keys(statuses)) {
+function setup(
+  statuses: Record<string, Partial<RepoStatus>> = { '/repo': {} },
+  roots = Object.keys(statuses),
+) {
   const api = fakeApi();
   api.git.branches.mockImplementation(() => okR(BRANCHES));
   const onConflicts = vi.fn();
   const view = renderWithGit(<BranchMenu onConflicts={onConflicts} />, { api, roots, statuses });
-  return { api, onConflicts, ...view };
+  return { ...view, onConflicts };
 }
 
 const trigger = () => screen.findByRole('button', { name: /^Branch / });
@@ -43,7 +46,16 @@ describe('BranchMenu button', () => {
   });
 
   it('says the HEAD is detached', async () => {
-    setup({ '/repo': { branch: null, state: 'detached', head: 'abcdef1234567890', upstream: null, ahead: null, behind: null } });
+    setup({
+      '/repo': {
+        branch: null,
+        state: 'detached',
+        head: 'abcdef1234567890',
+        upstream: null,
+        ahead: null,
+        behind: null,
+      },
+    });
     expect((await trigger()).getAttribute('aria-label')).toBe('Branch HEAD solto em abcdef1');
   });
 
@@ -76,7 +88,10 @@ describe('BranchMenu button', () => {
 
 describe('BranchMenu per repo', () => {
   it('lists each repo with branch and ahead/behind', async () => {
-    setup({ '/a': { branch: 'main', ahead: 1, behind: 0 }, '/b': { branch: 'dev', upstream: null, ahead: null, behind: null } });
+    setup({
+      '/a': { branch: 'main', ahead: 1, behind: 0 },
+      '/b': { branch: 'dev', upstream: null, ahead: null, behind: null },
+    });
     const menu = await open();
     const a = within(menu).getByRole('group', { name: 'a' });
     expect(a.textContent).toContain('main');
@@ -119,7 +134,9 @@ describe('BranchMenu per repo', () => {
 
   it('merges into the current branch, confirming when dirty', async () => {
     const { api } = setup();
-    api.git.merge.mockImplementationOnce(() => okR<never>({ needsConfirm: 'merge-dirty', details: {} } as never));
+    api.git.merge.mockImplementationOnce(() =>
+      okR<never>({ needsConfirm: 'merge-dirty', details: {} } as never),
+    );
     await open();
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Mesclar feature/login na atual' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Continuar' }));
@@ -152,7 +169,10 @@ describe('BranchMenu per repo', () => {
   it('shows the error of git when creating fails', async () => {
     const { api } = setup();
     api.git.createBranch.mockImplementationOnce(() =>
-      Promise.resolve({ ok: false as const, error: { code: 'GIT_FAILED' as const, message: 'A branch já existe.' } }),
+      Promise.resolve({
+        ok: false as const,
+        error: { code: 'GIT_FAILED' as const, message: 'A branch já existe.' },
+      }),
     );
     await open();
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Nova branch…' }));
@@ -166,7 +186,10 @@ describe('BranchMenu per repo', () => {
     await open();
     const swap = await screen.findByRole('menuitem', { name: 'Trocar para feature/login' });
     expect((swap as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('menuitem', { name: 'Mesclar feature/login na atual' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole('menuitem', { name: 'Mesclar feature/login na atual' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
     expect((screen.getByRole('menuitem', { name: 'Pull' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/Rebase em andamento.*conclua fora do app/)).toBeTruthy();
   });

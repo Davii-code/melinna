@@ -15,13 +15,14 @@ function within(target: EventTarget | null, selector: string): boolean {
  * evento não é tocado. Ações do app (arquivo, barra lateral, rodar…) valem com qualquer foco.
  */
 function appliesAt(action: AppAction, target: EventTarget | null): boolean {
+  if (action === 'toggleEditorFocus' && within(target, '[role="dialog"], [role="alertdialog"]')) return false;
   if (EDITOR_ONLY_ACTIONS.includes(action)) return within(target, '.cm-editor');
   if (NOT_IN_TERMINAL.includes(action)) return !within(target, '.xterm');
   return true;
 }
 
 /** `false` = a ação não se aplica agora (ex.: salvar sem editor em foco): a tecla segue para quem estava em foco. */
-export type ShortcutHandlers = Partial<Record<AppAction, () => boolean | void>>;
+export type ShortcutHandlers = Partial<Record<AppAction, (() => boolean) | (() => void)>>;
 
 /**
  * Um único ouvinte de teclado, em fase de captura na janela: roda antes do xterm e do editor, então o

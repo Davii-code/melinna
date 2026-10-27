@@ -1,8 +1,8 @@
-import { cpSync, mkdtempSync } from 'node:fs';
+import { cpSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { cleanup, launchApp, makeUserData, type E2eApp } from './harness';
+import { cleanup, expectTerminalText, launchApp, makeUserData, type E2eApp } from './harness';
 import { removeDirRecursive } from '../support/temp-dirs';
 
 const NODE_APP = join(__dirname, '..', 'fixtures', 'projects', 'node-app');
@@ -12,7 +12,7 @@ let userData: string;
 let app: E2eApp;
 
 test.beforeEach(async () => {
-  project = mkdtempSync(join(tmpdir(), 'melinna-run-'));
+  project = realpathSync.native(mkdtempSync(join(tmpdir(), 'melinna-run-')));
   cpSync(NODE_APP, project, { recursive: true });
   userData = makeUserData();
   app = await launchApp(userData);
@@ -62,7 +62,7 @@ test('choose "dev" of the node-app, run it and see the output', async () => {
   await expect(play).toBeEnabled();
   await play.click();
   await expect(page.locator('section.panel')).toHaveCount(1);
-  await expect(page.locator('section.panel .xterm-rows')).toContainText('servidor de exemplo no ar');
+  await expectTerminalText(page, page.locator('section.panel'), 'servidor de exemplo no ar');
   await expect(page.getByTestId('run-running')).toBeVisible();
 
   // pelo menu: rodar de novo e parar

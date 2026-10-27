@@ -25,8 +25,11 @@ test('create a prompt with a variable and send it to two sessions of the fake ag
   for (let i = 0; i < 2; i++) {
     await page.getByRole('button', { name: 'Nova tarefa' }).click();
     await page.getByLabel('Pasta').fill(repo.root);
-    await page.getByLabel('Agente').selectOption('fake');
-    await page.getByRole('button', { name: 'Lançar' }).click();
+    await page
+      .getByRole('dialog', { name: 'Nova tarefa' })
+      .getByRole('combobox', { name: /^Agente/ })
+      .selectOption('fake');
+    await page.getByRole('button', { name: 'Lançar', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Nova tarefa' })).toHaveCount(0);
   }
   await expect(page.locator('section.panel')).toHaveCount(2);

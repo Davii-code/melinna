@@ -1,0 +1,1 @@
+Electron: parallel PTY, development geometry, focus, stable mounts, unsaved draft, split editor, protected custom layout, divider keyboard, saved file and session reopen passed.

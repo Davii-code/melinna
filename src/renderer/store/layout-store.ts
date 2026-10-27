@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { gridFor, hasRoomFor } from '../../core/layout/custom';
 import { paneOfExecution, paneWithoutTab, type Pane } from '../../core/layout/panes';
+import { defaultRegions, regionGrid, splitRegion } from '../../core/layout/regions';
 import { reorder, swapCells } from '../../core/layout/reorder';
 import type { CustomGrid, LayoutMode, LayoutState, MelinnaApi } from '../../shared/ipc-contract';
 
@@ -9,6 +10,7 @@ const SAVE_DEBOUNCE_MS = 200;
 
 export interface LayoutStore {
   get(): LayoutState;
+  getSaveError(): string | null;
   subscribe(fn: () => void): () => void;
   load(): Promise<LayoutState>;
   /** Abre (ou foca) a execução; a primeira de um painel dá o id do painel. */
@@ -37,6 +39,7 @@ export interface LayoutStore {
   setMode(mode: LayoutMode): void;
   /** Grava as proporções da grade personalizada. */
   setCustom(grid: CustomGrid): void;
+  setRegions(regions: NonNullable<LayoutState['regions']>): void;
   /** Arrastar e soltar: move o painel para a posição do alvo (troca de células na grade personalizada). */
   reorder(fromId: string, toId: string): void;
   /** Foco no próximo (1) ou anterior (-1) painel aberto, em ciclo. */
@@ -96,13 +99,27 @@ export function createLayoutStore(
   const listeners = new Set<() => void>();
   let cancel: (() => void) | null = null;
   let saving: Promise<void> = Promise.resolve();
+  let saveError: string | null = null;
 
   const save = () => {
     cancel = null;
     const snapshot = state;
-    saving = saving.then(async () => {
-      await api.layout.set(snapshot);
-    });
+    saving = saving
+      .catch(() => undefined)
+      .then(async () => {
+        let nextError: string | null = null;
+        try {
+          const result = await api.layout.set(snapshot);
+          if (!result.ok) nextError = result.error.message;
+        } catch (err) {
+          nextError = err instanceof Error ? err.message : 'Não foi possível salvar o layout.';
+        }
+        if (saveError !== nextError) {
+          saveError = nextError;
+          state = { ...state };
+          for (const fn of listeners) fn();
+        }
+      });
   };
   const update = (next: LayoutState) => {
     if (next === state) return;
@@ -135,6 +152,7 @@ export function createLayoutStore(
 
   return {
     get: () => state,
+    getSaveError: () => saveError,
     subscribe(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);
@@ -142,9 +160,7 @@ export function createLayoutStore(
     async load() {
       const r = await api.layout.get();
       if (r.ok) {
-        // Sem seletor de modo na interface, o layout é sempre o automático redimensionável: um modo
-        // salvo antes (spotlight, sidebar, personalizado) deixaria os painéis sem divisórias.
-        state = { ...r.value, mode: 'auto' };
+        state = r.value;
         for (const fn of listeners) fn();
       }
       return state;
@@ -167,6 +183,9 @@ export function createLayoutStore(
       update(withPanes({ ...state, focusedPaneId: execId }, panes));
     },
     openDoc(path) {
+      if (state.mode === 'auto' || state.mode === 'terminals') {
+        state = { ...state, mode: state.panes.some((p) => p.kind === 'executions') ? 'development' : 'auto' };
+      }
       const holder = state.panes.find((pane) => pane.kind === 'editor' && pane.docs.includes(path));
       if (holder) {
         update({
@@ -233,7 +252,22 @@ export function createLayoutStore(
       const created: Pane = { id: nextPaneId(state, 'editor'), kind: 'editor', docs: [path], activeIndex: 0 };
       const panes = [...state.panes];
       panes.splice(direction === 'right' ? at + 1 : panes.length, 0, created);
-      update(withPanes({ ...state, focusedPaneId: created.id }, panes));
+      const regions = state.regions ?? defaultRegions();
+      const editors = regionGrid(
+        regions.editors,
+        state.panes.filter((p) => p.kind === 'editor').map((p) => p.id),
+      );
+      update(
+        withPanes(
+          {
+            ...state,
+            focusedPaneId: created.id,
+            mode: state.mode === 'auto' ? 'development' : state.mode,
+            regions: { ...regions, editors: splitRegion(editors, paneId, created.id, direction) },
+          },
+          panes,
+        ),
+      );
     },
     openDocAt(paneId, path, index) {
       const pane = state.panes.find((p) => p.id === paneId);
@@ -259,12 +293,32 @@ export function createLayoutStore(
       if (state.mode === mode) return;
       const ids = paneIds(state);
       const needsGrid = mode === 'custom' && !hasRoomFor(state.custom, ids);
-      update({ ...state, mode, ...(needsGrid ? { custom: gridFor(ids) } : {}) });
+      const focusedPaneId =
+        mode === 'terminals' && state.panes.find((p) => p.id === state.focusedPaneId)?.kind === 'editor'
+          ? (state.panes.find((p) => p.kind === 'executions')?.id ?? null)
+          : state.focusedPaneId;
+      update({ ...state, mode, focusedPaneId, ...(needsGrid ? { custom: gridFor(ids) } : {}) });
     },
     setCustom(grid) {
       update({ ...state, custom: grid });
     },
+    setRegions(regions) {
+      update({ ...state, regions });
+    },
     reorder(fromId, toId) {
+      if (state.mode === 'development' || state.mode === 'terminals') {
+        const from = state.panes.find((p) => p.id === fromId);
+        const to = state.panes.find((p) => p.id === toId);
+        if (!from || !to || from.kind !== to.kind) return;
+        const key = from.kind === 'editor' ? 'editors' : 'terminals';
+        const regions = state.regions ?? defaultRegions();
+        const grid = regionGrid(
+          regions[key],
+          state.panes.filter((p) => p.kind === from.kind).map((p) => p.id),
+        );
+        update({ ...state, regions: { ...regions, [key]: swapCells(grid, fromId, toId) } });
+        return;
+      }
       if (fromId === toId) return;
       if (state.mode === 'custom') {
         update({ ...state, custom: swapCells(state.custom, fromId, toId) });
@@ -296,7 +350,12 @@ export function createLayoutStore(
         }
         const execIds = pane.execIds.filter((id) => known.has(id));
         if (execIds.length === 0) continue;
-        panes.push({ ...pane, execIds, activeIndex: Math.min(pane.activeIndex, execIds.length - 1) });
+        const activeIndex = Math.min(pane.activeIndex, execIds.length - 1);
+        panes.push(
+          execIds.length === pane.execIds.length && activeIndex === pane.activeIndex
+            ? pane
+            : { ...pane, execIds, activeIndex },
+        );
       }
       if (panes.length === state.panes.length && panes.every((p, i) => p === state.panes[i])) return;
       update(withPanes(state, panes));

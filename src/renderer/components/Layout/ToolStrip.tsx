@@ -17,7 +17,17 @@ export interface ToolStripProps {
 const BADGE_MAX = 99;
 
 const svg = (children: ReactNode) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.7"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
     {children}
   </svg>
 );
@@ -59,7 +69,15 @@ const PANELS: { id: SidebarPanel; label: string }[] = [
 ];
 
 /** Barra de ferramentas vertical: escolhe o painel lateral; embaixo, a biblioteca de prompts e o catálogo. */
-export function ToolStrip({ panel, collapsed, changes, onSelect, onPrompts, onCatalog, promptsTitle }: ToolStripProps) {
+export function ToolStrip({
+  panel,
+  collapsed,
+  changes,
+  onSelect,
+  onPrompts,
+  onCatalog,
+  promptsTitle,
+}: ToolStripProps) {
   return (
     <nav className="tool-strip" aria-label="Barra de ferramentas">
       <div className="tool-strip-top">
@@ -74,6 +92,9 @@ export function ToolStrip({ panel, collapsed, changes, onSelect, onPrompts, onCa
             onClick={() => onSelect(p.id)}
           >
             {ICONS[p.id]}
+            <span className="tool-strip-label">
+              {p.id === 'workspaces' ? 'Projetos' : p.id === 'files' ? 'Arquivos' : 'Git'}
+            </span>
             {p.id === 'commit' && changes > 0 && (
               <span className="tool-strip-badge" data-testid="commit-badge">
                 {changes > BADGE_MAX ? `${BADGE_MAX}+` : changes}
@@ -83,11 +104,25 @@ export function ToolStrip({ panel, collapsed, changes, onSelect, onPrompts, onCa
         ))}
       </div>
       <div className="tool-strip-bottom">
-        <button type="button" className="tool-strip-button" aria-label="Biblioteca de prompts" title={promptsTitle ?? 'Biblioteca de prompts'} onClick={onPrompts}>
+        <button
+          type="button"
+          className="tool-strip-button"
+          aria-label="Biblioteca de prompts"
+          title={promptsTitle ?? 'Biblioteca de prompts'}
+          onClick={onPrompts}
+        >
           {ICONS.prompts}
+          <span className="tool-strip-label">Prompts</span>
         </button>
-        <button type="button" className="tool-strip-button" aria-label="Catálogo de agentes" title="Catálogo de agentes" onClick={onCatalog}>
+        <button
+          type="button"
+          className="tool-strip-button"
+          aria-label="Catálogo de agentes"
+          title="Catálogo de agentes"
+          onClick={onCatalog}
+        >
           {ICONS.catalog}
+          <span className="tool-strip-label">Agentes</span>
         </button>
       </div>
     </nav>

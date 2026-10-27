@@ -12,7 +12,7 @@ export interface ExecutionTabsProps {
 /** Faixa de abas de um painel com mais de uma execução; uma aba por PTY. */
 export function ExecutionTabs({ execs, activeIndex, agentOf, onSelect, onCloseTab }: ExecutionTabsProps) {
   return (
-    <div className="exec-tabs" role="tablist" aria-label="Execuções do painel">
+    <div draggable className="exec-tabs" role="tablist" aria-label="Execuções do painel">
       {execs.map((exec, index) => {
         const active = index === activeIndex;
         const name = exec.command?.label ?? agentOf(exec.agentId)?.displayName ?? exec.agentId;

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import avatar from '../../../../docs/brand/avatar.jpg?url';
-import backgroundVideo from '../../../../docs/brand/background.mp4?url';
 import type {
   AgentDefinition,
   AgentPick,
@@ -13,7 +12,6 @@ import type {
 import { errorMessage, unwrap, useApi } from '../../api';
 import { BANDS, bandColor } from '../../theme/bands';
 import { ConfirmDialog } from '../ConfirmDialog';
-import { PixelBackdrop } from './PixelBackdrop';
 
 export function greeting(now: Date): string {
   const h = now.getHours();
@@ -146,14 +144,19 @@ export function Home({
 
   return (
     <div className="home">
-      <PixelBackdrop src={backgroundVideo} />
       <div className="home-spectrum" aria-hidden="true">
         {BANDS.map((c) => (
           <span key={c} style={{ background: c }} />
         ))}
       </div>
       <img className="home-avatar" src={avatar} alt="Melinna" width={96} height={96} />
-      <h1 className="home-greeting">{greeting(now)}</h1>
+      <p className="home-eyebrow">Seu workspace de possibilidades</p>
+      <h1 className="home-greeting">
+        {greeting(now)}, <strong>Melinna!</strong>
+      </h1>
+      <p className="home-intro">
+        Sua parceira de desenvolvimento com IA. Agentes em paralelo, ideias em movimento.
+      </p>
       <p className="home-date">
         {now.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })} ·{' '}
         {now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}

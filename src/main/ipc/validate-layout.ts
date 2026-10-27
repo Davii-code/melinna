@@ -65,12 +65,35 @@ function parsePane(v: unknown): Pane {
 
 export function parseLayout(v: unknown): LayoutState {
   if (!isObj(v)) throw invalid('layout');
-  const mode = oneOf(v.mode, 'modo de layout', ['auto', 'spotlight', 'sidebar', 'custom'] as const);
+  const mode = oneOf(v.mode, 'modo de layout', [
+    'auto',
+    'spotlight',
+    'sidebar',
+    'custom',
+    'terminals',
+    'development',
+  ] as const);
   if (!Array.isArray(v.panes) || v.panes.length > MAX_OPEN_PANELS) throw invalid('painéis abertos');
   const panes = v.panes.map(parsePane);
   if (new Set(panes.map((pane) => pane.id)).size !== panes.length) throw invalid('painéis repetidos');
   const focusedPaneId = v.focusedPaneId === null ? null : id(v.focusedPaneId, 'painel em foco');
-  return { mode, panes, focusedPaneId, custom: customGrid(v.custom) };
+  let regions: LayoutState['regions'];
+  if (v.regions !== undefined) {
+    if (
+      !isObj(v.regions) ||
+      typeof v.regions.terminalFraction !== 'number' ||
+      !Number.isFinite(v.regions.terminalFraction) ||
+      v.regions.terminalFraction < 0.15 ||
+      v.regions.terminalFraction > 0.85
+    )
+      throw invalid('proporção das regiões');
+    regions = {
+      terminalFraction: v.regions.terminalFraction,
+      terminals: customGrid(v.regions.terminals),
+      editors: customGrid(v.regions.editors),
+    };
+  }
+  return { mode, panes, focusedPaneId, custom: customGrid(v.custom), ...(regions ? { regions } : {}) };
 }
 
 export function parseLayoutSet(args: unknown[]): [LayoutState] {

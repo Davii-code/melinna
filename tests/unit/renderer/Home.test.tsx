@@ -88,14 +88,14 @@ describe('defaultAgent', () => {
 });
 
 describe('Home', () => {
-  it('shows only the two actions, without the prompt bar, over the pixel backdrop', () => {
+  it('shows the two working actions with the original Melinna brand artwork', () => {
     setup();
-    expect(screen.getByRole('heading', { name: 'Bom dia' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Bom dia, Melinna!' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /novo terminal/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /abrir workspace/i })).toBeTruthy();
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.queryByRole('combobox')).toBeNull();
-    expect(screen.getByTestId('pixel-backdrop').querySelector('canvas')).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Melinna' }).getAttribute('src')).toContain('avatar.jpg');
     expect(screen.getByText(/abre claude code na pasta escolhida/i)).toBeTruthy();
   });
 

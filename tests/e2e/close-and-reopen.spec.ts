@@ -1,6 +1,15 @@
 import { expect, test } from '@playwright/test';
 import { createTempRepo, type TempRepo } from '../support/git-fixture';
-import { cleanup, launchApp, makeUserData, readState, scrollbackText, waitFor, type E2eApp } from './harness';
+import {
+  cleanup,
+  expectTerminalText,
+  launchApp,
+  makeUserData,
+  readState,
+  scrollbackText,
+  waitFor,
+  type E2eApp,
+} from './harness';
 
 let repo: TempRepo;
 let userData: string;
@@ -25,8 +34,11 @@ test('keep running on close, kill one agent outside, reopen with history, reatta
     await page.getByRole('button', { name: 'Nova tarefa' }).click();
     await page.getByLabel('Pasta').fill(repo.root);
     await page.getByLabel('Enunciado').fill('Fechar e reabrir');
-    await page.getByLabel('Agente').selectOption(agent);
-    await page.getByRole('button', { name: 'Lançar' }).click();
+    await page
+      .getByRole('dialog', { name: 'Nova tarefa' })
+      .getByRole('combobox', { name: /^Agente/ })
+      .selectOption(agent);
+    await page.getByRole('button', { name: 'Lançar', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Nova tarefa' })).toHaveCount(0);
   }
   await expect(page.locator('section.panel')).toHaveCount(2);
@@ -63,19 +75,25 @@ test('keep running on close, kill one agent outside, reopen with history, reatta
   const victimPanel = reopened.getByTestId(`panel-${victim!.id}`);
   await expect(reopened.getByTestId(`tree-exec-status-${keep!.id}`)).toHaveText(/rodando|ocioso/);
   await expect(reopened.getByTestId(`tree-exec-status-${victim!.id}`)).toHaveText(
-    'encerrado (sinal SIGKILL)',
+    process.platform === 'win32' ? 'encerrado (código 1)' : 'encerrado (sinal SIGKILL)',
   );
 
   // histórico nos dois painéis, vindo do disco e emendado ao vivo
-  await expect(keepPanel.locator('.xterm-rows')).toContainText('pronto');
-  await expect(victimPanel.locator('.xterm-rows')).toContainText('pronto');
-  await expect(victimPanel.locator('.xterm-rows')).toContainText('processo encerrado (sinal SIGKILL)');
+  await expectTerminalText(reopened, keepPanel, 'pronto');
+  await expectTerminalText(reopened, victimPanel, 'pronto');
+  await expectTerminalText(
+    reopened,
+    victimPanel,
+    process.platform === 'win32' ? 'processo encerrado (código 1)' : 'processo encerrado (sinal SIGKILL)',
+  );
 
   await keepPanel.locator('.terminal-host').click();
   await reopened.keyboard.type('depois de reabrir');
   await reopened.keyboard.press('Enter');
-  await expect(keepPanel.locator('.xterm-rows')).toContainText('echo:depois de reabrir');
+  await expectTerminalText(reopened, keepPanel, 'echo:depois de reabrir');
   const text = scrollbackText(userData)[keep!.id] ?? '';
-  expect(text.match(/pronto/g)).toHaveLength(1);
+  // ConPTY can repaint earlier lines on resize; process identity proves reattach did not relaunch.
+  expect(text).toContain('pronto');
+  expect(readState(userData).executions.find((e) => e.id === keep!.id)?.pid).toBe(keep!.pid);
   await reopened.screenshot({ path: 'test-results/close-and-reopen.png' });
 });

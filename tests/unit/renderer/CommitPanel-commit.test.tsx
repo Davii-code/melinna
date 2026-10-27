@@ -17,7 +17,7 @@ function setup(statuses: Record<string, object> = base, roots = ['/a', '/b']) {
     roots,
     statuses: statuses as never,
   });
-  return { api, ...view };
+  return { ...view };
 }
 
 const button = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement;
@@ -89,7 +89,10 @@ describe('CommitPanel commit', () => {
     await screen.findByText('x.ts');
     api.git.commit.mockImplementationOnce(() => okR({ sha: '1'.repeat(40) }));
     api.git.commit.mockImplementationOnce(() =>
-      Promise.resolve({ ok: false as const, error: { code: 'GIT_FAILED' as const, message: 'hook recusou' } }),
+      Promise.resolve({
+        ok: false as const,
+        error: { code: 'GIT_FAILED' as const, message: 'hook recusou' },
+      }),
     );
     write('feat: falha');
     fireEvent.click(button('Commit'));
@@ -134,7 +137,10 @@ describe('CommitPanel commit', () => {
     const { api } = setup();
     await screen.findByText('x.ts');
     api.git.commit.mockImplementationOnce(() =>
-      Promise.resolve({ ok: false as const, error: { code: 'GIT_FAILED' as const, message: 'sem identidade' } }),
+      Promise.resolve({
+        ok: false as const,
+        error: { code: 'GIT_FAILED' as const, message: 'sem identidade' },
+      }),
     );
     write('feat: x');
     fireEvent.click(button('Commit and Push…'));

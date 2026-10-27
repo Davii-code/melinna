@@ -56,7 +56,7 @@ describe('layout store', () => {
     await store.load();
     expect(paneIds(store.get())).toEqual(['x', 'y']);
     expect(store.get().focusedPaneId).toBe('y');
-    expect(store.get().mode).toBe('auto');
+    expect(store.get().mode).toBe('spotlight');
     expect(notified).toBe(1);
   });
 

@@ -59,7 +59,7 @@ import { TerminalDepsContext, type TerminalDeps, type TerminalHandle } from './c
 import { TopBar } from './components/TopBar';
 import { WorkspaceSwitcher } from './components/WorkspaceSwitcher';
 import { GitWorkspaceProvider, useGitWorkspace } from './git/git-workspace';
-import { saveEditor } from './keymap/editor-save';
+import { closeEditorTab, saveEditor } from './keymap/editor-save';
 import { usePanelShortcuts } from './keymap/panel-shortcuts';
 import { storedActiveWorkspace, storedSidebarPanel, storeSidebarPanel, type SidebarPanel } from './prefs';
 import { KeymapContext, createKeymapStore, useKeymap, withShortcut } from './keymap/keymap-store';
@@ -176,6 +176,42 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const [usingPrompt, setUsingPrompt] = useState<{ prompt: Prompt | null } | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
   const [showHome, setShowHome] = useState(false);
+  const [editorFocus, setEditorFocus] = useState(false);
+  const focusBeforeEditor = useRef<string | null>(null);
+  const editorIds = layout.panes.filter((p) => p.kind === 'editor').map((p) => p.id);
+  const toggleEditorFocus = () => {
+    if (editorIds.length === 0) return false;
+    setShowHome(false);
+    if (!editorFocus) {
+      focusBeforeEditor.current = layout.focusedPaneId;
+      const id = editorIds.includes(layout.focusedPaneId ?? '') ? layout.focusedPaneId : editorIds[0];
+      if (id) {
+        layoutStore.focus(id);
+        setTimeout(() => getEditorController(id)?.focus(), 0);
+      }
+    } else {
+      const id = focusBeforeEditor.current;
+      const pane = layout.panes.find((p) => p.id === id);
+      if (pane) {
+        layoutStore.focus(pane.id);
+        setTimeout(() => {
+          if (pane.kind === 'editor') getEditorController(pane.id)?.focus();
+          else {
+            const execId = pane.execIds[pane.activeIndex];
+            if (execId) terminalHandles.current.get(execId)?.term.focus();
+          }
+        }, 100);
+      }
+    }
+    setEditorFocus(!editorFocus);
+  };
+  useEffect(() => {
+    if (
+      editorIds.length === 0 ||
+      layout.panes.some((p) => p.id === layout.focusedPaneId && p.kind === 'executions')
+    )
+      setEditorFocus(false);
+  }, [editorIds.length, layout.focusedPaneId, layout.panes]);
   const [sidebarPanel, setSidebarPanel] = useState<SidebarPanel>(() => storedSidebarPanel());
   /** Arquivo com o diff aberto sobre a grade (não é persistido). */
   const [diffFile, setDiffFile] = useState<ActiveFile | null>(null);
@@ -357,6 +393,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
     layoutStore.openDocAt(tab.paneId, tab.path, tab.index);
   };
   useShortcuts(keymap, {
+    toggleEditorFocus,
     goToFile: () => {
       setShowQuickOpen(true);
     },
@@ -393,7 +430,8 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
     closeTab: () => {
       const pane = layout.panes.find((p) => p.id === layout.focusedPaneId);
       if (!pane) return false;
-      layoutStore.closeTab(pane.id, pane.activeIndex);
+      if (pane.kind === 'editor') closeEditorTab(pane.id);
+      else layoutStore.closeTab(pane.id, pane.activeIndex);
     },
     toggleSidebar: () => {
       toggleSidebar();
@@ -407,6 +445,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const onLaunched = (_taskId: string, results: LaunchResult[]) => {
     setShowNewTask(false);
     setShowHome(false);
+    setEditorFocus(false);
     for (const r of results) if (r.execId) layoutStore.open(r.execId);
     const failed = results.find((r) => !r.ok);
     if (failed && !failed.ok) showError(failed.error);
@@ -423,6 +462,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
 
   const treeActions: TreeActions = {
     onOpen: (id) => {
+      setEditorFocus(false);
       setShowHome(false);
       layoutStore.open(id);
     },
@@ -533,13 +573,16 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
     if (picked.value) await run(api.workspace.openWorkspace(picked.value));
   };
 
-  const renderPanel = (paneId: string) => {
+  const renderPanel = (paneId: string, visible: boolean) => {
     const pane = layout.panes.find((p) => p.id === paneId);
     if (!pane) return null;
     if (pane.kind === 'editor') {
       return (
         <EditorPane
           pane={pane}
+          roots={fileRoots}
+          editorFocus={editorFocus}
+          onToggleFocus={toggleEditorFocus}
           focused={layout.focusedPaneId === pane.id}
           onFocus={() => layoutStore.focus(pane.id)}
           onSelect={(index) => layoutStore.setActive(pane.id, index)}
@@ -555,34 +598,41 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
     if (!exec) return null;
     return (
       <div className="pane-stack">
-        {execs.length > 1 ? (
-          <ExecutionTabs
-            execs={execs}
-            activeIndex={index}
-            agentOf={(agentId) => agentsById.get(agentId)}
-            onSelect={(i) => layoutStore.setActive(pane.id, i)}
-            onCloseTab={(i) => layoutStore.closeTab(pane.id, i)}
-          />
-        ) : null}
-        <Panel
-          execution={exec}
-          agent={agentsById.get(exec.agentId)}
-          onTerminalReady={(h) => {
-            if (h) terminalHandles.current.set(exec.id, h);
-            else terminalHandles.current.delete(exec.id);
-          }}
-          visible
-          focused={layout.focusedPaneId === pane.id}
-          onFocus={() => layoutStore.focus(pane.id)}
-          banner={
-            <>
-              <FailureBanner execution={exec} />
-              <ScrollbackBanner
-                reason={snapshot?.scrollbackPaused.find((p) => p.execId === exec.id)?.reason ?? null}
-              />
-            </>
-          }
+        <ExecutionTabs
+          execs={execs}
+          activeIndex={index}
+          agentOf={(agentId) => agentsById.get(agentId)}
+          onSelect={(i) => layoutStore.setActive(pane.id, i)}
+          onCloseTab={(i) => layoutStore.closeTab(pane.id, i)}
         />
+        {execs.map((execution, i) => (
+          <div
+            key={execution.id}
+            className={'execution-surface' + (i === index ? '' : ' execution-hidden')}
+            inert={i !== index || !visible || undefined}
+            aria-hidden={i !== index || !visible || undefined}
+          >
+            <Panel
+              execution={execution}
+              agent={agentsById.get(execution.agentId)}
+              onTerminalReady={(h) => {
+                if (h) terminalHandles.current.set(execution.id, h);
+                else terminalHandles.current.delete(execution.id);
+              }}
+              visible={visible && i === index}
+              focused={layout.focusedPaneId === pane.id}
+              onFocus={() => layoutStore.focus(pane.id)}
+              banner={
+                <>
+                  <FailureBanner execution={execution} />
+                  <ScrollbackBanner
+                    reason={snapshot?.scrollbackPaused.find((p) => p.execId === execution.id)?.reason ?? null}
+                  />
+                </>
+              }
+            />
+          </div>
+        ))}
       </div>
     );
   };
@@ -622,6 +672,37 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                   }}
                   onShortcuts={() => setShowKeymap(true)}
                 >
+                  <label className="layout-control">
+                    <span className="sr-only">Modo de layout</span>
+                    <select
+                      aria-label="Modo de layout"
+                      value={layout.mode}
+                      onChange={(e) => {
+                        setEditorFocus(false);
+                        setShowHome(false);
+                        layoutStore.setMode(e.target.value as typeof layout.mode);
+                      }}
+                    >
+                      <option value="auto">Automático</option>
+                      <option value="terminals">Terminais</option>
+                      <option value="development" disabled={editorIds.length === 0}>
+                        Desenvolvimento
+                      </option>
+                      <option value="spotlight">Destaque</option>
+                      <option value="sidebar">Lateral</option>
+                      <option value="custom">Personalizado</option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="focus-editor-button"
+                    disabled={editorIds.length === 0}
+                    aria-pressed={editorFocus}
+                    title={withShortcut('Editor em Foco', shortcutLabel(keymap, 'toggleEditorFocus'))}
+                    onClick={toggleEditorFocus}
+                  >
+                    {editorFocus ? 'Restaurar layout' : 'Focar editor'}
+                  </button>
                   <RunBar store={runStore} snapshot={snapshot} activeGroupId={activeGroup?.id ?? null} />
                   <button
                     type="button"
@@ -632,6 +713,11 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                     Início
                   </button>
                 </TopBar>
+                {layoutStore.getSaveError() && (
+                  <div className="panel-banner error" role="alert">
+                    Layout não salvo: {layoutStore.getSaveError()}
+                  </div>
+                )}
                 {notice && (
                   <div className="panel-banner error app-notice" role="alert">
                     <span>{notice}</span>
@@ -779,30 +865,37 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                         />
                       </div>
                     )}
-                    {snapshot && (paneIds.length === 0 || showHome) ? (
-                      <Home
-                        snapshot={snapshot as WorkspaceSnapshot}
-                        agents={catalog.agents}
-                        detect={catalog.detect}
-                        size={DEFAULT_TERM_SIZE}
-                        onLaunched={onLaunched}
-                        onRemoveWorkspace={(group) => setRemovingFromList({ kind: 'workspace', group })}
-                      />
-                    ) : snapshot ? (
-                      <Grid
-                        ids={paneIds}
-                        renderPanel={renderPanel}
-                        observeResize={terminal.observeResize}
-                        mode={layout.mode}
-                        focusedId={layout.focusedPaneId}
-                        custom={layout.custom}
-                        onRelayout={refitVisible}
-                        onCustomChange={(g) => layoutStore.setCustom(g)}
-                        onReorder={(from, to) => layoutStore.reorder(from, to)}
-                      />
-                    ) : (
-                      <div className="loading">Carregando…</div>
+                    {snapshot && (
+                      <>
+                        {(paneIds.length === 0 || showHome) && (
+                          <Home
+                            snapshot={snapshot as WorkspaceSnapshot}
+                            agents={catalog.agents}
+                            detect={catalog.detect}
+                            size={DEFAULT_TERM_SIZE}
+                            onLaunched={onLaunched}
+                            onRemoveWorkspace={(group) => setRemovingFromList({ kind: 'workspace', group })}
+                          />
+                        )}
+                        <Grid
+                          ids={paneIds}
+                          renderPanel={renderPanel}
+                          observeResize={terminal.observeResize}
+                          mode={layout.mode}
+                          focusedId={layout.focusedPaneId}
+                          custom={layout.custom}
+                          editorIds={editorIds}
+                          regions={layout.regions}
+                          editorFocus={editorFocus}
+                          hidden={paneIds.length === 0 || showHome}
+                          onRegionsChange={(regions) => layoutStore.setRegions(regions)}
+                          onRelayout={refitVisible}
+                          onCustomChange={(g) => layoutStore.setCustom(g)}
+                          onReorder={(from, to) => layoutStore.reorder(from, to)}
+                        />
+                      </>
                     )}
+                    {!snapshot && <div className="loading">Carregando…</div>}
                   </main>
                 </div>
                 {closeAsk && <CloseDialog liveCount={closeAsk.liveCount} onAnswer={answerClose} />}

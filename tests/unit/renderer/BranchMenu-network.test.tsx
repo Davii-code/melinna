@@ -16,7 +16,7 @@ function setup(statuses: Record<string, Partial<RepoStatus>> = { '/repo': {} }) 
     roots: Object.keys(statuses),
     statuses,
   });
-  return { api, onConflicts, ...view };
+  return { ...view, onConflicts };
 }
 
 const need = (n: NeedsConfirm['needsConfirm'], details: NeedsConfirm['details'] = {}): never =>
@@ -55,7 +55,9 @@ describe('BranchMenu network actions', () => {
 
   it('asks set-upstream and then push-main, accumulating the confirmations', async () => {
     const { api } = setup();
-    api.git.push.mockImplementationOnce(() => okR(need('set-upstream', { branch: 'nova', remote: 'origin' })));
+    api.git.push.mockImplementationOnce(() =>
+      okR(need('set-upstream', { branch: 'nova', remote: 'origin' })),
+    );
     api.git.push.mockImplementationOnce(() => okR(need('push-main', { branch: 'main' })));
     await item('Push…');
     fireEvent.click(await screen.findByRole('button', { name: 'Publicar' }));
@@ -108,7 +110,9 @@ describe('BranchMenu network actions', () => {
     const { api, onConflicts } = setup();
     await item('Pull');
     await screen.findByText(/Pull: Iniciando/);
-    act(() => api.emitGitProgress({ opId: 'op-/repo', phase: 'fim', done: true, result: { conflicts: ['a.ts'] } }));
+    act(() =>
+      api.emitGitProgress({ opId: 'op-/repo', phase: 'fim', done: true, result: { conflicts: ['a.ts'] } }),
+    );
     await waitFor(() => expect(onConflicts).toHaveBeenCalledWith('/repo'));
   });
 

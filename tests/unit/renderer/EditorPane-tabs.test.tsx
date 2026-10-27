@@ -268,8 +268,9 @@ describe('EditorPane — salvar todos', () => {
       { path: '/ws/a.ts', index: 0 },
       { path: '/ws/c.ts', index: 2 },
     ]);
+    const saveAll = within(paneMenu()).getByRole('menuitem', { name: 'Salvar todos' });
     await act(async () => {
-      fireEvent.click(within(paneMenu()).getByRole('menuitem', { name: 'Salvar todos' }));
+      fireEvent.click(saveAll);
     });
     expect(ctx.api.files.write.mock.calls.map((c) => [c[0], c[2]])).toEqual([
       ['/ws/a.ts', hashOf('/ws/a.ts')],

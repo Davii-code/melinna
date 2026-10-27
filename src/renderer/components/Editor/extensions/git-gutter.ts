@@ -36,7 +36,10 @@ const LABEL: Record<LineChange['kind'], string> = {
 };
 
 class ChangeMarker extends GutterMarker {
-  constructor(readonly change: LineChange) {
+  constructor(
+    readonly change: LineChange,
+    private readonly onOpen: (change: LineChange) => void,
+  ) {
     super();
   }
 
@@ -45,13 +48,29 @@ class ChangeMarker extends GutterMarker {
       other instanceof ChangeMarker &&
       other.change.kind === this.change.kind &&
       other.change.fromLine === this.change.fromLine &&
-      other.change.toLine === this.change.toLine
+      other.change.toLine === this.change.toLine &&
+      other.change.original === this.change.original &&
+      other.change.atEnd === this.change.atEnd
     );
   }
 
   override toDOM(): HTMLElement {
     const el = document.createElement('div');
     el.className = `git-mark git-${this.change.kind}`;
+    el.setAttribute('role', 'button');
+    el.tabIndex = 0;
+    el.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onOpen(this.change);
+    });
+    el.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.onOpen(this.change);
+      }
+    });
     el.setAttribute('aria-label', LABEL[this.change.kind]);
     el.title = `${LABEL[this.change.kind]}: clique para ver o original`;
     return el;
@@ -150,7 +169,7 @@ export function gitGutter(options: GitGutterOptions): Extension {
         if (changes === 'off') return RangeSet.empty;
         const ranges = [];
         for (const change of changes) {
-          const marker = new ChangeMarker(change);
+          const marker = new ChangeMarker(change, options.onOpen);
           for (let line = change.fromLine; line <= Math.min(change.toLine, view.state.doc.lines); line++) {
             ranges.push(marker.range(view.state.doc.line(line).from));
           }

@@ -25,8 +25,11 @@ test('launch fake and fake-pty, type in each panel and see the echo', async () =
     await page.getByRole('button', { name: 'Nova tarefa' }).click();
     await page.getByLabel('Pasta').fill(repo.root);
     await page.getByLabel('Enunciado').fill('Tarefa de ponta a ponta');
-    await page.getByLabel('Agente').selectOption(agent);
-    await page.getByRole('button', { name: 'Lançar' }).click();
+    await page
+      .getByRole('dialog', { name: 'Nova tarefa' })
+      .getByRole('combobox', { name: /^Agente/ })
+      .selectOption(agent);
+    await page.getByRole('button', { name: 'Lançar', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Nova tarefa' })).toHaveCount(0);
   }
 

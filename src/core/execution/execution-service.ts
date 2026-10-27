@@ -43,10 +43,10 @@ export class ExecutionService {
           if (e) Object.assign(e, patch);
         });
         if (patch.status !== undefined && isLive(before) && isEnded(patch.status)) {
-          this.notify(this.endedListeners, execId, 'ended');
+          this.notify<[EndedReason]>(this.endedListeners, execId, 'ended');
         }
       },
-      removed: (execId) => this.notify(this.endedListeners, execId, 'removed'),
+      removed: (execId) => this.notify<[EndedReason]>(this.endedListeners, execId, 'removed'),
       hosts: {
         get: async () => this.wire(await deps.hosts.get()),
         existing: async () => {

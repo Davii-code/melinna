@@ -2,15 +2,15 @@
 export const BANDS = ['#ff3b30', '#ff9f0a', '#ffd60a', '#34c759', '#0a84ff', '#bf5af2'] as const;
 
 export const THEME = {
-  field: '#07080b',
-  text: '#e6e9ef',
-  core: '#ffffff',
-  prism: '#8b95a5',
-  accent: '#4f8cff',
-  borderStrong: '#262c36',
-  borderWeak: '#1b212b',
-  surface: '#0b0d12',
-  surfaceRaised: '#12151b',
+  field: '#090b12',
+  text: '#e7eaf6',
+  core: '#f8f9ff',
+  prism: '#a4aec7',
+  accent: '#708bff',
+  borderStrong: '#343b55',
+  borderWeak: '#22283b',
+  surface: '#0e121d',
+  surfaceRaised: '#181e2e',
 } as const;
 
 export function bandColor(index: number): string {

@@ -10,7 +10,14 @@ const statuses = {
   '/b': { branch: 'dev', changes: [change('z.ts', 'added')] },
 };
 
-function setup(over: { liveAgents?: number; roots?: string[]; statuses?: Record<string, never> | typeof statuses; workspace?: null } = {}) {
+function setup(
+  over: {
+    liveAgents?: number;
+    roots?: string[];
+    statuses?: Record<string, never> | typeof statuses;
+    workspace?: null;
+  } = {},
+) {
   const onShowDiff = vi.fn();
   const onOpenFile = vi.fn();
   const api = fakeApi();
@@ -23,7 +30,7 @@ function setup(over: { liveAgents?: number; roots?: string[]; statuses?: Record<
       ...(over.workspace === null ? { workspace: null } : {}),
     },
   );
-  return { api, onShowDiff, onOpenFile, ...utils };
+  return { onShowDiff, onOpenFile, ...utils };
 }
 
 const button = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement;
@@ -87,7 +94,10 @@ describe('CommitPanel actions', () => {
     const { api } = setup({ roots: ['/a'], statuses: { '/a': statuses['/a'] } as never });
     await screen.findByText('x.ts');
     api.git.discard.mockImplementationOnce(() =>
-      okR<never>({ needsConfirm: 'discard', details: { files: [{ path: 'src/x.ts', action: 'reverter' }] } } as never),
+      okR<never>({
+        needsConfirm: 'discard',
+        details: { files: [{ path: 'src/x.ts', action: 'reverter' }] },
+      } as never),
     );
     fireEvent.click(button('Reverter'));
     await screen.findByTestId('git-confirm-files');
@@ -128,7 +138,10 @@ describe('CommitPanel actions', () => {
       Promise.resolve({ ok: false as const, error: { code: 'REPO_INVALID' as const, message: 'não é git' } }),
     );
     const onShowDiff = vi.fn();
-    renderWithGit(<CommitPanel liveAgents={0} onOpenFile={vi.fn()} onShowDiff={onShowDiff} />, { api, roots: ['/a'] });
+    renderWithGit(<CommitPanel liveAgents={0} onOpenFile={vi.fn()} onShowDiff={onShowDiff} />, {
+      api,
+      roots: ['/a'],
+    });
     expect(await screen.findByText('Nenhum repositório git neste workspace')).toBeTruthy();
   });
 
@@ -141,16 +154,15 @@ describe('CommitPanel actions', () => {
       window.dispatchEvent(new Event('focus'));
     });
     await waitFor(() => expect(api.git.status.mock.calls.length).toBe(before + 1));
-    await waitFor(() => expect((screen.getByLabelText('Selecionar x.ts') as HTMLInputElement).checked).toBe(false));
+    await waitFor(() =>
+      expect((screen.getByLabelText('Selecionar x.ts') as HTMLInputElement).checked).toBe(false),
+    );
   });
 
   describe('Adicionar ao git', () => {
     const one = { '/a': statuses['/a'] } as never;
     const levelOf = (name: string) =>
-      screen
-        .getByLabelText(`Selecionar ${name}`)
-        .closest('[role="treeitem"]')
-        ?.getAttribute('aria-level');
+      screen.getByLabelText(`Selecionar ${name}`).closest('[role="treeitem"]')?.getAttribute('aria-level');
 
     it('is disabled until an unversioned file is marked', async () => {
       setup({ roots: ['/a'], statuses: one });

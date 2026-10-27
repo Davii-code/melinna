@@ -1,7 +1,13 @@
 import { act, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { registerEditorSaver, saveEditor } from '../../../src/renderer/keymap/editor-save';
-import { ACTIONS, EDITOR_ONLY_ACTIONS, KEYMAPS, parseChord, type AppAction } from '../../../src/renderer/keymap/keymaps';
+import {
+  ACTIONS,
+  EDITOR_ONLY_ACTIONS,
+  KEYMAPS,
+  parseChord,
+  type AppAction,
+} from '../../../src/renderer/keymap/keymaps';
 import {
   runShortcutHandlers,
   useShortcuts,
@@ -31,8 +37,11 @@ function Harness({ keymap, handlers }: { keymap: KeymapId; handlers: ShortcutHan
   );
 }
 
-function handlersFor(): Record<AppAction, ReturnType<typeof vi.fn>> {
-  return Object.fromEntries(ACTIONS.map((a) => [a, vi.fn()])) as Record<AppAction, ReturnType<typeof vi.fn>>;
+function handlersFor(): Record<AppAction, ReturnType<typeof vi.fn<() => void>>> {
+  return Object.fromEntries(ACTIONS.map((a) => [a, vi.fn()])) as Record<
+    AppAction,
+    ReturnType<typeof vi.fn<() => void>>
+  >;
 }
 
 /** Evento de teclado que o navegador geraria para a combinação (letra maiúscula com Shift). */

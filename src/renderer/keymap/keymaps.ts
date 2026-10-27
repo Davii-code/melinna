@@ -17,7 +17,8 @@ export type AppAction =
   | 'toggleComment'
   | 'reindent'
   | 'reopenClosedTab'
-  | 'splitRight';
+  | 'splitRight'
+  | 'toggleEditorFocus';
 
 export const ACTIONS: readonly AppAction[] = [
   'goToFile',
@@ -37,6 +38,7 @@ export const ACTIONS: readonly AppAction[] = [
   'reindent',
   'reopenClosedTab',
   'splitRight',
+  'toggleEditorFocus',
 ];
 
 /** Ações que só disparam com um editor em foco; com o terminal em foco a tecla segue ao PTY. */
@@ -68,6 +70,7 @@ export const ACTION_LABEL: Record<AppAction, string> = {
   reindent: 'Reindentar',
   reopenClosedTab: 'Reabrir aba fechada',
   splitRight: 'Dividir à direita',
+  toggleEditorFocus: 'Editor em Foco',
 };
 
 export const KEYMAP_LABEL: Record<KeymapId, string> = {
@@ -104,6 +107,7 @@ export const KEYMAPS: Record<KeymapId, Record<AppAction, KeyChord | null>> = {
     reindent: 'Mod+Alt+I',
     reopenClosedTab: 'Mod+Shift+T',
     splitRight: null,
+    toggleEditorFocus: 'Mod+Shift+F11',
   },
   intellij: {
     goToFile: 'Mod+Shift+N',
@@ -123,6 +127,7 @@ export const KEYMAPS: Record<KeymapId, Record<AppAction, KeyChord | null>> = {
     reindent: 'Mod+Alt+I',
     reopenClosedTab: 'Mod+Shift+T',
     splitRight: null,
+    toggleEditorFocus: 'Mod+Shift+F11',
   },
   eclipse: {
     goToFile: 'Mod+Shift+R',
@@ -142,6 +147,7 @@ export const KEYMAPS: Record<KeymapId, Record<AppAction, KeyChord | null>> = {
     reindent: 'Mod+I',
     reopenClosedTab: 'Mod+Shift+T',
     splitRight: null,
+    toggleEditorFocus: 'Mod+Shift+F11',
   },
   vscode: {
     goToFile: 'Mod+P',
@@ -161,6 +167,7 @@ export const KEYMAPS: Record<KeymapId, Record<AppAction, KeyChord | null>> = {
     reindent: 'Mod+Alt+I',
     reopenClosedTab: 'Mod+Shift+T',
     splitRight: 'Mod+\\',
+    toggleEditorFocus: 'Mod+Shift+F11',
   },
 };
 

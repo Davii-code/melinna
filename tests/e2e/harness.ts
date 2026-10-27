@@ -1,7 +1,13 @@
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import {
+  _electron as electron,
+  expect,
+  type ElectronApplication,
+  type Locator,
+  type Page,
+} from '@playwright/test';
 import { fakeCatalogJson } from '../support/fake-catalog';
 
 const ROOT = join(__dirname, '..', '..');
@@ -90,4 +96,26 @@ export function readState(userData: string): {
   executions: { id: string; agentId: string; status: string; pid: number | null; exitCode: number | null }[];
 } {
   return JSON.parse(readFileSync(join(userData, 'state.json'), 'utf8'));
+}
+
+/** Assert against the real xterm buffer through its search UI, for both WebGL and DOM renderers. */
+export async function expectTerminalText(
+  page: Page,
+  panel: Locator,
+  text: string,
+  present = true,
+): Promise<void> {
+  await panel.locator('.terminal-host').click();
+  await page.keyboard.press('Control+Shift+F');
+  const search = panel.getByRole('search');
+  const input = search.getByLabel('Buscar no terminal');
+  await input.fill(text);
+  await expect
+    .poll(async () => {
+      await input.press('Enter');
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+      return (await search.getByText('sem resultados', { exact: true }).count()) === 0;
+    })
+    .toBe(present);
+  await search.getByRole('button', { name: 'Fechar busca' }).click();
 }

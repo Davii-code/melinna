@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { BANDS, bandColor, bandLabel } from '../../../../src/renderer/theme/bands';
+import { BANDS, THEME, bandColor, bandLabel } from '../../../../src/renderer/theme/bands';
 
 describe('bands', () => {
   it('uses the six brand colors in order and repeats them', () => {
@@ -20,7 +20,7 @@ describe('bands', () => {
 
   it('declares the spec palette as CSS variables', () => {
     const css = readFileSync(join(__dirname, '../../../../src/renderer/theme/tokens.css'), 'utf8');
-    for (const color of ['#07080b', '#262c36', '#1b212b', '#e6e9ef', '#8b95a5', '#4f8cff', ...BANDS]) {
+    for (const color of [...Object.values(THEME), ...BANDS]) {
       expect(css).toContain(color);
     }
     expect(css).toContain("'Segoe UI', system-ui");

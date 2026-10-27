@@ -8,7 +8,7 @@ import { replaceAll, SearchQuery, setSearchQuery } from '@codemirror/search';
 import { selectAll } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../../src/renderer/App';
 import { getEditorController } from '../../../src/renderer/components/Editor/editor-controller';
 import type { TerminalDeps } from '../../../src/renderer/components/TerminalView';
@@ -88,11 +88,32 @@ async function setup() {
   act(() => layoutStore.openDoc(A));
   await waitFor(() => expect(getEditorController('editor-1')).toBeDefined());
   const view = () =>
-    EditorView.findFromDOM(document.querySelector('.cm-editor') as HTMLElement) as EditorView;
+    EditorView.findFromDOM(
+      document.querySelector('.editor-document:not(.editor-document-hidden) .cm-editor') as HTMLElement,
+    ) as EditorView;
   return { api, layoutStore, view };
 }
 
 describe('nada é gravado sem o salvar explícito', () => {
+  it('keyboard close shares the unsaved-file confirmation and cancel keeps the document', async () => {
+    const { api, layoutStore, view } = await setup();
+    act(() => view().dispatch({ changes: { from: 0, insert: '// unsaved\n' } }));
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    try {
+      act(() =>
+        window.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'w', ctrlKey: true, bubbles: true, cancelable: true }),
+        ),
+      );
+      expect(confirm).toHaveBeenCalled();
+      expect(layoutStore.get().panes.some((p) => p.id === 'editor-1')).toBe(true);
+      expect(view().state.doc.toString()).toContain('// unsaved');
+      expect(api.files.write).not.toHaveBeenCalled();
+    } finally {
+      confirm.mockRestore();
+    }
+  });
+
   it('replace, reindent, comment and revert a git block only change the tab text', async () => {
     const { api, view } = await setup();
     const editor = getEditorController('editor-1');

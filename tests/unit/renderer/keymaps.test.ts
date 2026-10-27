@@ -32,6 +32,7 @@ const TABLE: Record<KeymapId, Record<AppAction, string | null>> = {
     reindent: 'Mod+Alt+I',
     reopenClosedTab: 'Mod+Shift+T',
     splitRight: null,
+    toggleEditorFocus: 'Mod+Shift+F11',
   },
   intellij: {
     goToFile: 'Mod+Shift+N',
@@ -51,6 +52,7 @@ const TABLE: Record<KeymapId, Record<AppAction, string | null>> = {
     reindent: 'Mod+Alt+I',
     reopenClosedTab: 'Mod+Shift+T',
     splitRight: null,
+    toggleEditorFocus: 'Mod+Shift+F11',
   },
   eclipse: {
     goToFile: 'Mod+Shift+R',
@@ -70,6 +72,7 @@ const TABLE: Record<KeymapId, Record<AppAction, string | null>> = {
     reindent: 'Mod+I',
     reopenClosedTab: 'Mod+Shift+T',
     splitRight: null,
+    toggleEditorFocus: 'Mod+Shift+F11',
   },
   vscode: {
     goToFile: 'Mod+P',
@@ -89,6 +92,7 @@ const TABLE: Record<KeymapId, Record<AppAction, string | null>> = {
     reindent: 'Mod+Alt+I',
     reopenClosedTab: 'Mod+Shift+T',
     splitRight: 'Mod+\\',
+    toggleEditorFocus: 'Mod+Shift+F11',
   },
 };
 
@@ -111,7 +115,7 @@ const reserved = (action: AppAction, chord: string): boolean => {
 };
 
 describe('keymap tables', () => {
-  it('has the four maps with the seventeen actions', () => {
+  it('has the four maps with the eighteen actions', () => {
     expect(Object.keys(KEYMAPS).sort()).toEqual([...KEYMAP_IDS].sort());
     expect([...ACTIONS].sort()).toEqual(
       [
@@ -130,6 +134,7 @@ describe('keymap tables', () => {
         'splitRight',
         'stop',
         'toggleComment',
+        'toggleEditorFocus',
         'toggleSidebar',
         'unselectLastOccurrence',
       ].sort(),
@@ -181,7 +186,8 @@ describe('keymap tables', () => {
         const chord = KEYMAPS[id][action];
         if (chord === null || (EDITOR_ONLY_ACTIONS as readonly string[]).includes(action)) continue;
         const c = parseChord(chord);
-        const ctrlTerminalKey = c.mod && !c.shift && !c.alt && TERMINAL_CTRL_KEYS.includes(c.key.toLowerCase());
+        const ctrlTerminalKey =
+          c.mod && !c.shift && !c.alt && TERMINAL_CTRL_KEYS.includes(c.key.toLowerCase());
         expect(ctrlTerminalKey, `${id}/${action}: ${chord}`).toBe(false);
       }
     }

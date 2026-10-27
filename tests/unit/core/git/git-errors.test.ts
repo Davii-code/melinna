@@ -54,36 +54,46 @@ describe('classifyGitFailure', () => {
       "error: failed to push some refs to '../remote.git'",
     ].join('\n');
     expect(classifyGitFailure(stderr, ctx).code).toBe('GIT_REJECTED');
-    expect(classifyGitFailure('hint: Updates were rejected because the tip is behind (fetch first)', ctx).code).toBe(
-      'GIT_REJECTED',
-    );
+    expect(
+      classifyGitFailure('hint: Updates were rejected because the tip is behind (fetch first)', ctx).code,
+    ).toBe('GIT_REJECTED');
   });
 
   it('maps a missing identity to GIT_IDENTITY', () => {
     const stderr = '*** Please tell me who you are.\n\nRun\n\n  git config user.email "you@example.com"\n';
     expect(classifyGitFailure(stderr, { command: 'commit', exitCode: 128 }).code).toBe('GIT_IDENTITY');
-    expect(classifyGitFailure('fatal: unable to auto-detect email address', { command: 'commit', exitCode: 128 }).code).toBe(
-      'GIT_IDENTITY',
-    );
     expect(
-      classifyGitFailure('fatal: no email was given and auto-detection is disabled', { command: 'commit', exitCode: 128 }).code,
+      classifyGitFailure('fatal: unable to auto-detect email address', { command: 'commit', exitCode: 128 })
+        .code,
+    ).toBe('GIT_IDENTITY');
+    expect(
+      classifyGitFailure('fatal: no email was given and auto-detection is disabled', {
+        command: 'commit',
+        exitCode: 128,
+      }).code,
     ).toBe('GIT_IDENTITY');
   });
 
   it('maps a failing commit hook to GIT_HOOK_FAILED and keeps its output in the message', () => {
-    const e = classifyGitFailure('lint falhou: 3 erros\n', { command: 'commit', exitCode: 1, canRunHooks: true });
+    const e = classifyGitFailure('lint falhou: 3 erros\n', {
+      command: 'commit',
+      exitCode: 1,
+      canRunHooks: true,
+    });
     expect(e.code).toBe('GIT_HOOK_FAILED');
     expect(e.userMessage).toContain(defaultUserMessage('GIT_HOOK_FAILED'));
     expect(e.userMessage).toContain('lint falhou: 3 erros');
   });
 
   it('maps hook rejection by name to GIT_HOOK_FAILED', () => {
-    const stderr = ' ! [remote rejected] main -> main (pre-receive hook declined)\nerror: failed to push some refs';
+    const stderr =
+      ' ! [remote rejected] main -> main (pre-receive hook declined)\nerror: failed to push some refs';
     expect(classifyGitFailure(stderr, ctx).code).toBe('GIT_HOOK_FAILED');
   });
 
   it('maps index.lock to GIT_LOCKED', () => {
-    const stderr = "fatal: Unable to create '/r/.git/index.lock': File exists.\n\nAnother git process seems to be running";
+    const stderr =
+      "fatal: Unable to create '/r/.git/index.lock': File exists.\n\nAnother git process seems to be running";
     const e = classifyGitFailure(stderr, { command: 'add', exitCode: 128 });
     expect(e.code).toBe('GIT_LOCKED');
     expect(e.userMessage).toBe(defaultUserMessage('GIT_LOCKED'));
@@ -96,16 +106,16 @@ describe('classifyGitFailure', () => {
     ].join('\n');
     const e = classifyGitFailure(stderr, { command: 'fetch', exitCode: 128 });
     expect(e.code).toBe('GIT_FAILED');
-    expect(e.userMessage).toBe('fatal: unable to access https://***@host.com/r.git/: Could not resolve host: host.com');
+    expect(e.userMessage).toBe(
+      'fatal: unable to access https://***@host.com/r.git/: Could not resolve host: host.com',
+    );
     expect(e.userMessage).not.toContain('token');
     expect(e.details.command).toBe('fetch');
     expect(e.details.exitCode).toBe(128);
   });
 
   it('maps an empty commit to INPUT_INVALID instead of a hook failure', () => {
-    const e = classifyGitFailure('On branch main
-nothing to commit, working tree clean
-', {
+    const e = classifyGitFailure('On branch main\nnothing to commit, working tree clean\n', {
       command: 'commit',
       exitCode: 1,
       canRunHooks: true,

@@ -109,7 +109,7 @@ export function isCommandExecution(exec: Pick<Execution, 'command'>): exec is Pi
   return exec.command !== undefined;
 }
 
-export type LayoutMode = 'auto' | 'spotlight' | 'sidebar' | 'custom';
+export type LayoutMode = 'auto' | 'spotlight' | 'sidebar' | 'custom' | 'terminals' | 'development';
 
 export interface CustomCell {
   col: number;
@@ -129,6 +129,8 @@ export interface LayoutState {
   panes: Pane[];
   focusedPaneId: string | null;
   custom: CustomGrid;
+  /** Region geometry, optional for compatibility with existing state. */
+  regions?: { terminalFraction: number; terminals: CustomGrid; editors: CustomGrid };
 }
 
 export interface StateFile {
@@ -162,7 +164,14 @@ function isObj(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-const LAYOUT_MODES: readonly LayoutMode[] = ['auto', 'spotlight', 'sidebar', 'custom'];
+const LAYOUT_MODES: readonly LayoutMode[] = [
+  'auto',
+  'spotlight',
+  'sidebar',
+  'custom',
+  'terminals',
+  'development',
+];
 
 function strings(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length > 0) : [];
@@ -229,6 +238,19 @@ function parseLayoutV2(layout: Record<string, unknown>, fallback: CustomGrid): L
     panes,
     focusedPaneId: focused !== null && seen.has(focused) ? focused : (panes[0]?.id ?? null),
     custom: parseCustom(layout.custom, fallback),
+    ...(isObj(layout.regions)
+      ? {
+          regions: {
+            terminalFraction:
+              typeof layout.regions.terminalFraction === 'number' &&
+              Number.isFinite(layout.regions.terminalFraction)
+                ? Math.max(0.15, Math.min(0.85, layout.regions.terminalFraction))
+                : 0.5,
+            terminals: parseCustom(layout.regions.terminals, fallback),
+            editors: parseCustom(layout.regions.editors, fallback),
+          },
+        }
+      : {}),
   };
 }
 

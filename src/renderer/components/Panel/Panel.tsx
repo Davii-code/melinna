@@ -105,6 +105,7 @@ export function Panel(p: PanelProps) {
       className={`panel${p.focused ? ' focused' : ''}`}
       data-testid={`panel-${p.execution.id}`}
       onMouseDown={p.onFocus}
+      onFocus={p.onFocus}
       onKeyDownCapture={onKeyDownCapture}
       onDragOver={onDragOver}
       onDrop={onDrop}

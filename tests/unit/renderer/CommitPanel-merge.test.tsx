@@ -19,7 +19,7 @@ function setup(statuses: Record<string, object> = { '/m': merging }, roots = ['/
     roots,
     statuses: statuses as never,
   });
-  return { api, onOpenFile, ...view };
+  return { ...view, onOpenFile };
 }
 
 describe('CommitPanel during a merge', () => {

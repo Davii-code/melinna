@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -6,6 +6,7 @@ import { createTempRepo } from '../support/git-fixture';
 import { removeDirRecursive } from '../support/temp-dirs';
 import { cleanup, launchApp, makeUserData, type E2eApp } from './harness';
 
+const extraCleanup: (() => void)[] = [];
 let project: string;
 let userData: string;
 let app: E2eApp;
@@ -28,7 +29,7 @@ const MAIN = [
 ].join('\n');
 
 test.beforeEach(async () => {
-  project = mkdtempSync(join(tmpdir(), 'melinna-editor-'));
+  project = realpathSync.native(mkdtempSync(join(tmpdir(), 'melinna-editor-')));
   mkdirSync(join(project, 'src'));
   writeFileSync(join(project, 'src', 'main.ts'), MAIN);
   writeFileSync(join(project, 'src', 'longo.ts'), LONG);
@@ -43,6 +44,7 @@ test.beforeEach(async () => {
 test.afterEach(async () => {
   await app.close();
   cleanup(userData);
+  for (const dispose of extraCleanup.splice(0)) dispose();
   removeDirRecursive(project);
 });
 
@@ -77,7 +79,9 @@ async function openFile(name: string) {
 
 const cursorLine = () =>
   app.page.evaluate(() => {
-    const active = document.querySelector('.cm-activeLineGutter');
+    const active = document.querySelector(
+      '.editor-document:not(.editor-document-hidden) .cm-activeLineGutter',
+    );
     return active?.textContent ?? '';
   });
 
@@ -186,6 +190,6 @@ test('split right, edit on both sides, see the git marks, revert a block and sav
     expect(readFileSync(join(repo.root, 'src', 'a.ts'), 'utf8')).toBe('um\ndois\nquatro\ncinco');
     await page.screenshot({ path: 'test-results/editor-split-git.png' });
   } finally {
-    repo.cleanup();
+    extraCleanup.push(() => repo.cleanup());
   }
 });
