@@ -107,7 +107,9 @@ export class ContentCheckpointFiles implements CheckpointFiles {
     } catch {
       /* Folders without Git still support checkpoints. */
     }
-    if (result?.code === 0) return [...new Set(result.text.split('\0').filter(Boolean))].sort();
+    // Untracked nested repositories come back as "dir/"; they are separate projects, not files to capture.
+    if (result?.code === 0)
+      return [...new Set(result.text.split('\0').filter((name) => name && !name.endsWith('/')))].sort();
     const names: string[] = [];
     const walk = async (folder: string, prefix: string) => {
       for (const entry of await readdir(folder, { withFileTypes: true })) {
@@ -195,7 +197,7 @@ export class ContentCheckpointFiles implements CheckpointFiles {
       folders,
       fingerprint: hash(JSON.stringify(folders.map((f) => ({ root: this.key(f.root), files: f.files })))),
       scope:
-        'Git: arquivos versionados e não ignorados. Sem Git: arquivos regulares, exceto pastas de dependências/build e configurações do editor. Inclui as pastas extras disponíveis da tarefa; arquivos ignorados não são restaurados.' +
+        'Git: arquivos versionados e não ignorados. Sem Git: arquivos regulares, exceto pastas de dependências/build e configurações do editor. Repositórios Git aninhados não rastreados ficam de fora. Inclui as pastas extras disponíveis da tarefa; arquivos ignorados não são restaurados.' +
         (unavailable
           ? ' Revisão parcial: ' + unavailable + ' pasta(s) extra(s) indisponível(is) foram omitidas.'
           : ''),

@@ -6,6 +6,7 @@ import {
   writeFileSync,
   existsSync,
   symlinkSync,
+  renameSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -76,6 +77,16 @@ describe('content-addressed checkpoints', () => {
     await f.files.restore(both, expected);
     expect(readFileSync(join(extra, 'b.txt'), 'utf8')).toBe('b');
   });
+  it('skips untracked nested Git repositories instead of rejecting the whole checkpoint', async () => {
+    const repo = createTempRepo({ files: { 'code.txt': 'committed\n' } });
+    paths.push(repo.baseDir);
+    const f = setup();
+    const nested = createTempRepo({ files: { 'inner.txt': 'inner\n' } });
+    paths.push(nested.baseDir);
+    renameSync(nested.root, join(repo.root, 'nested'));
+    const capture = await f.files.capture([repo.root]);
+    expect(capture.folders[0]?.files.map((file) => file.path)).toEqual(['README.md', 'code.txt']);
+  }, 20000);
   it('refuses symlink traversal and never captures the application storage', async () => {
     const f = setup();
     const outside = join(f.data, 'outside');
