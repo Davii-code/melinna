@@ -18,6 +18,9 @@ asarUnpack:
 extraResources:
   - from: catalog
     to: catalog
+  # Licença MIT do Melinna junto do app instalado (resources/LICENSE).
+  - from: LICENSE
+    to: LICENSE
 # node-pty 1.1 é N-API e traz binários pré-compilados para Windows e macOS: não recompilar no empacotamento.
 npmRebuild: false
 electronFuses:
@@ -47,6 +50,8 @@ win:
   #   signingHashAlgorithms: [sha256]
   #   rfc3161TimeStampServer: http://timestamp.digicert.com
 nsis:
+  # Mostra a licença MIT numa página do instalador antes de instalar.
+  license: LICENSE
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
