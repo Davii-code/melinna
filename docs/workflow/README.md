@@ -31,4 +31,4 @@ Acesso pelo botão **Revisão** da barra superior ou pela ação de revisão de 
 
 Use npm.cmd run dev. Crie um perfil, abra uma tarefa em um repositório de teste, altere um arquivo e abra Revisão. Teste uma configuração de comando curta, gere/edite a passagem para outro agente e restaure um checkpoint após parar as execuções.
 
-Veja [resultados de validação](validation.md) e a [captura real do Electron](screenshots/review.png).
+Veja [resultados de validação](validation.md).

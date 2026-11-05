@@ -6,10 +6,10 @@ Avaliação da adaptação funcional das duas referências aprovadas, não uma r
 
 ## Evidência comparada
 
-As duas imagens de `desing/` e as capturas reais de Home/Desenvolvimento foram abertas juntas na mesma entrada visual de comparação. Referências: aproximadamente 1586×992 px, incluindo controles de janela ilustrados. Electron: janela de teste 1586×1000, área cliente aproximadamente 1570×961; não foram comparadas bordas/controles nativos como diferenças de produto.
+As imagens de referência do redesign (não versionadas) e as capturas reais de Home/Desenvolvimento foram abertas juntas na mesma entrada visual de comparação. Referências: aproximadamente 1586×992 px, incluindo controles de janela ilustrados. Electron: janela de teste 1586×1000, área cliente aproximadamente 1570×961; não foram comparadas bordas/controles nativos como diferenças de produto.
 
-- [Home](docs/redesign/screenshots/after-home.png) e [Home com recentes](docs/redesign/screenshots/after-home-recent.png)
-- [Desenvolvimento](docs/redesign/screenshots/after-development.png) e [explorador](docs/redesign/screenshots/after-development-files.png)
+- [Home](docs/redesign/screenshots/after-home.png)
+- [Desenvolvimento](docs/redesign/screenshots/after-development.png)
 - [Editor em Foco](docs/redesign/screenshots/after-editor-focus.png), [dividido](docs/redesign/screenshots/after-split.png) e [confirmação](docs/redesign/screenshots/after-close-confirmation.png)
 - [1366×768](docs/redesign/screenshots/after-1366x768.png) e [125%](docs/redesign/screenshots/after-125-percent.png)
 - [Comparativo antes/depois](docs/redesign/comparison.html)

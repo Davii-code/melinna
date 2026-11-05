@@ -15,3 +15,6 @@ Thumbs.db
 
 # Repositório de referência para análise (AGPL-3.0): nunca versionar.
 software-clone/
+
+# Configuração local do Claude Code (caminhos e permissões da máquina).
+.claude/settings.local.json
