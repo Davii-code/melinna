@@ -1,3 +1,4 @@
+import { springDebugArgs } from '../../shared/java-debug';
 import { createHash } from 'node:crypto';
 import type { FileSystem } from '../ports/file-system';
 import type { Platform } from '../ports/platform';
@@ -113,7 +114,7 @@ async function detectPackageJson(deps: DetectDeps, folder: string, out: Collecto
 
 /**
  * Programa de Maven/Gradle: o wrapper do projeto (`mvnw`/`gradlew`) quando existe; no Windows os lotes
- * `.cmd`/`.bat` não são executados, então o app usa a ferramenta do sistema e avisa.
+ * `.cmd`/`.bat` não são executados: wrappers com JAR usam Java diretamente; os demais usam a ferramenta do sistema.
  */
 async function buildToolProgram(
   deps: DetectDeps,
@@ -126,6 +127,11 @@ async function buildToolProgram(
   if (deps.platform.os === 'win32') {
     const batch = wrapper === 'mvnw' ? 'mvnw.cmd' : 'gradlew.bat';
     if (await isFile(deps.fs, p.join(folder, batch))) {
+      const jar =
+        wrapper === 'mvnw'
+          ? p.join(folder, '.mvn', 'wrapper', 'maven-wrapper.jar')
+          : p.join(folder, 'gradle', 'wrapper', 'gradle-wrapper.jar');
+      if (await isFile(deps.fs, jar)) return p.join(folder, batch);
       out.warn(`Wrapper do projeto (${batch}) ignorado no Windows; usando ${system} do sistema.`);
     }
     return system;
@@ -143,7 +149,10 @@ async function detectMaven(deps: DetectDeps, folder: string, out: Collector): Pr
     return;
   }
   const program = await buildToolProgram(deps, folder, 'mvnw', 'mvn', out);
-  for (const goal of ['compile', 'test', 'package']) {
+  const goals = ['compile', 'test', 'package'];
+  if (/spring-boot-(?:starter-parent|maven-plugin|starter)/.test(pom.text.replace(/<!--[\s\S]*?-->/g, '')))
+    goals.push('spring-boot:run');
+  for (const goal of goals) {
     out.add({
       source: 'maven',
       tool: 'maven',
@@ -151,6 +160,16 @@ async function detectMaven(deps: DetectDeps, folder: string, out: Collector): Pr
       label: `Maven: ${goal}`,
       program,
       args: [goal],
+    });
+  }
+  if (goals.includes('spring-boot:run')) {
+    out.add({
+      source: 'maven',
+      tool: 'maven',
+      key: 'spring-boot:debug',
+      label: 'Maven: Spring Boot Debug (5005)',
+      program,
+      args: ['spring-boot:run', ...springDebugArgs([])],
     });
   }
 }

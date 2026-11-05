@@ -6,7 +6,6 @@ import {
   writeFileSync,
   existsSync,
   symlinkSync,
-  renameSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -14,7 +13,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ContentCheckpointFiles } from '../../../../src/adapters/checkpoint-files';
 import { JsonWorkflowStore } from '../../../../src/adapters/workflow-store';
 import { emptyWorkflow } from '../../../../src/core/workflow/types';
-import { createTempRepo } from '../../../support/git-fixture';
+import { createTempRepo, git } from '../../../support/git-fixture';
 import { removeDirRecursive } from '../../../support/temp-dirs';
 const paths: string[] = [];
 afterEach(() => {
@@ -30,6 +29,31 @@ function setup() {
   return { project, data, files: new ContentCheckpointFiles(data) };
 }
 describe('content-addressed checkpoints', () => {
+  it('captures and restores embedded repositories without touching their metadata or ignored files', async () => {
+    const repo = createTempRepo();
+    paths.push(repo.baseDir);
+    const nested = join(repo.root, 'nested');
+    mkdirSync(nested);
+    git(nested, ['init', '-q']);
+    writeFileSync(join(nested, 'file.txt'), 'nested content');
+    writeFileSync(join(nested, '.gitignore'), '.env\n');
+    writeFileSync(join(nested, '.env'), 'secret');
+    const f = setup();
+    const captured = await f.files.capture([repo.root]);
+    expect(captured.folders[0]?.files.map((file) => file.path)).toContain('nested/file.txt');
+    expect(captured.folders[0]?.files.some((file) => file.path.includes('.git/'))).toBe(false);
+    expect(captured.folders[0]?.files.some((file) => file.path.endsWith('.env'))).toBe(false);
+    const metadata = readFileSync(join(nested, '.git', 'config'), 'utf8');
+    writeFileSync(join(nested, 'file.txt'), 'changed');
+    writeFileSync(join(nested, 'new.txt'), 'new');
+    writeFileSync(join(nested, '.env'), 'updated secret');
+    const current = await f.files.capture([repo.root]);
+    await f.files.restore(captured, current);
+    expect(readFileSync(join(nested, 'file.txt'), 'utf8')).toBe('nested content');
+    expect(existsSync(join(nested, 'new.txt'))).toBe(false);
+    expect(readFileSync(join(nested, '.git', 'config'), 'utf8')).toBe(metadata);
+    expect(readFileSync(join(nested, '.env'), 'utf8')).toBe('updated secret');
+  });
   it('preserves pre-existing edits and untracked files when undoing later changes, without touching ignored secrets', async () => {
     const repo = createTempRepo({ files: { 'code.txt': 'committed\n', '.gitignore': '.env\n' } });
     paths.push(repo.baseDir);
@@ -77,16 +101,6 @@ describe('content-addressed checkpoints', () => {
     await f.files.restore(both, expected);
     expect(readFileSync(join(extra, 'b.txt'), 'utf8')).toBe('b');
   });
-  it('skips untracked nested Git repositories instead of rejecting the whole checkpoint', async () => {
-    const repo = createTempRepo({ files: { 'code.txt': 'committed\n' } });
-    paths.push(repo.baseDir);
-    const f = setup();
-    const nested = createTempRepo({ files: { 'inner.txt': 'inner\n' } });
-    paths.push(nested.baseDir);
-    renameSync(nested.root, join(repo.root, 'nested'));
-    const capture = await f.files.capture([repo.root]);
-    expect(capture.folders[0]?.files.map((file) => file.path)).toEqual(['README.md', 'code.txt']);
-  }, 20000);
   it('refuses symlink traversal and never captures the application storage', async () => {
     const f = setup();
     const outside = join(f.data, 'outside');

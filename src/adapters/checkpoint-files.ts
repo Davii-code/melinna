@@ -74,7 +74,7 @@ export class ContentCheckpointFiles implements CheckpointFiles {
       isAbsolute(path) ||
       path.split('/').some((x) => x === '..' || x === '.git' || x === '')
     )
-      workflowError('Caminho inseguro no checkpoint.');
+      workflowError('Caminho inseguro no checkpoint: ' + JSON.stringify(path));
     const target = resolve(root, path),
       rel = relative(resolve(root), target);
     if (!rel || rel.startsWith('..' + sep) || rel === '..' || isAbsolute(rel))
@@ -107,9 +107,26 @@ export class ContentCheckpointFiles implements CheckpointFiles {
     } catch {
       /* Folders without Git still support checkpoints. */
     }
-    // Untracked nested repositories come back as "dir/"; they are separate projects, not files to capture.
-    if (result?.code === 0)
-      return [...new Set(result.text.split('\0').filter((name) => name && !name.endsWith('/')))].sort();
+    if (result?.code === 0) {
+      const names = [...new Set(result.text.split('\0').filter(Boolean))].sort();
+      // Embedded repositories and submodules are directory entries, not files.
+      // Enumerate each repository independently so its ignore rules and Git metadata stay intact.
+      const files: string[] = [];
+      for (const name of names) {
+        const path = name.endsWith('/') ? name.slice(0, -1) : name;
+        const absolute = await this.safePath(root, path);
+        const stat = await lstat(absolute).catch((err) => {
+          if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+          throw err;
+        });
+        if (stat?.isDirectory()) {
+          for (const child of await this.names(absolute)) files.push(path + '/' + child);
+        } else if (stat) files.push(path);
+        if (files.length > MAX_FILES)
+          workflowError('Checkpoint excede 20 mil arquivos. Use uma pasta de projeto menor.');
+      }
+      return [...new Set(files)].sort();
+    }
     const names: string[] = [];
     const walk = async (folder: string, prefix: string) => {
       for (const entry of await readdir(folder, { withFileTypes: true })) {
@@ -197,7 +214,7 @@ export class ContentCheckpointFiles implements CheckpointFiles {
       folders,
       fingerprint: hash(JSON.stringify(folders.map((f) => ({ root: this.key(f.root), files: f.files })))),
       scope:
-        'Git: arquivos versionados e não ignorados. Sem Git: arquivos regulares, exceto pastas de dependências/build e configurações do editor. Repositórios Git aninhados não rastreados ficam de fora. Inclui as pastas extras disponíveis da tarefa; arquivos ignorados não são restaurados.' +
+        'Git: arquivos versionados e não ignorados. Sem Git: arquivos regulares, exceto pastas de dependências/build e configurações do editor. Inclui as pastas extras disponíveis da tarefa; arquivos ignorados não são restaurados.' +
         (unavailable
           ? ' Revisão parcial: ' + unavailable + ' pasta(s) extra(s) indisponível(is) foram omitidas.'
           : ''),

@@ -62,7 +62,7 @@ async function fileExists(deps: DetectDeps, path: string): Promise<boolean> {
 
 /**
  * O programa que o núcleo usa em cada ferramenta: o wrapper do projeto (`mvnw`/`gradlew`) quando existe e
- * a ferramenta do sistema senão — no Windows sempre a do sistema, porque os lotes não são executados.
+ * a ferramenta do sistema senão. No Windows, wrappers com JAR são resolvidos para Java, sem executar lotes.
  */
 export async function deriveProgram(tool: RunConfigTool, folder: string, deps: DetectDeps): Promise<string> {
   switch (tool) {
@@ -73,7 +73,16 @@ export async function deriveProgram(tool: RunConfigTool, folder: string, deps: D
     case 'maven':
     case 'gradle': {
       const system = tool === 'maven' ? 'mvn' : 'gradle';
-      if (deps.platform.os === 'win32') return system;
+      if (deps.platform.os === 'win32') {
+        const p = pathModule(deps.platform.os);
+        const batch = p.join(folder, tool === 'maven' ? 'mvnw.cmd' : 'gradlew.bat');
+        const jar =
+          tool === 'maven'
+            ? p.join(folder, '.mvn', 'wrapper', 'maven-wrapper.jar')
+            : p.join(folder, 'gradle', 'wrapper', 'gradle-wrapper.jar');
+        if ((await fileExists(deps, batch)) && (await fileExists(deps, jar))) return batch;
+        return system;
+      }
       const wrapper = pathModule(deps.platform.os).join(folder, tool === 'maven' ? 'mvnw' : 'gradlew');
       return (await fileExists(deps, wrapper)) ? wrapper : system;
     }

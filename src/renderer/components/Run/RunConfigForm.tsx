@@ -1,3 +1,4 @@
+import { springDebugArgs } from '../../../shared/java-debug';
 import { useEffect, useState } from 'react';
 import { LIMITS, type RunCommand, type RunConfigTool } from '../../../shared/ipc-contract';
 import { joinArgs, tokenizeArgs } from '../../../shared/tokenize-args';
@@ -205,6 +206,35 @@ export function RunConfigForm({ item, siblings, folders, detected, onChange }: R
           </datalist>
           {error('script')}
         </>
+      )}
+      {item.tool === 'maven' && (item.script ?? '').split(/\s+/).includes('spring-boot:run') && (
+        <div>
+          <button type="button" onClick={() => onChange({ args: springDebugArgs(item.args) })}>
+            Ativar debug Spring (porta 5005)
+          </button>
+          <p className="meta">
+            JDWP local em 127.0.0.1:5005. Aguarda conectar um depurador externo antes de iniciar a aplicação.
+            A porta pode ser editada em Argumentos. Não habilita breakpoints dentro do Melinna.
+          </p>
+        </div>
+      )}
+      {item.tool === 'gradle' && (item.script ?? '').split(/\s+/).includes('bootRun') && (
+        <div>
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                args: item.args.includes('--debug-jvm') ? item.args : [...item.args, '--debug-jvm'],
+              })
+            }
+          >
+            Ativar debug Gradle (porta 5005)
+          </button>
+          <p className="meta">
+            Usa --debug-jvm. Conecte um depurador externo à JVM; configurações avançadas de porta dependem do
+            build Gradle.
+          </p>
+        </div>
       )}
       {item.tool === 'program' && (
         <>

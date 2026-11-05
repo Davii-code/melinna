@@ -28,6 +28,24 @@ win:
     - target: nsis
       arch: [x64]
   icon: build/icons/icon.png
+  # Assinatura de código (code signing). Preencher quando a TI/segurança emitir o certificado
+  # da organização. Enquanto estiver comentado, o build sai sem assinatura (comportamento atual).
+  # Nomes de campo do electron-builder 26 (bloco signtoolOptions).
+  # Timestamp é obrigatório: mantém a assinatura válida depois que o certificado expira.
+  #
+  # Opção A — certificado OV em arquivo .pfx (menos comum em ambiente corporativo):
+  # signtoolOptions:
+  #   certificateFile: ${env.MELINNA_CERT_FILE}       # caminho do .pfx
+  #   certificatePassword: ${env.MELINNA_CERT_PASSWORD}
+  #   signingHashAlgorithms: [sha256]
+  #   rfc3161TimeStampServer: http://timestamp.digicert.com
+  #
+  # Opção B — certificado EV em token/HSM (recomendado; chave não exportável).
+  # Identifica o certificado já instalado no repositório de certificados do Windows:
+  # signtoolOptions:
+  #   certificateSubjectName: "<nome do titular exatamente como aparece no certificado>"
+  #   signingHashAlgorithms: [sha256]
+  #   rfc3161TimeStampServer: http://timestamp.digicert.com
 nsis:
   oneClick: false
   perMachine: false

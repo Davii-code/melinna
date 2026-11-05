@@ -278,3 +278,21 @@ describe('RunConfigForm — em execução', () => {
     expect(screen.queryByRole('status')).toBeNull();
   });
 });
+
+describe('RunConfigForm — Java debugging', () => {
+  it('adds application JDWP arguments without replacing existing JVM options', () => {
+    const { onChange } = setup(
+      draft({ tool: 'maven', script: 'spring-boot:run', args: ['-Dspring-boot.run.jvmArguments=-Xmx1g'] }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Ativar debug Spring (porta 5005)' }));
+    expect(onChange).toHaveBeenCalledWith({ args: [expect.stringContaining('-Xmx1g -agentlib:jdwp=')] });
+    expect(onChange.mock.calls[0]?.[0].args[0]).toContain('address=127.0.0.1:5005');
+  });
+  it('adds Gradle debugging to bootRun without dropping profiles', () => {
+    const { onChange } = setup(
+      draft({ tool: 'gradle', script: 'bootRun', args: ['--args=--spring.profiles.active=dev'] }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Ativar debug Gradle (porta 5005)' }));
+    expect(onChange).toHaveBeenCalledWith({ args: ['--args=--spring.profiles.active=dev', '--debug-jvm'] });
+  });
+});

@@ -21,7 +21,7 @@ Acesso pelo botão **Revisão** da barra superior ou pela ação de revisão de 
 ## Escopo e limites
 
 - Snapshot de arquivos rastreados e não ignorados pelo Git, incluindo modificações locais anteriores. Fora do Git, usa exclusões de dependências, builds e caches. Arquivos ignorados, como um .env ignorado, ficam fora da captura e restauração.
-- Limites por captura: 20 mil arquivos, 100 MB totais e 25 MB por arquivo; exceder falha explicitamente. Links simbólicos/junctions não são percorridos. Pastas extras indisponíveis são sinalizadas como revisão parcial. A restauração exige as pastas do checkpoint disponíveis.
+- Limites por captura: 20 mil arquivos, 100 MB totais e 25 MB por arquivo; exceder falha explicitamente. Repositórios internos são enumerados separadamente, respeitando suas regras de ignore e preservando os metadados Git. Links simbólicos/junctions não são percorridos. Pastas extras indisponíveis são sinalizadas como revisão parcial. A restauração exige as pastas do checkpoint disponíveis.
 - Checkpoint automático ocorre antes de lançar/reiniciar agentes; não intercepta cada mensagem ou edição feita pelo processo. Agentes já abertos antes desta funcionalidade não ganham uma base retrospectiva inventada.
 - Processos externos continuam podendo alterar arquivos: há validação de fingerprint, verificação por arquivo e rollback condicionado às alterações realizadas pela própria restauração. Não é um snapshot transacional do sistema operacional.
 - Código de saída zero confirma somente o comando, não a qualidade da tarefa. Nenhuma interpretação automática de resultados ou histórico interno é apresentada como evidência.

@@ -1,6 +1,7 @@
 import { MelinnaError, toIpcError } from '../errors';
 import type { Execution, ExecutionNotice } from '../persistence/state-schema';
-import { buildEnv } from '../run/run-env';
+import { buildEnv, runtimeVariable } from '../run/run-env';
+import { tokenizeArgs } from '../../shared/tokenize-args';
 import type { ExecutionCommand } from '../run/types';
 import type { ExecutionContext, TermSize } from './context';
 import { resolveExtraDirs } from './prepare';
@@ -51,12 +52,21 @@ async function spawnCommand(
 ): Promise<void> {
   const host = await ctx.hosts.get();
   const { cols, rows } = clampSize(size);
+  const env = commandEnv(ctx, exec.id, command);
+  // Direct Java wrapper launch bypasses the batch script that normally reads JVM options.
+  const wrapper = command.args.some(
+    (arg) =>
+      arg === 'org.apache.maven.wrapper.MavenWrapperMain' || arg === 'org.gradle.wrapper.GradleWrapperMain',
+  );
+  const variable = runtimeVariable(command.tool ?? 'program');
+  const options =
+    wrapper && variable ? Object.entries(env).find(([key]) => key.toUpperCase() === variable)?.[1] : '';
   const { pid } = await host.spawn({
     execId: exec.id,
     file: command.file,
-    args: command.args,
+    args: [...tokenizeArgs(options ?? ''), ...command.args],
     cwd: exec.worktreePath,
-    env: commandEnv(ctx, exec.id, command),
+    env,
     cols,
     rows,
     ...(opts.separator ? { separator: opts.separator } : {}),

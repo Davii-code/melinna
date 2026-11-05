@@ -32,7 +32,7 @@ function notFound(program: string): MelinnaError {
 
 /**
  * Resolve o programa de uma configuração para algo que o hospedeiro lança direto, sem shell: executável no
- * PATH (ou caminho absoluto), shim do npm/pnpm/yarn no Windows, nada além disso. Qualquer outro lote é
+ * PATH (ou caminho absoluto), shim do npm/pnpm/yarn ou wrapper Java com JAR no Windows. Qualquer outro lote é
  * recusado.
  */
 export async function resolveProgram(
@@ -48,6 +48,29 @@ export async function resolveProgram(
       .basename(resolved)
       .replace(/\.(cmd|bat)$/i, '')
       .toLowerCase();
+    if (platform.os === 'win32' && (name === 'mvnw' || name === 'gradlew')) {
+      const root = p.dirname(resolved);
+      const jar =
+        name === 'mvnw'
+          ? p.join(root, '.mvn', 'wrapper', 'maven-wrapper.jar')
+          : p.join(root, 'gradle', 'wrapper', 'gradle-wrapper.jar');
+      if ((await fs.stat(jar).catch(() => null))?.isFile) {
+        const java = await resolveExecutable('java', platform, fs);
+        if (!java || isBatchFile(java)) throw notFound('java');
+        return {
+          file: java,
+          prefixArgs: [
+            ...(name === 'mvnw' ? ['-Dmaven.multiModuleProjectDirectory=' + root] : []),
+            '-classpath',
+            jar,
+            name === 'mvnw'
+              ? 'org.apache.maven.wrapper.MavenWrapperMain'
+              : 'org.gradle.wrapper.GradleWrapperMain',
+          ],
+          executable: true,
+        };
+      }
+    }
     const shim = NPM_SHIMS[name];
     const target = shim ? await resolveNpmShim(resolved, shim, platform, fs) : null;
     if (!target || isBatchFile(target.file)) {
