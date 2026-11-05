@@ -4,7 +4,9 @@
 #
 # Como usar: aba Actions -> "Gerar instaladores" -> Run workflow (escolha a branch).
 # Ao terminar, os arquivos ficam para baixar em "Artifacts", no fim da página da execução.
-# Também roda sozinho ao enviar uma tag v* (por exemplo, v0.2.0).
+# Também roda sozinho ao enviar uma tag v* (por exemplo, v0.2.0); nesse caso os instaladores
+# são publicados numa Release pública com o nome da tag:
+#   git tag v0.2.0 && git push origin v0.2.0
 name: Gerar instaladores
 
 on:
@@ -85,3 +87,31 @@ jobs:
             dist/melinna.AppImage
           if-no-files-found: error
           retention-days: 30
+
+  release:
+    name: Publicar Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Baixar os instaladores
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Criar a Release com os instaladores
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          ls -la release
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" release/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" release/* --repo "$GITHUB_REPOSITORY" \
+              --title "Melinna $TAG" --generate-notes
+          fi
