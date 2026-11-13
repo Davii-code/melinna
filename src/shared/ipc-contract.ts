@@ -1,3 +1,21 @@
+import type { BrowserBounds, BrowserState } from './browser-types';
+import {
+  CHAT_MESSAGE_MAX,
+  type ChatEvent,
+  type ChatEventEnvelope,
+  type ChatStarted,
+  type ChatStartInput,
+} from '../core/chat/types';
+import {
+  AUTOMATION_INTERVAL_MAX,
+  AUTOMATION_INTERVAL_MIN,
+  AUTOMATION_NAME_MAX,
+  AUTOMATION_PROMPT_MAX,
+  type Automation,
+  type AutomationInput,
+  type AutomationRun,
+  type AutomationSchedule,
+} from '../core/automations/types';
 import type { WorkflowApi } from './workflow-api';
 // Contrato da API `window.melinna` (contracts/ipc.md). Só tipos e constantes: compartilhado por main, preload e renderer.
 import type {
@@ -40,7 +58,9 @@ import { RUN_LIMITS } from '../core/run/limits';
 import { KEYMAP_IDS, type ActiveRunRef, type KeymapId, type Preferences } from '../core/prefs/types';
 import type { AgentDefinition, CatalogIssue } from '../core/catalog/schema';
 import type { ProjectSearchQuery, ProjectSearchResult, SearchHit } from '../core/files/search-types';
+import type { CommitSuggestion } from '../core/git/commit-suggest';
 import type { FileAtHead } from '../core/git/file-at-head-types';
+import type { PullRequest } from '../core/git/pull-request';
 import type { MarkerKind } from '../core/contracts/host-protocol';
 import type { ErrorCode } from '../core/errors';
 import type {
@@ -115,6 +135,30 @@ export type {
 export type { DiffLine, FileChange, FileDiff, Hunk } from '../core/api-types';
 export type { Branch, Change, Commit, Confirm, GitProgress, NeedsConfirm, OpStarted, RepoStatus };
 export type { ChangeKind, CommitFile, RepoState } from '../core/git/git-types';
+export type { CommitSuggestion, PullRequest };
+export { BROWSER_CLOSED } from './browser-types';
+export type { BrowserBounds, BrowserState };
+export type { ChatEvent, ChatEventEnvelope, ChatStarted, ChatStartInput };
+export const CHAT_LIMITS = { message: CHAT_MESSAGE_MAX } as const;
+export type { Automation, AutomationInput, AutomationRun, AutomationSchedule };
+
+/** Automação com o próximo disparo calculado; `null` se desligada. */
+export interface AutomationView extends Automation {
+  nextRunAt: string | null;
+}
+
+export interface AutomationListing {
+  automations: AutomationView[];
+  /** Arquivo de versão mais nova: as mudanças valem só nesta sessão. */
+  readOnly: boolean;
+}
+
+export const AUTOMATION_LIMITS = {
+  name: AUTOMATION_NAME_MAX,
+  prompt: AUTOMATION_PROMPT_MAX,
+  intervalMin: AUTOMATION_INTERVAL_MIN,
+  intervalMax: AUTOMATION_INTERVAL_MAX,
+} as const;
 export type { Prompt, PromptScope, QueueDiscarded, QueueItem, SendInput, SendResult, SendStatus };
 export type {
   CustomGrid,
@@ -167,6 +211,16 @@ export interface CreateAndLaunchInput {
   title?: string;
   picks: AgentPick[];
   size: TermSize;
+  /**
+   * `worktree` roda as execuções num git worktree isolado, numa branch nova a partir de `baseRef`;
+   * ausente ou `direct`, direto na pasta escolhida.
+   */
+  isolation?: 'worktree' | 'direct';
+  /**
+   * Sessão coordenadora: recebe as instruções para pedir workers e pode abrir outras sessões na mesma
+   * pasta. Roda sempre direto na pasta (`isolation` é ignorado).
+   */
+  coordinator?: boolean;
 }
 
 export type CloseChoice = 'keep-running' | 'stop-all' | 'cancel';
@@ -291,6 +345,10 @@ export interface MelinnaApi {
     commitDiff(repo: string, sha: string, path: string): Promise<Result<FileDiff>>;
     /** O arquivo (caminho absoluto dentro da pasta `repo`) como está em `HEAD`; só leitura. */
     fileAtHead(repo: string, path: string): Promise<Result<FileAtHead>>;
+    /** Pede a um agente instalado, sem terminal, a mensagem de commit dos arquivos marcados. */
+    suggestMessage(repo: string, paths: string[]): Promise<Result<CommitSuggestion>>;
+    /** Cria o pull request da branch atual com o GitHub CLI; se já existe um, devolve o link dele. */
+    createPullRequest(repo: string): Promise<Result<PullRequest>>;
     /** Progresso e fim das operações de rede (fetch, pull, push). */
     onProgress(fn: (e: GitProgress) => void): Unsubscribe;
   };
@@ -337,6 +395,39 @@ export interface MelinnaApi {
     get(): Promise<Result<Preferences>>;
     setKeymap(keymap: KeymapId): Promise<Result<void>>;
     setActiveRun(ref: ActiveRunRef | null): Promise<Result<void>>;
+  };
+  /** Automações agendadas: abrem uma sessão do agente numa pasta, no horário, com o app aberto. */
+  automations: {
+    list(): Promise<Result<AutomationListing>>;
+    /** Cria (sem `id`) ou edita; mudar o agendamento recomeça a contagem. */
+    save(input: AutomationInput): Promise<Result<Automation>>;
+    remove(id: string): Promise<Result<void>>;
+    setEnabled(id: string, enabled: boolean): Promise<Result<void>>;
+    /** Dispara agora, fora do horário, e devolve o resultado. */
+    runNow(id: string): Promise<Result<AutomationRun>>;
+    onChange(fn: () => void): Unsubscribe;
+  };
+  /** Chat sem terminal: o agente roda em modo não interativo na pasta de um workspace aberto. */
+  chat: {
+    start(input: ChatStartInput): Promise<Result<ChatStarted>>;
+    /** A resposta chega por `onEvent` e termina com um evento `done`; uma mensagem por vez. */
+    send(chatId: string, text: string): Promise<Result<void>>;
+    stop(chatId: string): Promise<Result<void>>;
+    close(chatId: string): Promise<Result<void>>;
+    onEvent(fn: (event: ChatEventEnvelope) => void): Unsubscribe;
+  };
+  /** Navegador embutido: uma página http/https isolada, desenhada sobre a área que a interface reserva. */
+  browser: {
+    /** Abre a página em `bounds` (pixels da janela); se já há uma aberta, navega nela. */
+    open(url: string, bounds: BrowserBounds): Promise<Result<void>>;
+    navigate(url: string): Promise<Result<void>>;
+    back(): Promise<Result<void>>;
+    forward(): Promise<Result<void>>;
+    reload(): Promise<Result<void>>;
+    stop(): Promise<Result<void>>;
+    setBounds(bounds: BrowserBounds): Promise<Result<void>>;
+    close(): Promise<Result<void>>;
+    onState(fn: (state: BrowserState) => void): Unsubscribe;
   };
   app: {
     onCloseRequested(fn: (info: { liveCount: number }) => void): Unsubscribe;
@@ -423,6 +514,8 @@ export const CHANNELS = {
     log: 'git:log',
     commitDiff: 'git:commitDiff',
     fileAtHead: 'git:fileAtHead',
+    suggestMessage: 'git:suggestMessage',
+    createPullRequest: 'git:createPullRequest',
   },
   attachments: {
     clipboardHasImage: 'attachments:clipboardHasImage',
@@ -459,6 +552,29 @@ export const CHANNELS = {
     setKeymap: 'prefs:setKeymap',
     setActiveRun: 'prefs:setActiveRun',
   },
+  automations: {
+    list: 'automations:list',
+    save: 'automations:save',
+    remove: 'automations:remove',
+    setEnabled: 'automations:setEnabled',
+    runNow: 'automations:runNow',
+  },
+  chat: {
+    start: 'chat:start',
+    send: 'chat:send',
+    stop: 'chat:stop',
+    close: 'chat:close',
+  },
+  browser: {
+    open: 'browser:open',
+    navigate: 'browser:navigate',
+    back: 'browser:back',
+    forward: 'browser:forward',
+    reload: 'browser:reload',
+    stop: 'browser:stop',
+    setBounds: 'browser:setBounds',
+    close: 'browser:close',
+  },
   app: { answerClose: 'app:answerClose', openExternal: 'app:openExternal' },
 } as const;
 
@@ -468,6 +584,9 @@ export const EVENTS = {
   workspaceChanged: 'workspace:changed',
   promptsChanged: 'prompts:changed',
   gitProgress: 'git:progress',
+  browserState: 'browser:state',
+  automationsChanged: 'automations:changed',
+  chatEvent: 'chat:event',
   queueDiscarded: 'prompts:queueDiscarded',
   closeRequested: 'app:closeRequested',
   terminalPort: 'terminal:port',

@@ -42,6 +42,14 @@ export interface CommitInput {
   confirm?: Confirm[];
 }
 
+export interface MessageContext {
+  diff: string;
+  /** O diff passou de `MESSAGE_DIFF_LIMIT` e foi cortado. */
+  truncated: boolean;
+  /** Assuntos dos últimos commits, do mais novo ao mais antigo. */
+  recent: string[];
+}
+
 interface ExecOptions {
   read?: boolean;
   allowFail?: boolean;
@@ -57,6 +65,9 @@ const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 const DIFF_LIMIT_BYTES = 1024 * 1024;
 const MESSAGE_LIMIT = 20_000;
 const LOG_PAGE = 200;
+/** Caracteres do diff que vão ao agente que sugere a mensagem de commit. */
+export const MESSAGE_DIFF_LIMIT = 120_000;
+const MESSAGE_RECENT_COMMITS = 10;
 const NETWORK_TIMEOUT_MS = 10 * 60_000;
 const BRANCH_RULE =
   'Nome de branch inválido: sem espaços, sem os caracteres ~ ^ : ? * [ e contrabarra, sem ".." nem "@{", sem começar com "-" e sem terminar com ".lock" ou "/".';
@@ -264,6 +275,67 @@ export class GitService {
           },
         );
         return this.toFileDiff(repo, base, path, r, change.kind === 'added' ? 'added' : undefined);
+      },
+      { locked: false },
+    );
+  }
+
+  /**
+   * Matéria-prima da mensagem de commit sugerida: o diff dos arquivos escolhidos contra o último commit
+   * (cortado em `MESSAGE_DIFF_LIMIT` caracteres) e os assuntos dos commits recentes, que dão o estilo.
+   */
+  async messageContext(repo: string, paths: string[]): Promise<MessageContext> {
+    assertSafeRelPaths(paths);
+    return this.op(
+      'messageContext',
+      repo,
+      async () => {
+        const st = await this.readStatus(repo);
+        const wanted = new Set(paths);
+        const changes = st.changes.filter((c) => wanted.has(c.path) && c.kind !== 'conflict');
+        if (changes.length === 0) throw invalidInput('Marque ao menos um arquivo com alterações.');
+        const base = st.head === '' ? EMPTY_TREE : 'HEAD';
+        const tracked = changes.filter((c) => c.kind !== 'untracked');
+        let diff = '';
+        if (tracked.length > 0) {
+          const r = await this.exec(
+            repo,
+            ['diff', ...DIFF_FLAGS, base, '--', ...unique(tracked.flatMap((c) => [c.oldPath ?? c.path, c.path]))],
+            { read: true },
+          );
+          diff += r.stdout;
+        }
+        const nullDevice = this.deps.os === 'win32' ? 'NUL' : '/dev/null';
+        for (const c of changes) {
+          if (c.kind !== 'untracked' || diff.length > MESSAGE_DIFF_LIMIT) continue;
+          const size = await this.deps.fs.stat(this.abs(repo, c.path)).then(
+            (s) => s.size,
+            () => 0,
+          );
+          if (size > DIFF_LIMIT_BYTES) {
+            diff += `Arquivo novo, grande demais para o diff: ${c.path}\n`;
+            continue;
+          }
+          const r = await this.exec(repo, ['diff', '--no-index', ...DIFF_FLAGS, '--', nullDevice, c.path], {
+            read: true,
+            allowFail: true,
+          });
+          if (r.exitCode > 1) throw classifyGitFailure(r.stderr, { command: 'diff', exitCode: r.exitCode });
+          diff += r.stdout;
+        }
+        const truncated = diff.length > MESSAGE_DIFF_LIMIT;
+        const log = await this.exec(repo, ['log', `--max-count=${MESSAGE_RECENT_COMMITS}`, '--format=%s'], {
+          read: true,
+          allowFail: true,
+        });
+        const recent =
+          log.exitCode === 0
+            ? log.stdout
+                .split('\n')
+                .map((l) => l.trim())
+                .filter((l) => l.length > 0)
+            : [];
+        return { diff: truncated ? diff.slice(0, MESSAGE_DIFF_LIMIT) : diff, truncated, recent };
       },
       { locked: false },
     );

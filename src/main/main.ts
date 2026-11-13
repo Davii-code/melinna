@@ -14,6 +14,7 @@ import { Worker } from 'node:worker_threads';
 import {
   BrowserWindow,
   MessageChannelMain,
+  WebContentsView,
   type MessagePortMain,
   app,
   clipboard,
@@ -29,14 +30,20 @@ import { NodeFileSystem } from '../adapters/node-fs';
 import { nodePlatform } from '../adapters/node-platform';
 import { NodeProcessRunner } from '../adapters/node-process-runner';
 import { AttachmentService } from '../core/attachments/attachment-service';
+import { AutomationScheduler } from '../core/automations/automation-scheduler';
+import { AutomationStore } from '../core/automations/automation-store';
 import { CatalogService } from '../core/catalog/catalog-service';
+import { ChatService } from '../core/chat/chat-service';
+import { CoordinatorService } from '../core/coordinator/coordinator-service';
 import { ExecutionService } from '../core/execution/execution-service';
 import { FileStatusService } from '../core/files/file-status';
 import { FilesService } from '../core/files/files-service';
 import { navigationRoots } from '../core/files/roots';
+import { CommitSuggester } from '../core/git/commit-suggest';
 import { DiffService } from '../core/git/diff';
 import { GitService } from '../core/git/git-service';
 import { GitRunner } from '../core/git/git-runner';
+import { PullRequestService } from '../core/git/pull-request';
 import { KeyedMutex } from '../core/git/repo-mutex';
 import { findOrphanLeases } from '../core/git/residue';
 import { JsonlSink } from '../core/log/jsonl-sink';
@@ -50,11 +57,13 @@ import { PromptStore } from '../core/prompts/prompt-store';
 import { StateStore } from '../core/persistence/state-store';
 import { RunService } from '../core/run/run-service';
 import { WorkspaceModel } from '../core/workspace/workspace-model';
+import { SessionLauncher } from '../core/workspace/session-launcher';
 import { WorkspaceService } from '../core/workspace/workspace-service';
 import { ensureToken } from '../host/auth';
 import { EVENTS, type Result } from '../shared/ipc-contract';
 import { APP_ORIGIN, APP_SCHEME, serveApp } from './app-protocol';
 import { builtinCatalogPath, hostScriptPath, preloadPath, rendererRoot, userDataOverride } from './app-paths';
+import { BrowserPane, type BrowserViewLike } from './browser-pane';
 import { CloseFlow } from './close-flow';
 import { NodeHostClient } from './host-client';
 import { HostLauncher } from './host-launcher';
@@ -108,7 +117,8 @@ async function boot(): Promise<void> {
   const model = new WorkspaceModel(loaded.state, store, loaded.readOnly);
   if (loaded.warning) log.warn('state.loaded_with_warning', { warning: loaded.warning });
 
-  const git = new GitRunner(new NodeProcessRunner(), log.child('git'));
+  const processRunner = new NodeProcessRunner();
+  const git = new GitRunner(processRunner, log.child('git'));
   const mutex = new KeyedMutex();
   const catalog = new CatalogService({
     fs,
@@ -198,6 +208,36 @@ async function boot(): Promise<void> {
   });
 
   const run = new RunService({ executions, platform });
+  const sessions = new SessionLauncher({ workspace, executions });
+  const coordinator = new CoordinatorService({
+    fs,
+    os: platform.os,
+    clock,
+    log: log.child('coordinator'),
+    model,
+    launch: (input) => sessions.launch(input),
+  });
+  const automationStore = new AutomationStore({
+    fs,
+    path: paths.automationsFile,
+    clock,
+    log: log.child('automations'),
+    mutex,
+  });
+  await automationStore.load();
+  const automationScheduler = new AutomationScheduler({
+    store: automationStore,
+    clock,
+    log: log.child('automations'),
+    launch: (a) =>
+      sessions.launch({
+        folder: a.folder,
+        agentId: a.agentId,
+        prompt: a.prompt,
+        title: a.name,
+        isolation: a.isolation,
+      }),
+  });
   const prefs = new PreferencesStore({
     fs,
     path: paths.preferencesFile,
@@ -236,6 +276,19 @@ async function boot(): Promise<void> {
     clock,
     os: platform.os,
     tmpdir: tmpdir(),
+  });
+  const commitSuggester = new CommitSuggester({
+    git: gitService,
+    catalog,
+    runner: processRunner,
+    log: log.child('git-suggest'),
+    cwd: tmpdir(),
+  });
+  const pullRequests = new PullRequestService({
+    runner: processRunner,
+    fs,
+    platform,
+    log: log.child('git-pr'),
   });
   const files = new FilesService({
     fs,
@@ -413,6 +466,32 @@ async function boot(): Promise<void> {
   });
   mainWindow = win;
 
+  const chat = new ChatService({
+    catalog,
+    runner: processRunner,
+    log: log.child('chat'),
+    emit: (event) => {
+      if (!win.isDestroyed()) win.webContents.send(EVENTS.chatEvent, event);
+    },
+  });
+  app.on('before-quit', () => {
+    chat.closeAll();
+    coordinator.stop();
+    automationScheduler.stop();
+  });
+
+  const browser = new BrowserPane<WebContentsView>({
+    create: (opts) => new WebContentsView(opts),
+    attach: (view) => win.contentView.addChildView(view),
+    detach: (view) => {
+      if (!win.isDestroyed()) win.contentView.removeChildView(view);
+    },
+    emit: (state) => {
+      if (!win.isDestroyed()) win.webContents.send(EVENTS.browserState, state);
+    },
+    log: log.child('browser'),
+  });
+
   // Diagnóstico da página: erro de JavaScript no renderer não aparecia em log nenhum, e a janela
   // ficava preta sem explicação. Estes três eventos cobrem console, falha de carga e morte do processo.
   const wc = win.webContents as unknown as {
@@ -498,6 +577,12 @@ async function boot(): Promise<void> {
     executions,
     diff,
     git: gitService,
+    commitSuggester,
+    pullRequests,
+    browser,
+    automations: { store: automationStore, scheduler: automationScheduler },
+    coordinator,
+    chat,
     gitRoots: () =>
       navigationRootsOf()
         .filter((r) => r.kind === 'workspace')
@@ -570,6 +655,13 @@ async function boot(): Promise<void> {
   promptStore.subscribe(() => {
     if (!win.isDestroyed()) win.webContents.send(EVENTS.promptsChanged);
   });
+
+  automationStore.subscribe(() => {
+    if (!win.isDestroyed()) win.webContents.send(EVENTS.automationsChanged);
+  });
+  await coordinator.start().catch((err: unknown) => log.error('coordinator.start_failed', { err }));
+  // As automações só começam a contar com a janela pronta: a sessão que elas abrem aparece nela.
+  await automationScheduler.start().catch((err: unknown) => log.error('automations.start_failed', { err }));
 
   let pending: ReturnType<typeof setTimeout> | null = null;
   model.subscribe(() => {

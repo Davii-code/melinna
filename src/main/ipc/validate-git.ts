@@ -67,6 +67,7 @@ export function gitParsers(isRoot: (path: string) => boolean) {
       confirmList(args[2]),
     ],
     markResolved: (args: unknown[]): [string, string[]] => [repo(args[0]), paths(args[1], 1)],
+    suggestMessage: (args: unknown[]): [string, string[]] => [repo(args[0]), paths(args[1], 1)],
     opId: (args: unknown[]): [string] => [id(args[0], 'operação')],
     branchName: (args: unknown[]): [string, string] => [
       repo(args[0]),

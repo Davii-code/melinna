@@ -65,6 +65,17 @@ export class NodeProcessRunner implements ProcessRunner {
         if (opts.signal.aborted) onAbort();
         else opts.signal.addEventListener('abort', onAbort, { once: true });
       }
+      if (opts.stdin !== undefined) {
+        // O programa pode sair sem ler tudo: o EPIPE não deve derrubar o processo principal.
+        child.stdin?.on('error', () => undefined);
+        child.stdin?.end(opts.stdin);
+      }
+      const onStdout = opts.onStdout;
+      if (onStdout) {
+        // Decodificador com estado: um caractere UTF-8 partido entre dois blocos não vira lixo.
+        const stream = new TextDecoder('utf-8');
+        child.stdout?.on('data', (chunk: Buffer) => onStdout(stream.decode(chunk, { stream: true })));
+      }
       const onStderr = opts.onStderr;
       if (onStderr) child.stderr?.on('data', (chunk: Buffer) => onStderr(chunk.toString('utf8')));
     });

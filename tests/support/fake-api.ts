@@ -1,5 +1,14 @@
 import type {
+  Automation,
+  AutomationInput,
+  AutomationListing,
+  AutomationRun,
   Branch,
+  BrowserBounds,
+  BrowserState,
+  ChatEventEnvelope,
+  ChatStarted,
+  ChatStartInput,
   Commit,
   Confirm,
   DroppedFile,
@@ -112,12 +121,18 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
   emitPromptsChange(): void;
   emitQueueDiscarded(e: QueueDiscarded): void;
   emitGitProgress(e: GitProgress): void;
+  emitBrowserState(state: BrowserState): void;
+  emitAutomationsChanged(): void;
+  emitChatEvent(event: ChatEventEnvelope): void;
 } {
   const changeListeners = new Set<(s: WorkspaceSnapshot) => void>();
   const closeListeners = new Set<(i: { liveCount: number }) => void>();
   const promptListeners = new Set<() => void>();
   const discardListeners = new Set<(e: QueueDiscarded) => void>();
   const gitListeners = new Set<(e: GitProgress) => void>();
+  const browserListeners = new Set<(s: BrowserState) => void>();
+  const automationListeners = new Set<() => void>();
+  const chatListeners = new Set<(e: ChatEventEnvelope) => void>();
   const api = {
     catalog: { list: vi.fn(() => okR({ agents: [], invalid: [] })), detectAll: vi.fn(() => okR({})) },
     workspace: {
@@ -231,6 +246,12 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
       abortMerge: vi.fn((_repo: string, _confirm?: Confirm[]) => okR<void | NeedsConfirm>(undefined)),
       markResolved: vi.fn((_repo: string, _paths: string[]) => okR(undefined)),
       log: vi.fn((_repo: string, _skip: number) => okR<Commit[]>([])),
+      suggestMessage: vi.fn((_repo: string, _paths: string[]) =>
+        okR({ message: 'Mensagem sugerida', agent: 'Claude Code' }),
+      ),
+      createPullRequest: vi.fn((_repo: string) =>
+        okR({ url: 'https://github.com/acme/app/pull/7', existing: false }),
+      ),
       commitDiff: vi.fn((_repo: string, _sha: string, path: string) =>
         okR({ path, change: 'modified' as const, hunks: [], lineCount: 0 }),
       ),
@@ -305,6 +326,45 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
       setKeymap: vi.fn((_keymap: KeymapId) => okR(undefined)),
       setActiveRun: vi.fn((_ref: { groupId: string; commandId: string } | null) => okR(undefined)),
     },
+    automations: {
+      list: vi.fn(() => okR<AutomationListing>({ automations: [], readOnly: false })),
+      save: vi.fn((input: AutomationInput) =>
+        okR<Automation>({ ...input, id: input.id ?? 'a-novo', createdAt: '2026-03-01T10:00:00.000Z', lastRun: null }),
+      ),
+      remove: vi.fn((_id: string) => okR(undefined)),
+      setEnabled: vi.fn((_id: string, _enabled: boolean) => okR(undefined)),
+      runNow: vi.fn((_id: string) =>
+        okR<AutomationRun>({ at: '2026-03-01T10:00:00.000Z', status: 'launched', taskId: 't1' }),
+      ),
+      onChange: vi.fn((fn: () => void) => {
+        automationListeners.add(fn);
+        return () => automationListeners.delete(fn);
+      }),
+    },
+    chat: {
+      start: vi.fn((_input: ChatStartInput) => okR<ChatStarted>({ chatId: 'c1', agent: 'Claude Code' })),
+      send: vi.fn((_chatId: string, _text: string) => okR(undefined)),
+      stop: vi.fn((_chatId: string) => okR(undefined)),
+      close: vi.fn((_chatId: string) => okR(undefined)),
+      onEvent: vi.fn((fn: (e: ChatEventEnvelope) => void) => {
+        chatListeners.add(fn);
+        return () => chatListeners.delete(fn);
+      }),
+    },
+    browser: {
+      open: vi.fn((_url: string, _bounds: BrowserBounds) => okR(undefined)),
+      navigate: vi.fn((_url: string) => okR(undefined)),
+      back: vi.fn(() => okR(undefined)),
+      forward: vi.fn(() => okR(undefined)),
+      reload: vi.fn(() => okR(undefined)),
+      stop: vi.fn(() => okR(undefined)),
+      setBounds: vi.fn((_bounds: BrowserBounds) => okR(undefined)),
+      close: vi.fn(() => okR(undefined)),
+      onState: vi.fn((fn: (s: BrowserState) => void) => {
+        browserListeners.add(fn);
+        return () => browserListeners.delete(fn);
+      }),
+    },
     app: {
       onCloseRequested: vi.fn((fn: (i: { liveCount: number }) => void) => {
         closeListeners.add(fn);
@@ -324,6 +384,15 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
     },
     emitQueueDiscarded: (e: QueueDiscarded) => {
       for (const fn of discardListeners) fn(e);
+    },
+    emitAutomationsChanged: () => {
+      for (const fn of automationListeners) fn();
+    },
+    emitChatEvent: (event: ChatEventEnvelope) => {
+      for (const fn of chatListeners) fn(event);
+    },
+    emitBrowserState: (state: BrowserState) => {
+      for (const fn of browserListeners) fn(state);
     },
     emitGitProgress: (e: GitProgress) => {
       for (const fn of gitListeners) fn(e);

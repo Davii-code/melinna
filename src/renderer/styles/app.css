@@ -949,6 +949,163 @@ button:focus-visible {
   flex-direction: column;
 }
 
+/* Chat sem terminal */
+.chat-modal {
+  width: min(900px, calc(100vw - 48px));
+  height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-header h2 {
+  margin: 0;
+}
+
+.chat-log {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--field);
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-sm);
+}
+
+.chat-message {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 85%;
+}
+
+.chat-user {
+  align-self: flex-end;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+}
+
+.chat-agent {
+  align-self: flex-start;
+  background: var(--surface);
+}
+
+.chat-error {
+  align-self: flex-start;
+  color: var(--band-0);
+}
+
+.chat-tool {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--prism);
+  overflow-wrap: anywhere;
+}
+
+.chat-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-input textarea {
+  resize: vertical;
+}
+
+/* Automações agendadas */
+.automation-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.automation-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.automation-list .actions {
+  display: flex;
+  gap: 6px;
+}
+
+.automation-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+}
+
+/* Navegador embutido */
+.browser-modal {
+  width: min(1400px, calc(100vw - 48px));
+  height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.browser-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.browser-address {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.browser-error {
+  margin: 0;
+}
+
+.browser-viewport {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background: var(--field);
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-sm);
+}
+
+.browser-title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .diff-toolbar {
   display: flex;
   align-items: center;
@@ -1080,6 +1237,59 @@ button:focus-visible {
 
 .diff-empty {
   background: var(--surface);
+}
+
+.diff-text {
+  position: relative;
+}
+
+.diff-comment-button {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  padding: 0 6px;
+  line-height: 16px;
+  opacity: 0;
+  user-select: none;
+}
+
+.diff-line:hover .diff-comment-button,
+.diff-comment-button:focus-visible {
+  opacity: 1;
+}
+
+.diff-comment-row td {
+  padding: 6px 8px;
+  background: var(--surface);
+  font-family: var(--font-ui);
+}
+
+.diff-comment {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 720px;
+}
+
+.diff-comment textarea {
+  resize: vertical;
+}
+
+.diff-comment p {
+  margin: 0;
+}
+
+.diff-comment-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Caixa de marcar com o rótulo ao lado, dentro de formulários em coluna */
+.check-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Seletor de layout */
@@ -2425,6 +2635,13 @@ button:focus-visible {
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+}
+
+.commit-suggest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
 }
 
 .commit-results {

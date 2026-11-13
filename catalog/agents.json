@@ -43,6 +43,14 @@
       "resume": { "args": ["--continue"] },
       "extraDirs": { "style": "repeat", "args": ["--add-dir", "{dir}"] },
       "images": { "template": "{path}", "quote": "when-needed" },
+      "headless": {
+        "args": ["-p", "--tools", "", "--setting-sources", "project", "--no-session-persistence"]
+      },
+      "chat": {
+        "format": "claude-stream-json",
+        "args": ["-p", "--output-format", "stream-json", "--verbose"],
+        "resumeArgs": ["--resume"]
+      },
       "detect": { "strategy": "path" }
     },
     {
@@ -95,6 +103,9 @@
         "switch": { "strategy": "restart-resume" }
       },
       "resume": { "args": ["resume", "--last"] },
+      "headless": {
+        "args": ["exec", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral", "--color", "never", "-"]
+      },
       "detect": { "strategy": "path" }
     },
     {

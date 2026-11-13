@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { registerTasks } from '../../../../src/main/ipc/register-tasks';
 import { createFakeCore, handleRecorder } from '../../../support/fake-core';
 
@@ -64,6 +64,70 @@ describe('tasks IPC', () => {
     expect(exec).toMatchObject({ worktreePath: '/repo', branch: '' });
     expect(core.host.spawns[0]?.cwd).toBe('/repo');
     expect(core.runner.calls.some((c) => c.args.includes('worktree') && c.args.includes('add'))).toBe(false);
+  });
+
+  it('runs each execution in its own worktree and branch when asked', async () => {
+    const { rec, core, input } = await setup();
+    const r = await rec.call('tasks:createAndLaunch', { ...input, isolation: 'worktree' });
+    expect(r.ok).toBe(true);
+    const task = core.workspace.snapshot().tasks[0];
+    expect(task?.isolation).toBeUndefined();
+    expect(task?.baseCommit).not.toBe('');
+    const exec = core.workspace.snapshot().executions[0];
+    expect(exec?.worktreePath).not.toBe('/repo');
+    expect(exec?.branch).not.toBe('');
+    expect(core.host.spawns[0]?.cwd).toBe(exec?.worktreePath);
+    expect(core.runner.calls.some((c) => c.args.includes('worktree') && c.args.includes('add'))).toBe(true);
+  });
+
+  it('refuses an unknown isolation', async () => {
+    const { rec, core, input } = await setup();
+    const r = await rec.call('tasks:createAndLaunch', { ...input, isolation: 'container' });
+    expect(r.error?.code).toBe('INPUT_INVALID');
+    expect(core.workspace.snapshot().tasks).toEqual([]);
+  });
+
+  it('launches a coordinator directly in the folder with the instructions before the prompt', async () => {
+    const core = createFakeCore();
+    const rec = handleRecorder();
+    const enable = vi.fn(async (task: { prompt: string }) => `INSTRUÇÕES
+
+${task.prompt}`);
+    registerTasks(rec.handle, {
+      workspace: core.workspace,
+      executions: core.executions,
+      log: core.log,
+      coordinator: { enable },
+    });
+    const g = await core.workspace.createGroup('G');
+    const r = await rec.call('tasks:createAndLaunch', {
+      groupId: g.id,
+      repoPath: '/repo',
+      baseRef: 'main',
+      prompt: 'Faça X',
+      picks: [{ agentId: 'fake' }],
+      size: { cols: 80, rows: 24 },
+      coordinator: true,
+      isolation: 'worktree',
+    });
+    expect(r.ok).toBe(true);
+    const task = core.workspace.snapshot().tasks[0];
+    expect(task).toMatchObject({ isolation: 'direct', prompt: 'Faça X' });
+    expect(enable).toHaveBeenCalledWith(expect.objectContaining({ id: task?.id }));
+    expect(core.host.spawns[0]?.cwd).toBe('/repo');
+    expect(core.host.spawns[0]?.args.at(-1)).toBe('INSTRUÇÕES
+
+Faça X');
+  });
+
+  it('refuses a coordinator when the service is absent, before creating the task', async () => {
+    const { rec, core, input } = await setup();
+    const r = await rec.call('tasks:createAndLaunch', { ...input, coordinator: true });
+    expect(r.error?.code).toBe('INPUT_INVALID');
+    expect((await rec.call('tasks:createAndLaunch', { ...input, coordinator: 'sim' })).error?.code).toBe(
+      'INPUT_INVALID',
+    );
+    expect(core.workspace.snapshot().tasks).toEqual([]);
   });
 
   it('removes a stopped session without touching its folder', async () => {

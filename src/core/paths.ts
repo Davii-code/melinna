@@ -27,6 +27,7 @@ export interface AppPaths {
   promptsFile: string;
   /** Preferências do usuário: mapa de atalhos e configuração de execução ativa (versão própria). */
   preferencesFile: string;
+  automationsFile: string;
   hostDir: string;
   hostRegistry: string;
   hostToken: string;
@@ -64,6 +65,7 @@ export function makePaths(userData: string, os: OsName): AppPaths {
     userCatalog: p.join(root, 'catalog.json'),
     promptsFile: p.join(root, 'prompts.json'),
     preferencesFile: p.join(root, 'preferences.json'),
+    automationsFile: p.join(root, 'automations.json'),
     hostDir,
     hostRegistry: p.join(hostDir, 'registry.json'),
     hostToken: p.join(hostDir, 'token'),

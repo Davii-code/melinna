@@ -5,6 +5,7 @@ import type { ExecutionService } from '../../core/execution/execution-service';
 import type { FileStatusService } from '../../core/files/file-status';
 import type { FilesService } from '../../core/files/files-service';
 import type { ProjectSearcher } from '../search-worker';
+import type { CoordinatorService } from '../../core/coordinator/coordinator-service';
 import type { DiffService } from '../../core/git/diff';
 import type { GitService } from '../../core/git/git-service';
 import type { GitProgress } from '../../core/git/git-types';
@@ -20,8 +21,11 @@ import type { WorkspaceModel } from '../../core/workspace/workspace-model';
 import type { WorkspaceService } from '../../core/workspace/workspace-service';
 import type { CloseFlow } from '../close-flow';
 import { registerApp } from './register-app';
+import { registerAutomations, type AutomationsIpcDeps } from './register-automations';
+import { registerBrowser, type BrowserApi } from './register-browser';
 import { registerAttachments, type ClipboardPort } from './register-attachments';
 import { registerCatalog } from './register-catalog';
+import { registerChat, type ChatIpcDeps } from './register-chat';
 import { registerDiff } from './register-diff';
 import { registerFiles } from './register-files';
 import { registerGit } from './register-git';
@@ -43,6 +47,8 @@ export interface IpcServices {
   executions: ExecutionService;
   diff: DiffService;
   git: GitService;
+  commitSuggester: CommitSuggester;
+  pullRequests: PullRequestService;
   gitRoots: () => string[];
   os: OsName;
   emitGitProgress: (event: GitProgress) => void;
@@ -62,6 +68,10 @@ export interface IpcServices {
   thumbnail: (bytes: Uint8Array) => string;
   pickImagePaths: () => Promise<string[]>;
   openExternal: (url: string) => Promise<void>;
+  browser: BrowserApi;
+  automations: Pick<AutomationsIpcDeps, 'store' | 'scheduler'>;
+  coordinator: CoordinatorService;
+  chat: ChatIpcDeps['chat'];
   prompts: {
     library: PromptLibrary;
     sender: PromptSender;
@@ -83,6 +93,7 @@ export function registerIpc(handle: Handle, s: IpcServices): void {
     workspace: s.workspace,
     executions: s.executions,
     log: s.log,
+    coordinator: s.coordinator,
     ...(s.workflow ? { workflow: s.workflow } : {}),
   });
   registerLifecycle(handle, { executions: s.executions, model: s.model, log: s.log });
@@ -90,7 +101,15 @@ export function registerIpc(handle: Handle, s: IpcServices): void {
   registerSwitch(handle, { executions: s.executions, model: s.model, log: s.log });
   registerLayout(handle, { model: s.model, files: s.files, log: s.log });
   registerFiles(handle, { files: s.files, status: s.fileStatus, search: s.search, log: s.log });
-  registerGit(handle, { git: s.git, roots: s.gitRoots, os: s.os, emit: s.emitGitProgress, log: s.log });
+  registerGit(handle, {
+    git: s.git,
+    suggester: s.commitSuggester,
+    pullRequests: s.pullRequests,
+    roots: s.gitRoots,
+    os: s.os,
+    emit: s.emitGitProgress,
+    log: s.log,
+  });
   registerAttachments(handle, {
     attachments: s.attachments,
     executions: s.executions,
@@ -112,5 +131,8 @@ export function registerIpc(handle: Handle, s: IpcServices): void {
   registerRun(handle, { run: s.run, model: s.model, log: s.log });
   registerPrefs(handle, { prefs: s.prefs, model: s.model, log: s.log });
   registerApp(handle, { closeFlow: s.closeFlow, log: s.log, open: s.openExternal });
+  registerBrowser(handle, { browser: s.browser, log: s.log });
+  registerAutomations(handle, { ...s.automations, log: s.log });
+  registerChat(handle, { chat: s.chat, roots: s.gitRoots, os: s.os, log: s.log });
   s.bridge.register(handle);
 }

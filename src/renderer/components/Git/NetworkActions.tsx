@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useApi } from '../../api';
+import type { PullRequest } from '../../../shared/ipc-contract';
 import type { RepoView } from '../../git/git-store';
 import { useGitWorkspace, type NetKind } from '../../git/git-workspace';
 import { fetchAll, pullAll, pushAll, type StepResult } from '../../git/sequence';
@@ -10,6 +11,7 @@ export const NET_LABEL: Record<NetKind, string> = { fetch: 'Fetch', pull: 'Pull'
 const NO_REMOTE = 'Esta pasta está sem remoto configurado.';
 const DETACHED = 'O HEAD está solto: troque para uma branch.';
 const OUTSIDE = 'Conclua o rebase ou o cherry-pick fora do app antes.';
+const NOT_PUSHED = 'Faça push da branch antes de criar o pull request.';
 
 export interface NetworkOptions {
   /** Um merge (pull) terminou com conflitos neste repositório. */
@@ -17,11 +19,14 @@ export interface NetworkOptions {
   /** Linhas de resultado por repositório (operações em todos). */
   onReport: (lines: string[]) => void;
   onError: (message: string | null) => void;
+  /** Pull request criado (ou o que já existia) para a branch de um repositório; `null` limpa. */
+  onPullRequest: (pr: (PullRequest & { repo: string }) | null) => void;
 }
 
 export interface Network {
   runOne: (kind: NetKind, repo: RepoView) => Promise<void>;
   runAll: (kind: 'fetch' | 'pull', repos: readonly RepoView[]) => Promise<void>;
+  createPullRequest: (repo: RepoView) => Promise<void>;
   dialog: ReactNode;
 }
 
@@ -32,7 +37,12 @@ function resultLine(r: StepResult): string {
 }
 
 /** Fetch, pull e push de um repositório ou de todos; as confirmações e o progresso vêm do provedor. Fica montado fora do menu. */
-export function useNetworkActions({ onConflicts, onReport, onError }: NetworkOptions): Network {
+export function useNetworkActions({
+  onConflicts,
+  onReport,
+  onError,
+  onPullRequest,
+}: NetworkOptions): Network {
   const api = useApi();
   const gw = useGitWorkspace();
   const { ask, dialog } = useConfirm();
@@ -46,6 +56,7 @@ export function useNetworkActions({ onConflicts, onReport, onError }: NetworkOpt
   const runOne = async (kind: NetKind, repo: RepoView) => {
     onError(null);
     onReport([]);
+    onPullRequest(null);
     const [result] = await run(kind, [repo]);
     if (!result) return;
     if (result.outcome === 'error') onError(result.message ?? 'Erro desconhecido.');
@@ -56,13 +67,25 @@ export function useNetworkActions({ onConflicts, onReport, onError }: NetworkOpt
     gw.runExclusive(async () => {
       onError(null);
       onReport([]);
+      onPullRequest(null);
       const results = await run(kind, repos);
       onReport(results.map(resultLine));
       const conflicted = results.find((r) => r.conflicts && r.conflicts.length > 0);
       if (conflicted) onConflicts(conflicted.root);
     });
 
-  return { runOne, runAll, dialog };
+  const createPullRequest = (repo: RepoView) =>
+    gw.runExclusive(async () => {
+      onError(null);
+      onPullRequest(null);
+      onReport([`${repo.name}: criando o pull request…`]);
+      const r = await api.git.createPullRequest(repo.root);
+      onReport([]);
+      if (r.ok) onPullRequest({ ...r.value, repo: repo.name });
+      else onError(r.error.message);
+    });
+
+  return { runOne, runAll, createPullRequest, dialog };
 }
 
 /** Motivo pelo qual a operação não pode rodar agora; `null` = pode. */
@@ -76,6 +99,16 @@ export function netBlock(kind: NetKind, repo: RepoView, busy: boolean): string |
   return null;
 }
 
+/** Motivo pelo qual o pull request não pode ser criado agora; `null` = pode. */
+export function prBlock(repo: RepoView, busy: boolean): string | null {
+  const { status } = repo;
+  if (busy) return 'Há uma operação em andamento neste repositório.';
+  if (!status.hasRemote) return NO_REMOTE;
+  if (status.branch === null) return DETACHED;
+  if (status.upstream === null) return NOT_PUSHED;
+  return null;
+}
+
 export interface RepoNetworkItemsProps {
   repo: RepoView;
   net: Network;
@@ -83,7 +116,7 @@ export interface RepoNetworkItemsProps {
   onPick: () => void;
 }
 
-/** Itens de menu Fetch, Pull e Push… de um repositório. */
+/** Itens de menu Fetch, Pull, Push… e Criar pull request de um repositório. */
 export function RepoNetworkItems({ repo, net, onPick }: RepoNetworkItemsProps) {
   const gw = useGitWorkspace();
   const busy = gw.busy || gw.ops.has(repo.root);
@@ -105,11 +138,25 @@ export function RepoNetworkItems({ repo, net, onPick }: RepoNetworkItemsProps) {
       </button>
     );
   };
+  const pr = prBlock(repo, busy);
   return (
     <>
       {item('fetch', 'Fetch')}
       {item('pull', 'Pull')}
       {item('push', 'Push…')}
+      <button
+        type="button"
+        role="menuitem"
+        className="menu-item"
+        disabled={pr !== null}
+        title={pr ?? undefined}
+        onClick={() => {
+          onPick();
+          void net.createPullRequest(repo);
+        }}
+      >
+        Criar pull request
+      </button>
     </>
   );
 }

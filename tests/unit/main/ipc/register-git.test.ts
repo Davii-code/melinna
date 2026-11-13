@@ -8,6 +8,8 @@ import { currentOs } from '../../../support/os';
 
 const REPO = currentOs === 'win32' ? 'C:\\ws\\repo' : '/ws/repo';
 const SHA = 'a'.repeat(40);
+const SUGGESTION = { message: 'Add a', agent: 'Claude Code' };
+const PULL_REQUEST = { url: 'https://github.com/acme/app/pull/3', existing: false };
 
 function fakeGit() {
   const status = { root: REPO, branch: 'main', changes: [] };
@@ -51,15 +53,19 @@ function setup() {
   const events: GitProgress[] = [];
   const log = new MemoryLogger();
   let n = 0;
+  const suggester = { suggest: vi.fn(async (_repo: string, _paths: string[]) => SUGGESTION) };
+  const pullRequests = { create: vi.fn(async (_repo: string) => PULL_REQUEST) };
   registerGit(rec.handle, {
     git: git as unknown as GitApi,
+    suggester,
+    pullRequests,
     roots: () => [REPO],
     os: currentOs,
     emit: (e) => events.push(e),
     log,
     newOpId: () => `op-${++n}`,
   });
-  return { git, rec, events, log };
+  return { git, suggester, pullRequests, rec, events, log };
 }
 
 /** Espera os efeitos assíncronos da operação em segundo plano. */
@@ -77,6 +83,7 @@ describe('git IPC', () => {
       'git:commit',
       'git:commitDiff',
       'git:createBranch',
+      'git:createPullRequest',
       'git:diffFile',
       'git:discard',
       'git:fetch',
@@ -87,6 +94,7 @@ describe('git IPC', () => {
       'git:pull',
       'git:push',
       'git:status',
+      'git:suggestMessage',
     ]);
   });
 
@@ -432,5 +440,44 @@ describe('git IPC — fileAtHead', () => {
     expect((await rec.call('git:fileAtHead', REPO)).error?.code).toBe('INPUT_INVALID');
     expect((await rec.call('git:fileAtHead', REPO, 42)).error?.code).toBe('INPUT_INVALID');
     expect((await rec.call('git:fileAtHead', REPO, '')).error?.code).toBe('INPUT_INVALID');
+  });
+});
+
+describe('git IPC: suggested message and pull request', () => {
+  it('asks the suggester for the message of validated paths', async () => {
+    const { rec, suggester } = setup();
+    expect(await rec.call('git:suggestMessage', REPO, ['a.txt', 'dir/b.txt'])).toEqual({
+      ok: true,
+      value: SUGGESTION,
+    });
+    expect(suggester.suggest).toHaveBeenCalledWith(REPO, ['a.txt', 'dir/b.txt']);
+  });
+
+  it('refuses unsafe or empty path lists and foreign repos before calling the agent', async () => {
+    const { rec, suggester } = setup();
+    expect((await rec.call('git:suggestMessage', REPO, [])).error?.code).toBe('INPUT_INVALID');
+    expect((await rec.call('git:suggestMessage', REPO, ['../fora'])).error?.code).toBe('INPUT_INVALID');
+    expect((await rec.call('git:suggestMessage', REPO, 'a.txt')).error?.code).toBe('INPUT_INVALID');
+    expect((await rec.call('git:suggestMessage', '/outro/lugar', ['a.txt'])).error?.code).toBe(
+      'FILE_OUTSIDE_ROOT',
+    );
+    expect(suggester.suggest).not.toHaveBeenCalled();
+  });
+
+  it('passes on the failure of the agent', async () => {
+    const { rec, suggester } = setup();
+    suggester.suggest.mockRejectedValueOnce(
+      new MelinnaError('AGENT_FAILED', { userMessage: 'Claude Code falhou: x' }),
+    );
+    const r = await rec.call('git:suggestMessage', REPO, ['a.txt']);
+    expect(r.error).toMatchObject({ code: 'AGENT_FAILED', message: 'Claude Code falhou: x' });
+  });
+
+  it('creates the pull request of a registered root only', async () => {
+    const { rec, pullRequests } = setup();
+    expect(await rec.call('git:createPullRequest', REPO)).toEqual({ ok: true, value: PULL_REQUEST });
+    expect(pullRequests.create).toHaveBeenCalledWith(REPO);
+    expect((await rec.call('git:createPullRequest', '/outro/lugar')).error?.code).toBe('FILE_OUTSIDE_ROOT');
+    expect(pullRequests.create).toHaveBeenCalledTimes(1);
   });
 });

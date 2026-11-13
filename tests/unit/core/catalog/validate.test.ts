@@ -136,4 +136,29 @@ describe('validateCatalog', () => {
   it('rejects duplicated ids in the same file', () => {
     expect(reasons([shell(), shell()])).toEqual(['id repetido no arquivo']);
   });
+
+  it('accepts headless on agents, without placeholders, and rejects it on shells', () => {
+    const r = validateCatalog(
+      { schemaVersion: 1, agents: [agent({ headless: { args: ['-p', '--tools', ''] } })] },
+      'user',
+    );
+    expect(r.invalid).toEqual([]);
+    expect(r.agents[0]?.headless).toEqual({ args: ['-p', '--tools', ''] });
+    expect(reasons([agent({ headless: 'x' })])[0]).toBe('headless inválido');
+    expect(reasons([agent({ headless: { args: ['{prompt}'] } })])[0]).toContain('não é permitido');
+    expect(reasons([shell({ headless: { args: [] } })])[0]).toBe('shell não pode ter headless');
+  });
+
+  it('accepts chat on agents and rejects malformed chat specs', () => {
+    const chat = { format: 'claude-stream-json', args: ['-p'], resumeArgs: ['--resume'] };
+    const r = validateCatalog({ schemaVersion: 1, agents: [agent({ chat })] }, 'user');
+    expect(r.invalid).toEqual([]);
+    expect(r.agents[0]?.chat).toEqual(chat);
+    expect(reasons([agent({ chat: { ...chat, format: 'texto' } })])[0]).toBe(
+      'chat.format deve ser claude-stream-json',
+    );
+    expect(reasons([agent({ chat: { ...chat, resumeArgs: [] } })])[0]).toBe('chat.resumeArgs não pode ser vazio');
+    expect(reasons([agent({ chat: 'x' })])[0]).toBe('chat inválido');
+    expect(reasons([shell({ chat })])[0]).toBe('shell não pode ter chat');
+  });
 });

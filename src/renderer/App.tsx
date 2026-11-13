@@ -31,6 +31,9 @@ import { ProjectSearch } from './components/Search/ProjectSearch';
 import { FileExplorer } from './components/Files/FileExplorer';
 import { defaultPick, Home } from './components/Home/Home';
 import { NewTaskDialog } from './components/NewTaskDialog';
+import { AutomationsDialog } from './components/Automations/AutomationsDialog';
+import { BrowserPanel } from './components/Browser/BrowserPanel';
+import { ChatDialog } from './components/Chat/ChatDialog';
 import { BranchMenu } from './components/Git/BranchMenu';
 import { CommitPanel } from './components/Git/CommitPanel';
 import { DiffPane } from './components/Git/DiffPane';
@@ -182,6 +185,9 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   /** Prompt em uso (`null` = texto avulso); o diálogo de uso substitui a biblioteca. */
   const [usingPrompt, setUsingPrompt] = useState<{ prompt: Prompt | null } | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [showBrowser, setShowBrowser] = useState(false);
+  const [showAutomations, setShowAutomations] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [showHome, setShowHome] = useState(false);
   const [editorFocus, setEditorFocus] = useState(false);
   const focusBeforeEditor = useRef<string | null>(null);
@@ -258,7 +264,15 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
   const editorSession = useMemo(() => createEditorSession(), []);
   const [fileRoots, setFileRoots] = useState<FileRoot[]>([]);
 
-  useEffect(() => api.app.onCloseRequested((info) => setCloseAsk(info)), [api]);
+  useEffect(
+    () =>
+      api.app.onCloseRequested((info) => {
+        // A página do navegador é desenhada por cima da interface: fecha para a pergunta aparecer.
+        setShowBrowser(false);
+        setCloseAsk(info);
+      }),
+    [api],
+  );
   const answerClose = useCallback(
     (choice: CloseChoice) => {
       setCloseAsk(null);
@@ -797,6 +811,15 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                       void reloadCatalog();
                       setShowCatalog(true);
                     }}
+                    onBrowser={() => setShowBrowser(true)}
+                    onChat={() => {
+                      void reloadCatalog();
+                      setShowChat(true);
+                    }}
+                    onAutomations={() => {
+                      void reloadCatalog();
+                      setShowAutomations(true);
+                    }}
                   />
                   {snapshot && !sidebarCollapsed && (
                     <aside className="sidebar" style={{ width: sidebarWidth }}>
@@ -999,6 +1022,22 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                   />
                 )}
                 {showKeymap && <KeymapDialog store={keymapStore} onClose={() => setShowKeymap(false)} />}
+                {showBrowser && <BrowserPanel onClose={() => setShowBrowser(false)} />}
+                {showChat && (
+                  <ChatDialog
+                    folders={(snapshot?.groups ?? []).flatMap((g) =>
+                      g.repoPath ? [{ path: g.repoPath, name: g.name }] : [],
+                    )}
+                    agent={launchable.find((a) => a.chat !== undefined)}
+                    onClose={() => setShowChat(false)}
+                  />
+                )}
+                {showAutomations && (
+                  <AutomationsDialog
+                    agents={launchable.filter((a) => a.kind === 'agent')}
+                    onClose={() => setShowAutomations(false)}
+                  />
+                )}
                 {showCatalog && (
                   <CatalogView
                     agents={catalog.agents}

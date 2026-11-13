@@ -1,3 +1,5 @@
+import type { CoordinatorService } from '../../core/coordinator/coordinator-service';
+import { MelinnaError } from '../../core/errors';
 import type { WorkflowService } from '../../core/workflow/workflow-service';
 import { freeSlots } from '../../core/execution/limits';
 import type { ExecutionService } from '../../core/execution/execution-service';
@@ -14,6 +16,8 @@ export function registerTasks(
     executions: ExecutionService;
     log: Logger;
     workflow?: WorkflowService;
+    /** Ausente, sessões coordenadoras são recusadas. */
+    coordinator?: Pick<CoordinatorService, 'enable'>;
   },
 ): void {
   const { workspace, executions, log } = deps;
@@ -27,7 +31,11 @@ export function registerTasks(
       C.createAndLaunch,
       parseCreateAndLaunch(groupExists, () => freeSlots(executions.liveCount())),
       async (input) => {
-        // O app sempre roda na pasta escolhida: o terminal vê os arquivos e o histórico do agente dela.
+        if (input.coordinator && !deps.coordinator) {
+          throw new MelinnaError('INPUT_INVALID', { userMessage: 'O coordenador não está disponível.' });
+        }
+        // Por padrão o agente roda na pasta escolhida: o terminal vê os arquivos e o histórico dela.
+        // Com `worktree`, cada execução ganha um worktree e uma branch próprios a partir de `baseRef`.
         const selectedProfile = input.profileId
           ? deps.workflow?.getProfile(input.profileId, input.groupId)
           : null;
@@ -38,7 +46,8 @@ export function registerTasks(
           prompt: selectedProfile?.instructions
             ? selectedProfile.instructions + '\n\nObjetivo do usuário:\n' + input.prompt
             : input.prompt,
-          isolation: 'direct' as const,
+          // O coordenador grava os pedidos de worker na própria pasta: ele roda sempre direto nela.
+          isolation: input.coordinator ? ('direct' as const) : (input.isolation ?? ('direct' as const)),
         };
         const task = await workspace.createTask(
           input.title !== undefined ? { ...taskInput, title: input.title } : taskInput,
@@ -50,7 +59,13 @@ export function registerTasks(
             ? { checkpointBeforeLaunch: input.checkpointBeforeLaunch }
             : {}),
         });
-        const results = await executions.launch(task.id, input.picks, input.size);
+        const prompt = input.coordinator ? await deps.coordinator?.enable(task) : undefined;
+        const results = await executions.launch(
+          task.id,
+          input.picks,
+          input.size,
+          prompt !== undefined ? { prompt } : {},
+        );
         return { taskId: task.id, results };
       },
     ),

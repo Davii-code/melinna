@@ -48,6 +48,25 @@ export interface ImagesSpec {
   quote: 'always' | 'when-needed';
 }
 
+/**
+ * Como rodar o agente sem terminal: `args` vão depois do executável, o enunciado entra pela entrada padrão
+ * e a resposta sai pela saída padrão.
+ */
+export interface HeadlessSpec {
+  args: string[];
+}
+
+/**
+ * Como conversar com o agente sem terminal: `args` vão depois do executável, a mensagem entra pela
+ * entrada padrão e a resposta sai em linhas JSON no formato `format`. Para continuar a conversa, o app
+ * acrescenta `resumeArgs` e o identificador da sessão.
+ */
+export interface ChatSpec {
+  format: 'claude-stream-json';
+  args: string[];
+  resumeArgs: string[];
+}
+
 export interface AgentDefinition {
   id: string;
   displayName: string;
@@ -68,6 +87,8 @@ export interface AgentDefinition {
   resume?: { args: string[] };
   extraDirs?: ExtraDirsSpec;
   images?: ImagesSpec;
+  headless?: HeadlessSpec;
+  chat?: ChatSpec;
   detect: { strategy: 'path' };
 }
 

@@ -6,6 +6,10 @@ export interface RunOptions {
   signal?: AbortSignal;
   /** Recebe a saída de erro conforme chega (progresso do git); a saída completa continua no resultado. */
   onStderr?: (chunk: string) => void;
+  /** Recebe a saída padrão conforme chega (respostas em fluxo); a saída completa continua no resultado. */
+  onStdout?: (chunk: string) => void;
+  /** Bytes escritos na entrada padrão do programa, que é fechada em seguida. */
+  stdin?: Uint8Array;
 }
 
 export interface RunResult {

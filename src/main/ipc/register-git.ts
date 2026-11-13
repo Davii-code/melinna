@@ -1,6 +1,8 @@
 import { toIpcError } from '../../core/errors';
 import { newId } from '../../core/ids';
+import type { CommitSuggester } from '../../core/git/commit-suggest';
 import type { GitIo, GitService } from '../../core/git/git-service';
+import type { PullRequestService } from '../../core/git/pull-request';
 import type { GitProgress, OpStarted } from '../../core/git/git-types';
 import { normalizeRepoPath } from '../../core/paths';
 import type { Logger } from '../../core/ports/logger';
@@ -34,6 +36,8 @@ export type GitApi = Pick<
 
 export interface GitIpcDeps {
   git: GitApi;
+  suggester: Pick<CommitSuggester, 'suggest'>;
+  pullRequests: Pick<PullRequestService, 'create'>;
   /** Raízes das pastas dos workspaces abertos: `repo` só vale se for uma delas. */
   roots: () => string[];
   os: OsName;
@@ -44,7 +48,7 @@ export interface GitIpcDeps {
 
 /** Canais de git: leituras, commit, descarte, rede com progresso e cancelamento, branches, merge e histórico. */
 export function registerGit(handle: Handle, deps: GitIpcDeps): void {
-  const { git, log, emit } = deps;
+  const { git, suggester, pullRequests, log, emit } = deps;
   const C = CHANNELS.git;
   const newOpId = deps.newOpId ?? newId;
   const isRoot = (path: string) => {
@@ -158,5 +162,13 @@ export function registerGit(handle: Handle, deps: GitIpcDeps): void {
   handle(
     C.fileAtHead,
     handler(log, C.fileAtHead, parse.fileAtHead, (repo, path) => git.fileAtHead(repo, path)),
+  );
+  handle(
+    C.suggestMessage,
+    handler(log, C.suggestMessage, parse.suggestMessage, (repo, paths) => suggester.suggest(repo, paths)),
+  );
+  handle(
+    C.createPullRequest,
+    handler(log, C.createPullRequest, parse.repoOnly, (repo) => pullRequests.create(repo)),
   );
 }

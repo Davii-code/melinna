@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Branch, Confirm, NeedsConfirm, Result } from '../../../shared/ipc-contract';
+import type { Branch, Confirm, NeedsConfirm, PullRequest, Result } from '../../../shared/ipc-contract';
 import { useApi } from '../../api';
 import type { RepoView } from '../../git/git-store';
 import { useGitWorkspace } from '../../git/git-workspace';
@@ -187,11 +187,17 @@ export function BranchMenu({ onConflicts }: BranchMenuProps) {
   const [branches, setBranches] = useState<Record<string, Branch[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<string[]>([]);
+  const [pullRequest, setPullRequest] = useState<(PullRequest & { repo: string }) | null>(null);
   const [history, setHistory] = useState<RepoView | null>(null);
   const [busy, setBusy] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
-  const net = useNetworkActions({ onConflicts, onReport: setReport, onError: setError });
+  const net = useNetworkActions({
+    onConflicts,
+    onReport: setReport,
+    onError: setError,
+    onPullRequest: setPullRequest,
+  });
 
   const primary = repos.find((r) => r.folderId === workspace?.primaryFolderId) ?? repos[0];
   const single = repos.length === 1;
@@ -344,6 +350,20 @@ export function BranchMenu({ onConflicts }: BranchMenuProps) {
             <li key={line}>{line}</li>
           ))}
         </ul>
+      )}
+      {pullRequest && (
+        <p role="status" className="commit-results branch-report">
+          {pullRequest.repo}: {pullRequest.existing ? 'já existe um pull request' : 'pull request criado'}:{' '}
+          <a
+            href={pullRequest.url}
+            onClick={(e) => {
+              e.preventDefault();
+              void api.app.openExternal(pullRequest.url);
+            }}
+          >
+            {pullRequest.url}
+          </a>
+        </p>
       )}
       {error && (
         <p role="alert" className="error git-error branch-error">

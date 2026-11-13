@@ -219,4 +219,45 @@ describe('CommitPanel commit', () => {
       expect(api.git.commit.mock.calls[1]?.[1].confirm).toEqual(['amend-published']);
     });
   });
+
+  it('Gerar mensagem asks an agent about the marked files and fills the box for review', async () => {
+    const { api } = setup({ '/a': base['/a'] }, ['/a']);
+    await screen.findByText('x.ts');
+    fireEvent.click(button('Gerar mensagem'));
+    await waitFor(() => expect(box().value).toBe('Mensagem sugerida'));
+    expect(api.git.suggestMessage).toHaveBeenCalledWith('/a', ['src/x.ts']);
+    expect(screen.getByText(/Mensagem gerada por Claude Code/)).toBeTruthy();
+    expect(button('Commit').disabled).toBe(false);
+    expect(api.git.commit).not.toHaveBeenCalled();
+    write('Mensagem revisada');
+    expect(screen.queryByText(/Mensagem gerada por/)).toBeNull();
+  });
+
+  it('Gerar mensagem needs marked files of a single repo', async () => {
+    setup();
+    await screen.findByText('x.ts');
+    expect(button('Gerar mensagem').disabled).toBe(true);
+    expect(button('Gerar mensagem').title).toMatch(/um repositório só/);
+    fireEvent.click(screen.getByLabelText('Selecionar Changes'));
+    expect(button('Gerar mensagem').title).toBe('Marque ao menos um arquivo');
+  });
+
+  it('shows why the message was not generated and keeps what was written', async () => {
+    const { api } = setup({ '/a': base['/a'] }, ['/a']);
+    api.git.suggestMessage.mockImplementation(
+      () =>
+        Promise.resolve({
+          ok: false,
+          error: { code: 'PROGRAM_NOT_FOUND', message: 'Nenhum agente instalado consegue gerar a mensagem.' },
+        }) as never,
+    );
+    await screen.findByText('x.ts');
+    write('minha mensagem');
+    fireEvent.click(button('Gerar mensagem'));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Nenhum agente instalado consegue gerar a mensagem.',
+    );
+    expect(box().value).toBe('minha mensagem');
+    expect(button('Gerar mensagem').disabled).toBe(false);
+  });
 });

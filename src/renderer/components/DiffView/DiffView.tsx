@@ -18,7 +18,14 @@ export function formatSize(n: number | null): string {
   return `${fmt(n / (1024 * 1024))} MB`;
 }
 
-export function FileSection({ file, mode }: { file: FileDiff; mode: DiffMode }) {
+export interface FileSectionProps {
+  file: FileDiff;
+  mode: DiffMode;
+  /** Execução que recebe os comentários por linha; sem ela o diff é só leitura. */
+  commentExecId?: string;
+}
+
+export function FileSection({ file, mode, commentExecId }: FileSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const collapsed = file.lineCount > COLLAPSE_LINES && !expanded;
   return (
@@ -40,9 +47,9 @@ export function FileSection({ file, mode }: { file: FileDiff; mode: DiffMode }) 
           Mostrar {file.lineCount.toLocaleString('pt-BR')} linhas
         </button>
       ) : mode === 'unified' ? (
-        <UnifiedView file={file} />
+        <UnifiedView file={file} commentExecId={commentExecId} />
       ) : (
-        <SideBySideView file={file} />
+        <SideBySideView file={file} commentExecId={commentExecId} />
       )}
     </section>
   );
@@ -96,7 +103,7 @@ export function DiffView({ execId, title, onClose }: DiffViewProps) {
             <FileList files={result.files} />
             <div className="diff-files">
               {result.files.map((f) => (
-                <FileSection key={f.path} file={f} mode={mode} />
+                <FileSection key={f.path} file={f} mode={mode} commentExecId={execId} />
               ))}
             </div>
           </div>

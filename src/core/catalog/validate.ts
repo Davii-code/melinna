@@ -216,11 +216,28 @@ function validateAgent(raw: unknown): AgentDefinition {
 
   if (raw.extraDirs !== undefined) def.extraDirs = extraDirsSpec(raw.extraDirs);
   if (raw.images !== undefined) def.images = imagesSpec(raw.images);
+  if (raw.headless !== undefined) {
+    need(isObj(raw.headless), 'headless inválido');
+    def.headless = { args: strArray(raw.headless.args, 'headless.args') };
+  }
+
+  if (raw.chat !== undefined) {
+    need(isObj(raw.chat), 'chat inválido');
+    need(raw.chat.format === 'claude-stream-json', 'chat.format deve ser claude-stream-json');
+    def.chat = {
+      format: 'claude-stream-json',
+      args: strArray(raw.chat.args, 'chat.args'),
+      resumeArgs: strArray(raw.chat.resumeArgs, 'chat.resumeArgs'),
+    };
+    need(def.chat.resumeArgs.length > 0, 'chat.resumeArgs não pode ser vazio');
+  }
 
   if (kind === 'shell') {
     need(def.model === undefined, 'shell não pode ter model');
     need(def.permission === undefined, 'shell não pode ter permission');
     need(def.prompt.delivery === 'none', 'shell deve ter prompt.delivery none');
+    need(def.headless === undefined, 'shell não pode ter headless');
+    need(def.chat === undefined, 'shell não pode ter chat');
   }
 
   const usesResume =

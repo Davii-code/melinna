@@ -57,6 +57,35 @@ describe('NodeProcessRunner', () => {
     expect(new TextDecoder().decode(r.stdout)).toBe(arg);
   });
 
+  it('streams stdout as it arrives and still returns it whole', async () => {
+    const chunks: string[] = [];
+    const r = await runner.run(
+      node,
+      ['-e', 'process.stdout.write("um\n"); setTimeout(() => process.stdout.write("dois é ção\n"), 150)'],
+      { onStdout: (chunk) => chunks.push(chunk) },
+    );
+    expect(chunks.join('')).toBe('um
+dois é ção
+');
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(new TextDecoder().decode(r.stdout)).toBe('um
+dois é ção
+');
+  });
+
+  it('writes the given bytes to stdin and closes it', async () => {
+    const r = await runner.run(node, ['-e', 'process.stdin.pipe(process.stdout)'], {
+      stdin: new TextEncoder().encode('entrada\nsegunda linha\n'),
+    });
+    expect(r.exitCode).toBe(0);
+    expect(new TextDecoder().decode(r.stdout)).toBe('entrada\nsegunda linha\n');
+  });
+
+  it('survives a program that exits without reading stdin', async () => {
+    const r = await runner.run(node, ['-e', 'process.exit(0)'], { stdin: new Uint8Array(1024 * 1024) });
+    expect(r.exitCode).toBe(0);
+  });
+
   it('rejects when the program does not exist or times out', async () => {
     await expect(runner.run(join(dir, 'nope'), [], {})).rejects.toMatchObject({ code: 'ENOENT' });
     await expect(

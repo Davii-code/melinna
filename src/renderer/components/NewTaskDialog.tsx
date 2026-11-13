@@ -30,7 +30,7 @@ type Step = { kind: 'form' } | { kind: 'confirm-dangerous'; mode: string };
 /**
  * Nova tarefa: pasta, enunciado (opcional) e agente. Modelo, modo de permissão e título ficam em
  * "Avançado", já com os padrões do agente. A pasta vira (ou reaproveita) um workspace e o agente roda
- * direto nela.
+ * direto nela, ou, se marcado em "Avançado", num git worktree isolado.
  */
 export function NewTaskDialog({
   snapshot,
@@ -63,6 +63,8 @@ export function NewTaskDialog({
   const [customModel, setCustomModel] = useState('');
   const [permission, setPermission] = useState(() => agent?.permission?.default ?? '');
   const [title, setTitle] = useState('');
+  const [worktree, setWorktree] = useState(false);
+  const [coordinator, setCoordinator] = useState(false);
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -118,6 +120,8 @@ export function NewTaskDialog({
         prompt,
         picks: [p],
         size,
+        ...(worktree && !coordinator ? { isolation: 'worktree' as const } : {}),
+        ...(coordinator ? { coordinator: true } : {}),
         ...(api.workflow ? { checkpointBeforeLaunch, ...(profileId ? { profileId } : {}) } : {}),
       };
       const result = await unwrap(
@@ -302,6 +306,32 @@ export function NewTaskDialog({
                   </select>
                 </label>
               )}
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={worktree && !coordinator}
+                  disabled={coordinator}
+                  onChange={(e) => setWorktree(e.target.checked)}
+                />
+                Isolar em um worktree git
+              </label>
+              <p className="meta">
+                O agente trabalha numa cópia de trabalho própria, em uma branch nova a partir do HEAD, e a
+                pasta escolhida não é alterada. Exige que a pasta seja um repositório git.
+              </p>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={coordinator}
+                  onChange={(e) => setCoordinator(e.target.checked)}
+                />
+                Coordenador: pode abrir outras sessões
+              </label>
+              <p className="meta">
+                O agente recebe instruções para dividir o trabalho e pedir até 8 sessões de worker nesta
+                pasta, cada uma num worktree próprio. Ele roda direto na pasta e os pedidos ficam em
+                .melinna/spawn dentro dela.
+              </p>
               <label>
                 Título (opcional)
                 <input
@@ -337,7 +367,9 @@ export function NewTaskDialog({
               Você escolheu um modo que desliga as confirmações do agente: {step.mode}.
             </p>
             <p>
-              O agente poderá executar comandos sem perguntar, direto na pasta {folder.trim()} e na máquina.
+              O agente poderá executar comandos sem perguntar,{' '}
+              {worktree && !coordinator ? 'num worktree isolado de' : 'direto na pasta'} {folder.trim()} e na
+              máquina.
             </p>
             <div className="actions">
               <button type="button" onClick={() => setStep({ kind: 'form' })}>

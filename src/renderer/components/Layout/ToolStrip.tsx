@@ -10,6 +10,9 @@ export interface ToolStripProps {
   onSelect: (panel: SidebarPanel) => void;
   onPrompts: () => void;
   onCatalog: () => void;
+  onBrowser: () => void;
+  onAutomations: () => void;
+  onChat: () => void;
   /** Dica do ícone da biblioteca de prompts (com o atalho do mapa atual). */
   promptsTitle?: string;
 }
@@ -52,6 +55,24 @@ const ICONS = {
       <path d="M8 9h8M8 12h5" />
     </>,
   ),
+  chat: svg(
+    <>
+      <path d="M5 5h14v10H10l-5 4z" />
+      <path d="M9 9h6M9 12h3" />
+    </>,
+  ),
+  automations: svg(
+    <>
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l3 2M9 2h6" />
+    </>,
+  ),
+  browser: svg(
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
+    </>,
+  ),
   catalog: svg(
     <>
       <rect x="4" y="4" width="7" height="7" rx="1.5" />
@@ -68,7 +89,7 @@ const PANELS: { id: SidebarPanel; label: string }[] = [
   { id: 'commit', label: 'Commit (Alt+0)' },
 ];
 
-/** Barra de ferramentas vertical: escolhe o painel lateral; embaixo, a biblioteca de prompts e o catálogo. */
+/** Barra de ferramentas vertical: escolhe o painel lateral; embaixo, o navegador, a biblioteca de prompts e o catálogo. */
 export function ToolStrip({
   panel,
   collapsed,
@@ -76,6 +97,9 @@ export function ToolStrip({
   onSelect,
   onPrompts,
   onCatalog,
+  onBrowser,
+  onAutomations,
+  onChat,
   promptsTitle,
 }: ToolStripProps) {
   return (
@@ -104,6 +128,36 @@ export function ToolStrip({
         ))}
       </div>
       <div className="tool-strip-bottom">
+        <button
+          type="button"
+          className="tool-strip-button"
+          aria-label="Chat"
+          title="Chat com o agente, sem terminal"
+          onClick={onChat}
+        >
+          {ICONS.chat}
+          <span className="tool-strip-label">Chat</span>
+        </button>
+        <button
+          type="button"
+          className="tool-strip-button"
+          aria-label="Navegador"
+          title="Navegador"
+          onClick={onBrowser}
+        >
+          {ICONS.browser}
+          <span className="tool-strip-label">Web</span>
+        </button>
+        <button
+          type="button"
+          className="tool-strip-button"
+          aria-label="Automações"
+          title="Automações agendadas"
+          onClick={onAutomations}
+        >
+          {ICONS.automations}
+          <span className="tool-strip-label">Agenda</span>
+        </button>
         <button
           type="button"
           className="tool-strip-button"

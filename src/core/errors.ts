@@ -42,6 +42,7 @@ export type ErrorCode =
   | 'SEARCH_REGEX_INVALID'
   | 'SEARCH_CANCELLED'
   | 'SEARCH_TIMEOUT'
+  | 'AGENT_FAILED'
   | 'INTERNAL';
 
 export const ERROR_CODES: readonly ErrorCode[] = [
@@ -88,6 +89,7 @@ export const ERROR_CODES: readonly ErrorCode[] = [
   'SEARCH_REGEX_INVALID',
   'SEARCH_CANCELLED',
   'SEARCH_TIMEOUT',
+  'AGENT_FAILED',
   'INTERNAL',
 ];
 
@@ -137,6 +139,7 @@ const DEFAULT_MESSAGES: Record<ErrorCode, string> = {
   SEARCH_REGEX_INVALID: 'A expressão regular é inválida.',
   SEARCH_CANCELLED: 'A busca foi cancelada.',
   SEARCH_TIMEOUT: 'A busca demorou demais e foi interrompida.',
+  AGENT_FAILED: 'O agente não devolveu uma resposta.',
   INTERNAL: 'Erro interno inesperado. Detalhes no log.',
 };
 

@@ -25,7 +25,7 @@ export interface UsePromptDialogProps {
 
 type Mode = 'focus' | 'many' | 'queue';
 
-const NOT_SENT: Record<Exclude<SendStatus, 'sent'>, string> = {
+export const NOT_SENT: Record<Exclude<SendStatus, 'sent'>, string> = {
   'not-running': 'Não enviado: sessão encerrada',
   'not-ready': 'Não enviado: sessão ainda iniciando',
   'not-found': 'Não enviado: sessão removida',

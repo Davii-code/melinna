@@ -44,4 +44,31 @@ describe('builtin catalog', () => {
       }
     }
   });
+
+  it('runs headless agents without tools or write access', () => {
+    const headless = Object.fromEntries(agents.map((a) => [a.id, a.headless?.args]));
+    expect(headless.claude).toEqual([
+      '-p',
+      '--tools',
+      '',
+      '--setting-sources',
+      'project',
+      '--no-session-persistence',
+    ]);
+    expect(headless.codex?.slice(0, 3)).toEqual(['exec', '--sandbox', 'read-only']);
+    expect(headless.codex?.at(-1)).toBe('-');
+    expect(Object.entries(headless).filter(([, args]) => args !== undefined).map(([id]) => id)).toEqual([
+      'claude',
+      'codex',
+    ]);
+  });
+
+  it('declares chat only for Claude Code, in stream-json', () => {
+    expect(agents.filter((a) => a.chat).map((a) => a.id)).toEqual(['claude']);
+    expect(agents.find((a) => a.id === 'claude')?.chat).toEqual({
+      format: 'claude-stream-json',
+      args: ['-p', '--output-format', 'stream-json', '--verbose'],
+      resumeArgs: ['--resume'],
+    });
+  });
 });

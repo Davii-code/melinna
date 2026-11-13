@@ -10,6 +10,9 @@ function setup(over: Partial<ToolStripProps> = {}) {
     onSelect: vi.fn(),
     onPrompts: vi.fn(),
     onCatalog: vi.fn(),
+    onBrowser: vi.fn(),
+    onAutomations: vi.fn(),
+    onChat: vi.fn(),
     ...over,
   };
   render(<ToolStrip {...props} />);
@@ -73,5 +76,24 @@ describe('ToolStrip', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Catálogo de agentes' }));
     expect(props.onPrompts).toHaveBeenCalledTimes(1);
     expect(props.onCatalog).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the chat from the bottom of the strip', () => {
+    const props = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Chat' }));
+    expect(props.onChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the scheduled automations from the bottom of the strip', () => {
+    const props = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Automações' }));
+    expect(props.onAutomations).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the embedded browser from the bottom of the strip', () => {
+    const props = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Navegador' }));
+    expect(props.onBrowser).toHaveBeenCalledTimes(1);
+    expect(props.onSelect).not.toHaveBeenCalled();
   });
 });

@@ -7,6 +7,7 @@ import { useConfirm } from '../../git/use-confirm';
 
 const HINT_MESSAGE = 'Escreva a mensagem';
 const HINT_FILES = 'Marque ao menos um arquivo';
+const HINT_ONE_REPO = 'Marque arquivos de um repositório só para gerar a mensagem';
 
 function commitLine(r: StepResult): string {
   if (r.outcome === 'ok') return `${r.name}: commitado${r.sha ? ` (${r.sha.slice(0, 7)})` : ''}`;
@@ -30,6 +31,8 @@ export function CommitMessage() {
   const [amendRepo, setAmendRepo] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [lines, setLines] = useState<string[]>([]);
+  const [suggesting, setSuggesting] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
   const edited = useRef(false);
 
   const { repos, selection } = gw;
@@ -60,7 +63,30 @@ export function CommitMessage() {
   const disabledHint = message.trim() === '' ? HINT_MESSAGE : !hasWork ? HINT_FILES : undefined;
   // Uma operação de rede em um dos repositórios marcados segura o commit; os outros seguem livres.
   const netBusy = markedRepos.some((r) => gw.ops.has(r.root));
-  const canCommit = !gw.busy && !netBusy && disabledHint === undefined;
+  const canCommit = !gw.busy && !netBusy && !suggesting && disabledHint === undefined;
+
+  const suggestHint =
+    markedRepos.length === 0 ? HINT_FILES : markedRepos.length > 1 ? HINT_ONE_REPO : undefined;
+
+  /** Pede a mensagem a um agente instalado; ela substitui o texto do campo e fica para revisão. */
+  const suggest = async () => {
+    setError(null);
+    setNote(null);
+    const planned = planCommit(markedRepos, selection);
+    if (planned.error) return setError(planned.error);
+    const item = planned.plan[0];
+    if (!item) return setError(HINT_FILES);
+    setSuggesting(true);
+    try {
+      const r = await api.git.suggestMessage(item.repo.root, item.paths);
+      if (!r.ok) return setError(r.error.message);
+      edited.current = true;
+      setMessage(r.value.message);
+      setNote(`Mensagem gerada por ${r.value.agent}. Revise antes de commitar.`);
+    } finally {
+      setSuggesting(false);
+    }
+  };
 
   const toggleAmend = async (on: boolean) => {
     setAmend(on);
@@ -74,6 +100,7 @@ export function CommitMessage() {
 
   const run = async (thenPush: boolean) => {
     setError(null);
+    setNote(null);
     setLines([]);
     const planned = planCommit(markedRepos, selection);
     if (planned.error) return setError(planned.error);
@@ -130,11 +157,28 @@ export function CommitMessage() {
         rows={4}
         placeholder="Mensagem do commit"
         value={message}
+        readOnly={suggesting}
         onChange={(e) => {
           edited.current = true;
+          setNote(null);
           setMessage(e.target.value);
         }}
       />
+      <div className="commit-suggest">
+        <button
+          type="button"
+          disabled={suggesting || gw.busy || suggestHint !== undefined}
+          title={suggestHint}
+          onClick={() => void suggest()}
+        >
+          {suggesting ? 'Gerando…' : 'Gerar mensagem'}
+        </button>
+        {note && (
+          <span role="status" className="meta">
+            {note}
+          </span>
+        )}
+      </div>
       {error && (
         <p role="alert" className="error git-error">
           {error}

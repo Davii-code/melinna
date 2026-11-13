@@ -124,4 +124,59 @@ describe('NewTaskDialog', () => {
     );
     expect(api.workspace.pickRepository).toHaveBeenCalledWith('/repos/site');
   });
+
+  it('keeps the worktree choice under "Avançado", off by default', () => {
+    setup();
+    const box = screen.getByLabelText('Isolar em um worktree git') as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    expect((screen.getByText('Avançado').closest('details') as HTMLDetailsElement).contains(box)).toBe(true);
+  });
+
+  it('asks for a worktree only when the box is checked', async () => {
+    const { user, api, onLaunched } = setup();
+    api.tasks.createAndLaunch.mockImplementation(() =>
+      okR({ taskId: 't9', results: [{ execId: 'e1', agentId: 'claude', ok: true as const }] }),
+    );
+    await user.type(screen.getByLabelText('Pasta'), '/minha/pasta');
+    fireEvent.click(screen.getByLabelText('Isolar em um worktree git'));
+    await user.click(launchButton());
+    await waitFor(() => expect(onLaunched).toHaveBeenCalled());
+    expect(api.tasks.createAndLaunch.mock.calls[0]?.[0]).toMatchObject({
+      repoPath: '/minha/pasta',
+      baseRef: 'HEAD',
+      isolation: 'worktree',
+    });
+  });
+
+  it('shows why the worktree could not be created', async () => {
+    const { user, api } = setup();
+    api.tasks.createAndLaunch.mockImplementation(() =>
+      Promise.resolve({
+        ok: false as const,
+        error: { code: 'REPO_INVALID' as const, message: 'A pasta escolhida não é um repositório git.' },
+      }),
+    );
+    await user.type(screen.getByLabelText('Pasta'), '/solta');
+    fireEvent.click(screen.getByLabelText('Isolar em um worktree git'));
+    await user.click(launchButton());
+    expect((await screen.findByRole('alert')).textContent).toBe('A pasta escolhida não é um repositório git.');
+  });
+
+  it('asks for a coordinator, which always runs directly in the folder', async () => {
+    const { user, api, onLaunched } = setup();
+    api.tasks.createAndLaunch.mockImplementation(() =>
+      okR({ taskId: 't9', results: [{ execId: 'e1', agentId: 'claude', ok: true as const }] }),
+    );
+    await user.type(screen.getByLabelText('Pasta'), '/minha/pasta');
+    const worktree = screen.getByLabelText('Isolar em um worktree git') as HTMLInputElement;
+    fireEvent.click(worktree);
+    fireEvent.click(screen.getByLabelText('Coordenador: pode abrir outras sessões'));
+    expect(worktree.disabled).toBe(true);
+    expect(worktree.checked).toBe(false);
+    await user.click(launchButton());
+    await waitFor(() => expect(onLaunched).toHaveBeenCalled());
+    const sent = api.tasks.createAndLaunch.mock.calls[0]?.[0];
+    expect(sent).toMatchObject({ coordinator: true });
+    expect(sent).not.toHaveProperty('isolation');
+  });
 });

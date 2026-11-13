@@ -163,4 +163,46 @@ describe('BranchMenu network actions', () => {
     expect(fetchItem.disabled).toBe(true);
     expect(fetchItem.title).toMatch(/sem remoto/i);
   });
+
+  it('creates a pull request and shows its link, which opens in the browser', async () => {
+    const { api } = setup();
+    await item('Criar pull request');
+    await waitFor(() => expect(api.git.createPullRequest).toHaveBeenCalledWith('/repo'));
+    const link = await screen.findByRole('link', { name: 'https://github.com/acme/app/pull/7' });
+    expect(link.closest('p')?.textContent).toMatch(/pull request criado/);
+    fireEvent.click(link);
+    expect(api.app.openExternal).toHaveBeenCalledWith('https://github.com/acme/app/pull/7');
+  });
+
+  it('says when the branch already had a pull request', async () => {
+    const { api } = setup();
+    api.git.createPullRequest.mockImplementation(() =>
+      okR({ url: 'https://github.com/acme/app/pull/7', existing: true }),
+    );
+    await item('Criar pull request');
+    const link = await screen.findByRole('link');
+    expect(link.closest('p')?.textContent).toMatch(/já existe um pull request/);
+  });
+
+  it('shows why the pull request was not created', async () => {
+    const { api } = setup();
+    api.git.createPullRequest.mockImplementation(
+      () =>
+        Promise.resolve({
+          ok: false,
+          error: { code: 'PROGRAM_NOT_FOUND', message: 'GitHub CLI (gh) não encontrado.' },
+        }) as never,
+    );
+    await item('Criar pull request');
+    expect((await screen.findByRole('alert')).textContent).toBe('GitHub CLI (gh) não encontrado.');
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('disables Criar pull request until the branch has been pushed', async () => {
+    setup({ '/repo': { upstream: null } });
+    fireEvent.click(await screen.findByRole('button', { name: /^Branch / }));
+    const pr = (await screen.findByRole('menuitem', { name: 'Criar pull request' })) as HTMLButtonElement;
+    expect(pr.disabled).toBe(true);
+    expect(pr.title).toMatch(/push/i);
+  });
 });

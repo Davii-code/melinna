@@ -61,6 +61,18 @@ export function buildApi(): MelinnaApi {
     },
     run: group(CHANNELS.run),
     prefs: group(CHANNELS.prefs),
+    automations: {
+      ...group(CHANNELS.automations),
+      onChange: (fn) => subscribe<void>(EVENTS.automationsChanged, () => fn()),
+    },
+    chat: {
+      ...group(CHANNELS.chat),
+      onEvent: (fn) => subscribe(EVENTS.chatEvent, fn),
+    },
+    browser: {
+      ...group(CHANNELS.browser),
+      onState: (fn) => subscribe(EVENTS.browserState, fn),
+    },
     app: {
       ...group(CHANNELS.app),
       onCloseRequested: (fn) => subscribe(EVENTS.closeRequested, fn),

@@ -40,6 +40,14 @@ export function parseCreateAndLaunch(groupExists: (id: string) => boolean, freeS
       if (typeof v.checkpointBeforeLaunch !== 'boolean') throw invalid('checkpoint');
       input.checkpointBeforeLaunch = v.checkpointBeforeLaunch;
     }
+    if (v.isolation !== undefined) {
+      if (v.isolation !== 'worktree' && v.isolation !== 'direct') throw invalid('isolamento');
+      input.isolation = v.isolation;
+    }
+    if (v.coordinator !== undefined) {
+      if (typeof v.coordinator !== 'boolean') throw invalid('coordenador');
+      input.coordinator = v.coordinator;
+    }
     const title = optStr(v.title, 'título', LIMITS.taskTitle);
     if (title !== undefined && title.length > 0) input.title = title;
     return [input];
