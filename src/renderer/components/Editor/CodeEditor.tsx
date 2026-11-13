@@ -1,4 +1,5 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { ideEditorExtensions, registerIdeView } from '../Ide/editor-tools';
 import { css } from '@codemirror/lang-css';
 import { html } from '@codemirror/lang-html';
 import { javascript } from '@codemirror/lang-javascript';
@@ -174,6 +175,7 @@ export function CodeEditor({
       state: EditorState.create({
         doc: value,
         extensions: [
+          ideEditorExtensions(path),
           lineNumbers(),
           highlightActiveLineGutter(),
           highlightActiveLine(),
@@ -228,14 +230,22 @@ export function CodeEditor({
     });
     viewRef.current = view;
     const stopShared = registerSharedView(path, view);
+    const stopIde = registerIdeView(path, view);
     return () => {
       stopShared();
+      stopIde();
       viewRef.current = null;
       setOpenChange(null);
       view.destroy();
     };
-    // `value` entra só na criação: quem recria ao trocar de arquivo é o `path`.
+    // Trocar de arquivo recria a view; atualizações do draft entram pelo efeito abaixo.
   }, [path, paneId]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (view && view.state.doc.toString() !== value)
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } });
+  }, [value, path, paneId]);
 
   // Inactive tabs remain mounted, but only the active tab owns panel commands and reveal/focus.
   useEffect(() => {

@@ -6,6 +6,7 @@ import { useShortcutLabel, withShortcut } from '../../keymap/keymap-store';
 import { CodeEditor, type CodeEditorProps, type EditorStatus } from './CodeEditor';
 import { useClosedCount, useDrafts, useEditorSession, type ClosedTab } from './editor-session';
 import { useGitBase } from './use-git-base';
+import { watchExternalDrafts, type ExternalChange } from './external-sync';
 
 export type EditorPaneModel = Extract<Pane, { kind: 'editor' }>;
 
@@ -66,6 +67,18 @@ export function EditorPane({
   const [positions, setPositions] = useState<Record<string, EditorStatus>>({});
   const [menu, setMenu] = useState<Menu>(null);
   const [pending, setPending] = useState<PendingClose | null>(null);
+  const [external, setExternal] = useState<Record<string, ExternalChange>>({});
+  useEffect(() => {
+    return watchExternalDrafts(
+      session.drafts,
+      async (path) => {
+        const result = await api.files.read(path);
+        if (!result.ok) throw new Error(result.error.message);
+        return result.value;
+      },
+      (path, change) => setExternal((old) => ({ ...old, [path]: change })),
+    );
+  }, [api, session]);
 
   const activePath = pane.docs[Math.min(pane.activeIndex, pane.docs.length - 1)] ?? null;
   const saveShortcut = useShortcutLabel('save');
@@ -88,8 +101,12 @@ export function EditorPane({
         setError(r.error.message);
         return;
       }
-      if (r.value.binary) {
-        setError(`${fileName(activePath)} é binário e não abre no editor.`);
+      if (r.value.binary || r.value.truncated) {
+        setError(
+          r.value.binary
+            ? `${fileName(activePath)} é binário e não abre no editor.`
+            : `${fileName(activePath)} excede o limite de leitura do editor.`,
+        );
         return;
       }
       session.drafts.set(activePath, { text: r.value.content, baseHash: r.value.hash, dirty: false });
@@ -463,6 +480,67 @@ export function EditorPane({
         </div>
       ) : null}
 
+      {activePath && external[activePath] && (
+        <div className="editor-error" role="status">
+          <span>O arquivo mudou fora do editor.</span>
+          {'error' in external[activePath]! ? (
+            <span>{(external[activePath] as { error: string }).error}</span>
+          ) : (
+            <details>
+              <summary>Comparar com o disco</summary>
+              <pre>{(external[activePath] as { content: string }).content}</pre>
+            </details>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                drafts[activePath]?.dirty &&
+                !window.confirm('Descartar as alterações locais e recarregar este arquivo?')
+              )
+                return;
+              void api.files.read(activePath).then((result) => {
+                if (!result.ok || result.value.binary || result.value.truncated) {
+                  setError(
+                    result.ok ? 'O arquivo é binário ou excede o limite de leitura.' : result.error.message,
+                  );
+                  return;
+                }
+                const before = session.drafts.snapshot()[activePath];
+                // A confirmação cobre o texto presente neste clique; nova digitação exige nova decisão.
+                if (before !== drafts[activePath]) {
+                  setError('O texto mudou durante a recarga. Tente novamente.');
+                  return;
+                }
+                session.drafts.set(activePath, {
+                  text: result.value.content,
+                  baseHash: result.value.hash,
+                  dirty: false,
+                });
+                setExternal((old) => {
+                  const next = { ...old };
+                  delete next[activePath];
+                  return next;
+                });
+              });
+            }}
+          >
+            Recarregar do disco
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setExternal((old) => {
+                const next = { ...old };
+                delete next[activePath];
+                return next;
+              })
+            }
+          >
+            Manter rascunho
+          </button>
+        </div>
+      )}
       <div className="editor-body">
         {activePath !== null && drafts[activePath] === undefined && (
           <p className="editor-loading">Abrindo {fileName(activePath)}…</p>

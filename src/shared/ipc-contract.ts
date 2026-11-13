@@ -229,6 +229,20 @@ export { KEYMAP_IDS };
 export type { ActiveRunRef, KeymapId, Preferences };
 
 export interface MelinnaApi {
+  ide: {
+    start(
+      input: import('./ide-types').ToolStart,
+    ): Promise<Result<{ sessionId: string; capabilities: Record<string, unknown> }>>;
+    call(input: import('./ide-types').ToolCall): Promise<Result<unknown>>;
+    notify(input: import('./ide-types').ToolCall): Promise<Result<void>>;
+    stop(sessionId: string): Promise<Result<void>>;
+    httpSend(input: import('./ide-types').HttpInput): Promise<Result<import('./ide-types').HttpOutput>>;
+    httpCancel(id: string): Promise<Result<void>>;
+    dbOpen(path: string): Promise<Result<string>>;
+    dbQuery(id: string, sql: string): Promise<Result<import('./ide-types').QueryOutput>>;
+    dbClose(id: string): Promise<Result<void>>;
+    onEvent(fn: (event: import('./ide-types').IdeEvent) => void): Unsubscribe;
+  };
   workflow?: WorkflowApi;
   catalog: {
     list(): Promise<Result<{ agents: AgentDefinition[]; invalid: CatalogIssue[] }>>;
@@ -438,6 +452,17 @@ export interface MelinnaApi {
 
 /** Canais de `ipcRenderer.invoke`, por método da API. */
 export const CHANNELS = {
+  ide: {
+    start: 'ide:start',
+    call: 'ide:call',
+    notify: 'ide:notify',
+    stop: 'ide:stop',
+    httpSend: 'ide:httpSend',
+    httpCancel: 'ide:httpCancel',
+    dbOpen: 'ide:dbOpen',
+    dbQuery: 'ide:dbQuery',
+    dbClose: 'ide:dbClose',
+  },
   workflow: {
     snapshot: 'workflow:snapshot',
     saveProfile: 'workflow:saveProfile',
@@ -580,6 +605,7 @@ export const CHANNELS = {
 
 /** Eventos do principal para a página (`webContents.send` / `postMessage`). */
 export const EVENTS = {
+  ideEvent: 'ide:event',
   workflowChanged: 'workflow:changed',
   workspaceChanged: 'workspace:changed',
   promptsChanged: 'prompts:changed',

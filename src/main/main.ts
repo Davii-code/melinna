@@ -1,4 +1,9 @@
 import { Notification as DesktopNotification } from 'electron';
+import { NodeProtocolProcessFactory } from '../adapters/node-protocol-process';
+import { NodeHttpClient } from '../adapters/node-http-client';
+import { NodeDatabaseClient } from '../adapters/node-database-client';
+import { IdeService } from './ide-service';
+import { registerIde } from './ipc/register-ide';
 import { randomUUID } from 'node:crypto';
 import { JsonWorkflowStore } from '../adapters/workflow-store';
 import { ContentCheckpointFiles } from '../adapters/checkpoint-files';
@@ -520,6 +525,7 @@ async function boot(): Promise<void> {
     stopAll: (ms) => executions.stopAll(ms),
     askPage: (info) => win.webContents.send(EVENTS.closeRequested, info),
     quit: () => {
+      closeIde();
       void bridge.closeAll().finally(() => {
         void workflowService
           .flush()
@@ -570,6 +576,23 @@ async function boot(): Promise<void> {
     });
   };
   registerWorkflow(handle, workflowService, log.child('workflow'));
+  const ide = new IdeService({
+    files,
+    factory: new NodeProtocolProcessFactory(),
+    clock,
+    emit: (event) => {
+      if (!win.isDestroyed()) win.webContents.send(EVENTS.ideEvent, event);
+    },
+  });
+  const httpTools = new NodeHttpClient();
+  const databaseTools = new NodeDatabaseClient((path) => ide.canonical(path));
+  registerIde(handle, { ide, http: httpTools, database: databaseTools, log: log.child('ide') });
+  const closeIde = () => {
+    ide.close();
+    httpTools.close();
+    databaseTools.closeAll();
+  };
+  win.on('closed', closeIde);
   registerIpc(handle, {
     workflow: workflowService,
     catalog,

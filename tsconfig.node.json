@@ -12,6 +12,7 @@
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
     "tests/unit/core/**/*.ts",
+    "tests/unit/adapters/**/*.ts",
     "tests/unit/host/**/*.ts",
     "tests/unit/main/**/*.ts",
     "tests/unit/preload/**/*.ts",

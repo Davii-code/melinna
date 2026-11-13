@@ -1,0 +1,429 @@
+.ide-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workspace.ide-workspace {
+  flex-direction: column;
+}
+.ide-tools.ide-tools-closed {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+.ide-tool-content[hidden],
+.ide-tool-content [role='tabpanel'][hidden] {
+  display: none;
+}
+
+.ide-workspace-content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ide-tools {
+  container-type: inline-size;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  height: var(--ide-height, 320px);
+  min-width: 0;
+  min-height: 160px;
+  max-height: 70vh;
+  border-top: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ide-resizer {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  height: 8px;
+  cursor: row-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.ide-resizer::after {
+  position: absolute;
+  inset: 3px 0 auto;
+  height: 2px;
+  background: var(--border-weak);
+  content: '';
+}
+
+.ide-resizer:hover::after,
+.ide-resizer:focus-visible::after {
+  background: var(--accent);
+}
+
+.ide-toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-weak);
+}
+
+.ide-toolbar [role='tablist'] {
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.ide-toolbar button {
+  flex: none;
+  min-height: 32px;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--prism);
+  white-space: nowrap;
+}
+
+.ide-toolbar [role='tab'] {
+  position: relative;
+  border-radius: 0;
+}
+
+.ide-toolbar [role='tab'][aria-selected='true'] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ide-toolbar button:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.ide-toolbar [role='tab'][aria-selected='true']:hover {
+  border-bottom-color: var(--accent);
+}
+
+.ide-toolbar > button:last-child {
+  margin-left: auto;
+}
+
+.ide-tool-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.ide-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-3) var(--space-4);
+  min-width: 0;
+  margin: 0;
+}
+
+.ide-form label,
+.ide-row label {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--prism);
+  font-size: 12px;
+}
+
+.ide-form label:has(textarea),
+.ide-form > .ide-row,
+.ide-form > .ide-results,
+.ide-form > .ide-error,
+.ide-form > .ide-status,
+.ide-form > .ide-config {
+  grid-column: 1 / -1;
+}
+
+.ide-tools input,
+.ide-tools select,
+.ide-tools textarea {
+  min-width: 0;
+  max-width: 100%;
+  border-color: var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.ide-form input,
+.ide-form select,
+.ide-form textarea {
+  width: 100%;
+}
+
+.ide-tools input,
+.ide-tools select {
+  min-height: 32px;
+  padding: var(--space-1) var(--space-2);
+}
+
+.ide-tools textarea {
+  min-height: 80px;
+  padding: var(--space-2);
+  resize: vertical;
+  font-family: var(--font-mono);
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.ide-tools input::placeholder,
+.ide-tools textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.ide-tools button:not([role='tab']) {
+  min-height: 32px;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  font-weight: 400;
+}
+
+.ide-tools button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--field);
+  font-weight: 600;
+}
+
+.ide-tools button.primary:hover:not(:disabled) {
+  border-color: var(--core);
+  background: var(--accent);
+  color: var(--field);
+}
+
+.ide-tools :is(button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ide-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ide-row > label {
+  flex: 1 1 160px;
+}
+
+.ide-row > button {
+  flex: none;
+}
+
+.ide-error {
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--danger);
+  background: var(--surface-raised);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.ide-status {
+  margin: var(--space-2) 0;
+  color: var(--prism);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ide-results,
+.ide-diagnostics {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ide-result-button {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ide-result-button:hover:not(:disabled),
+.ide-result-button[aria-current='true'] {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+
+.ide-preview {
+  max-width: 100%;
+  max-height: 320px;
+  margin: var(--space-2) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  color: var(--text);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.ide-table {
+  width: 100%;
+  margin-top: var(--space-3);
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.ide-table th,
+.ide-table td {
+  max-width: 480px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-weak);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.ide-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ide-table tbody tr:hover {
+  background: var(--surface-raised);
+}
+
+.ide-table td:empty::after {
+  color: var(--muted);
+  content: '—';
+}
+
+.ide-empty {
+  max-width: 640px;
+  margin: var(--space-4) 0;
+  color: var(--prism);
+  line-height: 1.6;
+}
+
+.ide-config {
+  min-width: 0;
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-weak);
+}
+
+.ide-config > summary {
+  width: fit-content;
+  min-height: 32px;
+  padding: var(--space-1) 0;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.ide-config[open] > summary {
+  margin-bottom: var(--space-2);
+}
+
+.ide-sidebar-toggle {
+  flex: none;
+  align-self: flex-start;
+  min-height: 32px;
+  margin: var(--space-1) 0;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--prism);
+}
+
+.ide-sidebar-toggle[aria-expanded='true'] {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.ide-tool-hidden {
+  display: none;
+}
+
+@container (max-width: 720px) {
+  .ide-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ide-row > label {
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .ide-toolbar {
+    gap: 0;
+    padding-inline: var(--space-1);
+    overflow-x: auto;
+  }
+
+  .ide-toolbar button {
+    padding-inline: var(--space-2);
+  }
+
+  .ide-tool-content {
+    padding-inline: var(--space-3);
+  }
+
+  .ide-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ide-tools *,
+  .ide-tools *::before,
+  .ide-tools *::after,
+  .ide-sidebar-toggle {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
+}

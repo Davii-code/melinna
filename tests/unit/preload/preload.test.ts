@@ -26,6 +26,18 @@ beforeEach(async () => {
 });
 
 const CONTRACT = {
+  ide: [
+    'call',
+    'dbClose',
+    'dbOpen',
+    'dbQuery',
+    'httpCancel',
+    'httpSend',
+    'notify',
+    'onEvent',
+    'start',
+    'stop',
+  ],
   workflow: [
     'cancelVerification',
     'checkpoint',
@@ -113,6 +125,16 @@ const CONTRACT = {
 };
 
 describe('preload', () => {
+  it('subscribes to IDE events and releases its listener', () => {
+    const api = exposed.melinna as { ide: { onEvent(fn: (value: unknown) => void): () => void } };
+    const received: unknown[] = [];
+    const off = api.ide.onEvent((value) => received.push(value));
+    const event = { sessionId: 's', protocol: 'lsp', message: { method: 'diagnostics' } };
+    listeners.get('ide:event')!.at(-1)!({}, event);
+    expect(received).toEqual([event]);
+    off();
+    expect(removeListener).toHaveBeenCalledWith('ide:event', expect.any(Function));
+  });
   it('exposes exactly the keys of contracts/ipc.md on window.melinna', () => {
     const api = exposed.melinna as Record<string, Record<string, unknown>>;
     expect(Object.keys(api).sort()).toEqual(Object.keys(CONTRACT).sort());

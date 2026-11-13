@@ -26,6 +26,8 @@ import { StructurePopup } from './components/Editor/StructurePopup';
 import { EditorPane } from './components/Editor/EditorPane';
 import { getEditorController } from './components/Editor/editor-controller';
 import { requestReveal } from './components/Editor/editor-reveal';
+import { IdeTools } from './components/Ide/IdeTools';
+import { runSelectedConfiguration } from './components/Ide/run-selection';
 import { createEditorSession, EditorSessionProvider } from './components/Editor/editor-session';
 import { ProjectSearch } from './components/Search/ProjectSearch';
 import { FileExplorer } from './components/Files/FileExplorer';
@@ -929,7 +931,7 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                       }}
                     />
                   )}
-                  <main className="workspace">
+                  <main className="workspace ide-workspace">
                     {diffFile && (
                       <div className="diff-pane-overlay">
                         <DiffPane
@@ -970,6 +972,25 @@ export function App({ api, terminal, workspaceStore, layoutStore }: AppProps) {
                       </>
                     )}
                     {!snapshot && <div className="loading">Carregando…</div>}
+                    <IdeTools
+                      roots={fileRoots}
+                      editor={editorSession}
+                      onOpen={(path, position) => {
+                        setShowHome(false);
+                        if (position)
+                          requestReveal({
+                            path,
+                            line: position.line + 1,
+                            column: position.character + 1,
+                            length: 0,
+                          });
+                        layoutStore.openDoc(path);
+                      }}
+                      onRun={(groupId, configId) => {
+                        setShowHome(false);
+                        void runSelectedConfiguration(runStore, groupId, configId);
+                      }}
+                    />
                   </main>
                 </div>
                 {closeAsk && <CloseDialog liveCount={closeAsk.liveCount} onAnswer={answerClose} />}

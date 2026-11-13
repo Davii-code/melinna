@@ -31,6 +31,7 @@ function subscribe<T>(event: string, fn: (payload: T) => void): Unsubscribe {
 
 export function buildApi(): MelinnaApi {
   return {
+    ide: { ...group(CHANNELS.ide), onEvent: (fn) => subscribe(EVENTS.ideEvent, fn) },
     workflow: {
       ...group(CHANNELS.workflow),
       onChange: (fn) => subscribe<undefined>(EVENTS.workflowChanged, () => fn()),

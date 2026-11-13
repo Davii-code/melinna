@@ -16,11 +16,7 @@ const PANE: Extract<Pane, { kind: 'editor' }> = {
 function FakeEditor({ path, value, onChange, onSave }: CodeEditorProps) {
   return (
     <div>
-      <textarea
-        aria-label={`editor-${path}`}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <textarea aria-label={`editor-${path}`} value={value} onChange={(e) => onChange(e.target.value)} />
       <button type="button" onClick={onSave}>
         salvar-interno
       </button>
@@ -54,6 +50,28 @@ function setup(
 }
 
 describe('EditorPane', () => {
+  it('preserves local edits when focus detects an external edit and allows explicit reload', async () => {
+    const { api } = setup();
+    const editor = await screen.findByLabelText('editor-/ws/a.ts');
+    fireEvent.change(editor, { target: { value: 'local edit' } });
+    api.files.read.mockResolvedValue(
+      okR({
+        path: '/ws/a.ts',
+        content: 'external edit',
+        hash: 'b'.repeat(64),
+        binary: false,
+        size: 13,
+        truncated: false,
+      }),
+    );
+    fireEvent(window, new Event('focus'));
+    expect(await screen.findByText('O arquivo mudou fora do editor.')).toBeTruthy();
+    expect((editor as HTMLTextAreaElement).value).toBe('local edit');
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Recarregar do disco' }));
+    await waitFor(() => expect((editor as HTMLTextAreaElement).value).toBe('external edit'));
+    expect(api.files.write).not.toHaveBeenCalled();
+  });
   it('loads the active document and shows a tab per file', async () => {
     const { api } = setup();
     expect(await screen.findByLabelText('editor-/ws/a.ts')).toBeTruthy();
@@ -111,7 +129,14 @@ describe('EditorPane', () => {
   it('explains a binary file instead of rendering it', async () => {
     setup({}, (api) => {
       api.files.read.mockImplementation(() =>
-        okR({ path: '/ws/a.ts', content: '', size: 10, binary: true, truncated: false, hash: 'c'.repeat(64) }),
+        okR({
+          path: '/ws/a.ts',
+          content: '',
+          size: 10,
+          binary: true,
+          truncated: false,
+          hash: 'c'.repeat(64),
+        }),
       );
     });
     expect(await screen.findByText(/binário e não abre/)).toBeTruthy();

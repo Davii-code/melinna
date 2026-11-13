@@ -15,6 +15,7 @@ export interface DraftStore {
   snapshot(): Readonly<Record<string, Draft>>;
   subscribe(fn: () => void): () => void;
   set(path: string, draft: Draft): void;
+  setMany(values: Readonly<Record<string, Draft>>): void;
   patch(path: string, fn: (draft: Draft) => Draft): void;
   /** Esquece o rascunho (aba descartada ou fechada): a próxima abertura lê do disco de novo. */
   remove(path: string): void;
@@ -34,6 +35,7 @@ export function createDraftStore(): DraftStore {
       return () => listeners.delete(fn);
     },
     set: (path, draft) => emit({ ...drafts, [path]: draft }),
+    setMany: (values) => emit({ ...drafts, ...values }),
     remove(path) {
       if (drafts[path] === undefined) return;
       const rest = { ...drafts };

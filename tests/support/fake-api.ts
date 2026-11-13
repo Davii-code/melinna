@@ -116,6 +116,7 @@ type DeepMock<T> = {
 
 /** API falsa com `vi.fn` em cada método; respostas padrão bem-sucedidas e vazias. */
 export function fakeApi(): DeepMock<MelinnaApi> & {
+  emitIdeEvent(event: import('../../src/shared/ide-types').IdeEvent): void;
   emitChange(s: WorkspaceSnapshot): void;
   emitClose(liveCount: number): void;
   emitPromptsChange(): void;
@@ -126,6 +127,7 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
   emitChatEvent(event: ChatEventEnvelope): void;
 } {
   const changeListeners = new Set<(s: WorkspaceSnapshot) => void>();
+  const ideListeners = new Set<(event: import('../../src/shared/ide-types').IdeEvent) => void>();
   const closeListeners = new Set<(i: { liveCount: number }) => void>();
   const promptListeners = new Set<() => void>();
   const discardListeners = new Set<(e: QueueDiscarded) => void>();
@@ -329,7 +331,12 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
     automations: {
       list: vi.fn(() => okR<AutomationListing>({ automations: [], readOnly: false })),
       save: vi.fn((input: AutomationInput) =>
-        okR<Automation>({ ...input, id: input.id ?? 'a-novo', createdAt: '2026-03-01T10:00:00.000Z', lastRun: null }),
+        okR<Automation>({
+          ...input,
+          id: input.id ?? 'a-novo',
+          createdAt: '2026-03-01T10:00:00.000Z',
+          lastRun: null,
+        }),
       ),
       remove: vi.fn((_id: string) => okR(undefined)),
       setEnabled: vi.fn((_id: string, _enabled: boolean) => okR(undefined)),
@@ -372,6 +379,28 @@ export function fakeApi(): DeepMock<MelinnaApi> & {
       }),
       answerClose: vi.fn(() => okR(undefined)),
       openExternal: vi.fn(() => okR(undefined)),
+    },
+    ide: {
+      start: vi.fn(() => okR({ sessionId: 'ide-1', capabilities: {} })),
+      call: vi.fn(() => okR({})),
+      notify: vi.fn(() => okR(undefined)),
+      stop: vi.fn(() => okR(undefined)),
+      httpSend: vi.fn(() =>
+        okR({ status: 200, headers: {}, body: '', durationMs: 1, truncated: false, binary: false }),
+      ),
+      httpCancel: vi.fn(() => okR(undefined)),
+      dbOpen: vi.fn(() => okR('db-1')),
+      dbQuery: vi.fn(() => okR({ columns: [], rows: [], truncated: false })),
+      dbClose: vi.fn(() => okR(undefined)),
+      onEvent: vi.fn((fn: (event: import('../../src/shared/ide-types').IdeEvent) => void) => {
+        ideListeners.add(fn);
+        return () => {
+          ideListeners.delete(fn);
+        };
+      }),
+    },
+    emitIdeEvent: (event: import('../../src/shared/ide-types').IdeEvent) => {
+      for (const fn of ideListeners) fn(event);
     },
     emitChange: (s: WorkspaceSnapshot) => {
       for (const fn of changeListeners) fn(s);

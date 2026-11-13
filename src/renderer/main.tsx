@@ -7,6 +7,7 @@ import { createPortReceiver } from './terminal/port-receiver';
 import { createXterm } from './terminal/xterm-factory';
 import './theme/tokens.css';
 import './styles/app.css';
+import './styles/ide.css';
 
 function observeResize(el: HTMLElement, fn: () => void): () => void {
   const ro = new ResizeObserver(() => fn());
